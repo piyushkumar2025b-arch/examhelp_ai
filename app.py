@@ -41,10 +41,27 @@ def init_state():
         "saved_sessions": {},
         "queued_prompt": None,
         "last_audio": None,
+        "app_mode": "chat",
+        "flashcards": [],
+        "quiz_data": [],
+        "current_card": 0,
+        "quiz_score": 0,
+        "quiz_current": 0,
+        "quiz_feedback": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
+    
+    # Persistent Session Loading (File-based)
+    if "persistent_sessions" not in st.session_state:
+        st.session_state.persistent_sessions = {}
+        if os.path.exists("sessions.json"):
+            try:
+                with open("sessions.json", "r") as f:
+                    st.session_state.persistent_sessions = json.load(f)
+            except Exception:
+                pass
 
 init_state()
 
@@ -956,17 +973,23 @@ with st.sidebar:
         session_name = st.text_input("Save As", placeholder="e.g. Chapter 4", label_visibility="collapsed")
         if st.button("💾 Save", use_container_width=True):
             if session_name and st.session_state.messages:
-                st.session_state.saved_sessions[session_name] = {
+                session_data = {
                     "messages": st.session_state.messages.copy(), 
                     "context": st.session_state.context_text,
-                    "sources": st.session_state.context_sources.copy()
+                    "sources": st.session_state.context_sources.copy(),
+                    "timestamp": datetime.datetime.now().isoformat()
                 }
-                st.success("Saved!")
+                st.session_state.persistent_sessions[session_name] = session_data
+                # Save to disk
+                with open("sessions.json", "w") as f:
+                    json.dump(st.session_state.persistent_sessions, f)
+                st.success("Saved to disk!")
     with col4:
-        if st.session_state.saved_sessions:
-            load_name = st.selectbox("Load File", list(st.session_state.saved_sessions.keys()), label_visibility="collapsed")
+        if st.session_state.persistent_sessions:
+            load_options = list(st.session_state.persistent_sessions.keys())
+            load_name = st.selectbox("Load File", load_options, label_visibility="collapsed")
             if st.button("📂 Load", use_container_width=True):
-                data = st.session_state.saved_sessions[load_name]
+                data = st.session_state.persistent_sessions[load_name]
                 st.session_state.messages = data["messages"]
                 st.session_state.context_text = data["context"]
                 st.session_state.context_sources = data["sources"]
@@ -1004,7 +1027,7 @@ with st.sidebar:
             st.rerun()
         st.markdown("""
         <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
-          <span class="roadmap-badge badge-soon">Active</span>
+          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
           <div class="roadmap-text">
             <strong>🃏 Flashcard Generator</strong>
             Auto-generate Q&amp;A flashcards from your uploaded material
@@ -1020,7 +1043,7 @@ with st.sidebar:
             st.rerun()
         st.markdown("""
         <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
-          <span class="roadmap-badge badge-soon">Active</span>
+          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
           <div class="roadmap-text">
             <strong>📝 Smart Quiz Mode</strong>
             AI-generated multiple-choice quizzes with instant feedback
@@ -1031,8 +1054,8 @@ with st.sidebar:
 
         # Sessions
         st.markdown("""
-        <div class="roadmap-item" style="opacity:0.9;">
-          <span class="roadmap-badge badge-planned">Active</span>
+        <div class="roadmap-item" style="opacity:1.0;">
+          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
           <div class="roadmap-text">
             <strong>📁 Study Sessions</strong>
             Save &amp; reload named chat sessions across browser visits<br>
@@ -1048,10 +1071,26 @@ with st.sidebar:
             st.rerun()
         st.markdown("""
         <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
-          <span class="roadmap-badge badge-planned">Active</span>
+          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
           <div class="roadmap-text">
             <strong>📊 Mind Map Export</strong>
             Visualise key concepts as an interactive mind map
+          </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Planner
+        st.markdown('<div class="click-container">', unsafe_allow_html=True)
+        if st.button(" ", key="btn_planner", use_container_width=True):
+            st.session_state.app_mode = "planner"
+            st.rerun()
+        st.markdown("""
+        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
+          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
+          <div class="roadmap-text">
+            <strong>📅 Study Planner</strong>
+            AI-generated revision timetable based on your topics
           </div>
         </div>
         </div>
@@ -1076,18 +1115,11 @@ with st.sidebar:
         # Non-clickable placeholders
         st.markdown("""
         <div class="roadmap-item" style="opacity: 0.8;">
-          <span class="roadmap-badge badge-idea">Idea</span>
+          <span class="roadmap-badge badge-idea">Native</span>
           <div class="roadmap-text">
             <strong>🎙️ Voice Input</strong>
             Ask questions by speaking instead of typing<br>
-            <em>(Available natively in Chat view)</em>
-          </div>
-        </div>
-        <div class="roadmap-item" style="opacity: 0.8;">
-          <span class="roadmap-badge badge-idea">Idea</span>
-          <div class="roadmap-text">
-            <strong>📅 Study Planner</strong>
-            AI-generated revision timetable based on your topics
+            <em>(Available below in Chat view)</em>
           </div>
         </div>
         </div>
@@ -1140,10 +1172,61 @@ if app_mode == "flashcards":
     if not st.session_state.context_text:
         st.warning("Please upload a PDF or add context in the sidebar first.")
     else:
-        if st.button("🪄 Generate Flashcards from Context"):
-            st.session_state.queued_prompt = "Based strictly on the provided context, act as a Flashcard Generator. Create 10 challenging Q&A flashcards. Output them exactly one per paragraph, with the format: Q: [Question] \n A: [Answer]"
-            st.session_state.app_mode = "chat"
-            st.rerun()
+        if st.button("🪄 Generate New Flashcards"):
+            with st.spinner("Generating flashcards..."):
+                prompt = [
+                    {"role": "system", "content": "You are a flashcard generator. Create 10 Q&A flashcards from the study material. Return ONLY a JSON list of objects like: [{\"q\": \"...\", \"a\": \"...\"}]"},
+                    {"role": "user", "content": f"Context: {st.session_state.context_text[:15000]}"}
+                ]
+                try:
+                    from groq import Groq
+                    key = key_manager.get_key(override=_get_override_key())
+                    client = Groq(api_key=key)
+                    resp = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=prompt, response_format={"type": "json_object"})
+                    data = json.loads(resp.choices[0].message.content)
+                    st.session_state.flashcards = data.get("flashcards") or data.get("cards") or list(data.values())[0]
+                    st.session_state.current_card = 0
+                except Exception as e:
+                    st.error(f"Failed to generate: {e}")
+        
+        if st.session_state.flashcards:
+            cards = st.session_state.flashcards
+            idx = st.session_state.current_card
+            card = cards[idx]
+            
+            st.markdown(f"### Card {idx + 1} of {len(cards)}")
+            
+            with st.container():
+                st.markdown(f"""
+                <div style="background:var(--bg3); border:2px solid var(--accent); border-radius:15px; padding:40px; text-align:center; min-height:200px; display:flex; align-items:center; justify-content:center; flex-direction:column; margin-bottom:20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                    <div style="color:var(--text3); font-size:0.8rem; margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">Question</div>
+                    <div style="font-size:1.5rem; font-weight:700; color:var(--text);">{card['q']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander("👁️ Reveal Answer"):
+                    st.markdown(f"""
+                    <div style="background:var(--green-bg); border:1px solid var(--green); border-radius:10px; padding:20px; text-align:center; margin-top:10px;">
+                        <div style="color:var(--green); font-size:0.8rem; margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">Answer</div>
+                        <div style="font-size:1.3rem; color:var(--text);">{card['a']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            col_a, col_b, col_c = st.columns([1,1,1])
+            with col_a:
+                if st.button("⬅️ Previous", disabled=(idx == 0)):
+                    st.session_state.current_card -= 1
+                    st.rerun()
+            with col_b:
+                st.markdown(f"<p style='text-align:center; padding-top:10px;'>{idx+1}/{len(cards)}</p>", unsafe_allow_html=True)
+            with col_c:
+                if st.button("Next ➡️", disabled=(idx == len(cards)-1)):
+                    st.session_state.current_card += 1
+                    st.rerun()
+            
+            if st.button("🔄 Reset"):
+                st.session_state.flashcards = []
+                st.rerun()
     st.stop()
 
 elif app_mode == "quiz":
@@ -1151,10 +1234,59 @@ elif app_mode == "quiz":
     if not st.session_state.context_text:
         st.warning("Please upload a PDF or add context in the sidebar first.")
     else:
-        if st.button("🪄 Start Interactive Quiz"):
-            st.session_state.queued_prompt = "Based on the provided study material, act as a Smart Quiz Master. Ask me a 5-question multiple-choice quiz. Ask them ONE at a time. Do not move to the next question until I answer."
-            st.session_state.app_mode = "chat"
-            st.rerun()
+        if st.button("🪄 Generate 5-Question Quiz"):
+            with st.spinner("Preparing quiz..."):
+                prompt = [
+                    {"role": "system", "content": "Create a 5-question multiple choice quiz from the context. Return ONLY JSON like: {\"quiz\": [{\"q\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": \"A\", \"explanation\": \"...\"}]}"},
+                    {"role": "user", "content": f"Context: {st.session_state.context_text[:15000]}"}
+                ]
+                try:
+                    from groq import Groq
+                    key = key_manager.get_key(override=_get_override_key())
+                    client = Groq(api_key=key)
+                    resp = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=prompt, response_format={"type": "json_object"})
+                    data = json.loads(resp.choices[0].message.content)
+                    st.session_state.quiz_data = data.get("quiz") or list(data.values())[0]
+                    st.session_state.quiz_current = 0
+                    st.session_state.quiz_score = 0
+                    st.session_state.quiz_feedback = None
+                except Exception as e:
+                    st.error(f"Failed to generate quiz: {e}")
+
+        if st.session_state.quiz_data:
+            quiz = st.session_state.quiz_data
+            idx = st.session_state.quiz_current
+            
+            if idx < len(quiz):
+                q = quiz[idx]
+                st.markdown(f"### Question {idx + 1} of {len(quiz)}")
+                st.info(q['q'])
+                
+                choice = st.radio("Select your answer:", q['options'], key=f"q_{idx}")
+                
+                if st.button("Submit Answer") and not st.session_state.quiz_feedback:
+                    if choice == q['correct']:
+                        st.session_state.quiz_score += 1
+                        st.session_state.quiz_feedback = ("success", f"✅ Correct! {q['explanation']}")
+                    else:
+                        st.session_state.quiz_feedback = ("error", f"❌ Wrong. The correct answer was {q['correct']}. {q['explanation']}")
+                    st.rerun()
+
+                if st.session_state.quiz_feedback:
+                    type, msg = st.session_state.quiz_feedback
+                    if type == "success": st.success(msg)
+                    else: st.error(msg)
+                    
+                    if st.button("Next Question"):
+                        st.session_state.quiz_current += 1
+                        st.session_state.quiz_feedback = None
+                        st.rerun()
+            else:
+                st.balloons()
+                st.success(f"### Quiz Complete!\nYour Score: {st.session_state.quiz_score} / {len(quiz)}")
+                if st.button("🔄 Try Again"):
+                    st.session_state.quiz_data = []
+                    st.rerun()
     st.stop()
 
 elif app_mode == "mindmap":
@@ -1162,10 +1294,25 @@ elif app_mode == "mindmap":
     if not st.session_state.context_text:
         st.warning("Please upload a PDF or add context in the sidebar first.")
     else:
-        if st.button("🪄 Generate Mind Map"):
-            st.session_state.queued_prompt = "Generate a comprehensive Mermaid.js mind map (graph TD) of the key concepts from the study material. Provide ONLY the raw Mermaid code block."
-            st.session_state.app_mode = "chat"
-            st.rerun()
+        if st.button("🪄 Visualize Context as Mind Map"):
+            with st.spinner("Analyzing concepts..."):
+                prompt = f"Generate a detailed Mermaid.js mind map (graph TD) of the key concepts from this text. Provide ONLY the raw code block starting with 'graph TD'. Text: {st.session_state.context_text[:10000]}"
+                st.session_state.queued_prompt = prompt
+                st.session_state.app_mode = "chat"
+                st.rerun()
+    st.stop()
+
+elif app_mode == "planner":
+    st.header("📅 Study Planner")
+    if not st.session_state.context_text:
+        st.warning("Please upload a PDF or add context in the sidebar first.")
+    else:
+        if st.button("🪄 Create Revision Timetable"):
+            with st.spinner("Scheduling..."):
+                prompt = f"Create a structured, day-by-day revision timetable based on the major topics in this study material. Use the following format:\n\n# Revision Plan\n## Day 1: [Topic]\n- Focus: [Sub-goals]\n- Time: [Hours]\n\nContext: {st.session_state.context_text[:12000]}"
+                st.session_state.queued_prompt = prompt
+                st.session_state.app_mode = "chat"
+                st.rerun()
     st.stop()
 
 # ── Empty state (Chat Mode Only) ───────────────────────
