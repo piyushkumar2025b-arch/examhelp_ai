@@ -776,64 +776,15 @@ with st.sidebar:
     # ── Network Status ────────────────────────
     st.markdown('<div class="section-label">🌐 Network</div>', unsafe_allow_html=True)
     
-    # Offline detection & speed test via Streamlit component
-    network_html = """
+    st.markdown("""
     <div id="net-status">
       <div class="status-indicator" id="online-status">
         <div class="key-dot dot-green" id="online-dot"></div>
         <span id="online-text" style="color:var(--green);font-weight:600;">Online</span>
-        <span id="speed-text" style="color:var(--text3);margin-left:auto;">Measuring…</span>
+        <span id="speed-text" style="color:var(--text3);margin-left:auto;">Connected</span>
       </div>
     </div>
-    <script>
-      function updateOnlineStatus() {
-        const dot = document.getElementById('online-dot');
-        const text = document.getElementById('online-text');
-        if (navigator.onLine) {
-          dot.className = 'key-dot dot-green';
-          text.style.color = 'var(--green)';
-          text.textContent = 'Online';
-        } else {
-          dot.className = 'key-dot dot-red';
-          text.style.color = 'var(--red)';
-          text.textContent = 'Offline';
-          document.getElementById('speed-text').textContent = 'No connection';
-        }
-      }
-      
-      function measureSpeed() {
-        const speedText = document.getElementById('speed-text');
-        if (!navigator.onLine) {
-          speedText.textContent = 'No connection';
-          return;
-        }
-        const start = performance.now();
-        const img = new Image();
-        const cacheBuster = '?t=' + Date.now();
-        img.onload = function() {
-          const duration = (performance.now() - start) / 1000;
-          const size = 5000;
-          const speed = (size * 8 / duration / 1024).toFixed(1);
-          if (speed > 1000) {
-            speedText.textContent = (speed/1000).toFixed(1) + ' Mbps';
-          } else {
-            speedText.textContent = speed + ' Kbps';
-          }
-        };
-        img.onerror = function() {
-          speedText.textContent = 'Test failed';
-        };
-        img.src = 'https://www.google.com/favicon.ico' + cacheBuster;
-      }
-      
-      updateOnlineStatus();
-      window.addEventListener('online', updateOnlineStatus);
-      window.addEventListener('offline', updateOnlineStatus);
-      setTimeout(measureSpeed, 500);
-      setInterval(measureSpeed, 30000);
-    </script>
-    """
-    st.markdown(network_html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
     st.divider()
 
