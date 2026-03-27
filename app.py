@@ -252,8 +252,12 @@ def export_chat_history() -> str:
 ### ── API KEY ROTATION ──────────────────────────────────────────────────
 # Three keys tried in order. Key 1 = env/.env/manual, Keys 2 & 3 = hardcoded fallbacks.
 _FALLBACK_KEYS = [
-    "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",   # key 2
-    "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",   # key 3
+    "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",   # key 1
+    "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",   # key 2
+    "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",   # key 3
+    "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",   # key 4
+    "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",   # key 5
+    "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",   # key 6
 ]
 
 def _get_primary_key() -> str | None:
@@ -546,7 +550,7 @@ if user_input:
             for m in st.session_state.messages[-20:]
         ]
 
-        max_attempts = 3
+        max_attempts = 6
         attempt = 0
         success = False
 
