@@ -617,37 +617,66 @@ def get_theme_css():
     padding-left: 2rem !important;
   }}
 
-  /* ── Tool Cards ── */
+  /* ── Perfect Toolbox Fix (No Gaps) ── */
+  [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div {{
+    gap: 0 !important;
+    padding-bottom: 0 !important;
+  }}
+  .toolbox-wrap {{
+    margin-bottom: 12px;
+  }}
   .tool-card {{
     background: var(--bg3);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 12px;
-    margin-bottom: 8px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
+    padding: 16px;
+    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 15px;
+    height: 78px;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+    margin-top: 6px;
   }}
   .tool-card:hover {{
     border-color: var(--accent);
-    transform: translateX(4px);
     background: var(--accent-bg);
-    box-shadow: -4px 0 0 var(--accent);
+    transform: translateX(4px);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3), inset 6px 0 0 var(--accent);
   }}
   .tool-icon {{
-    width: 38px; height: 38px;
+    width: 44px; height: 44px;
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   }}
   .tool-info {{ flex: 1; }}
-  .tool-name {{ font-size: 0.85rem; font-weight: 700; color: var(--text); display: block; }}
-  .tool-desc {{ font-size: 0.7rem; color: var(--text3); line-height: 1.3; }}
+  .tool-name {{ font-size: 0.95rem; font-weight: 800; color: var(--text); display: block; letter-spacing: -0.2px; }}
+  .tool-desc {{ font-size: 0.74rem; color: var(--text3); line-height: 1.3; margin-top: 2px; }}
+
+  /* The actual button overlap logic */
+  div[data-testid="stSidebar"] .stButton {{
+    height: 78px;
+    padding: 0 !important;
+    margin: 0 !important;
+  }}
+  div[data-testid="stSidebar"] .stButton > button {{
+    position: absolute;
+    width: 100% !important;
+    height: 78px !important;
+    margin-top: 6px !important;
+    opacity: 0 !important;
+    z-index: 100;
+    cursor: pointer;
+    border: none !important;
+  }}
 </style>
 """
 
@@ -735,7 +764,7 @@ with st.sidebar:
     # ── Stats ─────────────────────────────────
     msg_count = len(st.session_state.messages)
     src_count = len(st.session_state.context_sources)
-    ctx_kb = round(len(st.session_state.context_text) / 1000, 1)
+    ctx_kb = round(float(len(st.session_state.context_text)) / 1024.0, 2)
     st.markdown(f"""
     <div class="stat-row">
       <div class="stat-box"><div class="stat-val">{msg_count}</div><div class="stat-lbl">Messages</div></div>
@@ -997,8 +1026,34 @@ with st.sidebar:
             st.session_state.total_output_lines = 0
             st.rerun()
 
-    st.divider()
+    # ── Academic Analytics (New) ──────────────
+    st.markdown('<div class="section-label">📈 Academic Analytics</div>', unsafe_allow_html=True)
+    msg_total = len(st.session_state.messages)
+    concepts_total = len(st.session_state.context_sources)
+    
+    # Calculate total words in current context
+    word_count_total = sum(len(s.get("label", "").split()) for s in st.session_state.context_sources) # simplistic proxy
+    # Better: access the text directly
+    actual_words = len(st.session_state.context_text.split())
+    
+    st.markdown(f"""
+    <div style="background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:1rem;">
+        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text3); margin-bottom:4px;">
+            <span>Concepts Mastered</span> <span>{concepts_total}</span>
+        </div>
+        <div style="height:4px; background:var(--bg2); border-radius:2px; margin-bottom:10px;">
+            <div style="width:{min(100, concepts_total*10)}%; height:100%; background:var(--accent); border-radius:2px;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text3); margin-bottom:4px;">
+            <span>Knowledge Density</span> <span>{actual_words:,} words</span>
+        </div>
+        <div style="height:4px; background:var(--bg2); border-radius:2px;">
+            <div style="width:{min(100, actual_words/100)}%; height:100%; background:var(--accent); border-radius:2px; opacity:0.6;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
+    # ── Study Sessions (Interactive) ──────────
     st.markdown('<div class="section-label">📁 Study Sessions</div>', unsafe_allow_html=True)
     col3, col4 = st.columns(2)
     with col3:
@@ -1020,15 +1075,21 @@ with st.sidebar:
         if st.session_state.persistent_sessions:
             load_options = list(st.session_state.persistent_sessions.keys())
             load_name = st.selectbox("Load File", load_options, label_visibility="collapsed")
-            if st.button("📂 Load", use_container_width=True):
-                data = st.session_state.persistent_sessions[load_name]
-                st.session_state.messages = data["messages"]
-                st.session_state.context_text = data["context"]
-                st.session_state.context_sources = data["sources"]
-                st.rerun()
+            col_l, col_n = st.columns([1, 1])
+            with col_l:
+                if st.button("📂 Load", use_container_width=True):
+                    data = st.session_state.persistent_sessions[load_name]
+                    st.session_state.messages = data["messages"]
+                    st.session_state.context_text = data["context"]
+                    st.session_state.context_sources = data["sources"]
+                    st.rerun()
+            with col_n:
+                if st.button("➕ New", use_container_width=True):
+                    st.session_state.messages = []; st.session_state.context_sources = []; st.rerun()
         else:
             st.selectbox("Load File", ["No sessions saved"], disabled=True, label_visibility="collapsed")
-            st.button("📂 Load", disabled=True, use_container_width=True)
+            if st.button("➕ New Session", use_container_width=True):
+                st.session_state.messages = []; st.rerun()
 
     # ── Study Toolbox (Real Options) ──────────
     st.markdown('<div class="section-label">🛠️ Study Toolbox</div>', unsafe_allow_html=True)
@@ -1120,20 +1181,24 @@ if app_mode == "flashcards":
                                                   f"All content MUST be in {lang}."},
                     {"role": "user", "content": f"Study Material: {st.session_state.context_text[:12000]}"}
                 ]
-                try:
-                    res_raw = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
-                    # Robust extraction in case of partial matches
-                    res_content = res_raw.strip()
-                    if not res_content.startswith("{"):
-                        # Try to find the first '{'
-                        idx = res_content.find("{")
-                        if idx != -1: res_content = res_content[idx:]
-                    
-                    data = json.loads(res_content)
-                    st.session_state.flashcards = data.get("flashcards") or list(data.values())[0]
-                    st.session_state.current_card = 0
-                except Exception as e:
-                    st.error(f"Generation Error: {e}. Try reducing the context or using a shorter document.")
+                success_gen = False
+                for _ in range(key_manager.MAX_RETRIES):
+                    try:
+                        res_raw = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
+                        res_content = res_raw.strip()
+                        if not res_content.startswith("{"):
+                            idx = res_content.find("{")
+                            if idx != -1: res_content = res_content[idx:]
+                        data = json.loads(res_content)
+                        st.session_state.flashcards = data.get("flashcards") or list(data.values())[0]
+                        st.session_state.current_card = 0
+                        success_gen = True
+                        break
+                    except Exception as e:
+                        time.sleep(1)
+                        continue
+                if not success_gen:
+                    st.error("⚠️ Failed to generate flashcards after multiple attempts. Please try again or check your API keys.")
         
         if st.session_state.flashcards:
             cards = st.session_state.flashcards
@@ -1187,20 +1252,26 @@ elif app_mode == "quiz":
                                                   f"All content MUST be in {lang}."},
                     {"role": "user", "content": f"Context Material: {st.session_state.context_text[:12000]}"}
                 ]
-                try:
-                    res_raw = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
-                    res_content = res_raw.strip()
-                    if not res_content.startswith("{"):
-                        idx = res_content.find("{")
-                        if idx != -1: res_content = res_content[idx:]
-                        
-                    data = json.loads(res_content)
-                    st.session_state.quiz_data = data.get("quiz") or list(data.values())[0]
-                    st.session_state.quiz_current = 0
-                    st.session_state.quiz_score = 0
-                    st.session_state.quiz_feedback = None
-                except Exception as e:
-                    st.error(f"Quiz Error: {e}. Please ensure the study material is clear.")
+                success_gen = False
+                for _ in range(key_manager.MAX_RETRIES):
+                    try:
+                        res_raw = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
+                        res_content = res_raw.strip()
+                        if not res_content.startswith("{"):
+                            idx = res_content.find("{")
+                            if idx != -1: res_content = res_content[idx:]
+                        data = json.loads(res_content)
+                        st.session_state.quiz_data = data.get("quiz") or list(data.values())[0]
+                        st.session_state.quiz_current = 0
+                        st.session_state.quiz_score = 0
+                        st.session_state.quiz_feedback = None
+                        success_gen = True
+                        break
+                    except Exception as e:
+                        time.sleep(1)
+                        continue
+                if not success_gen:
+                    st.error("⚠️ Quiz generation failed. Try reloading your study material.")
 
         if st.session_state.quiz_data:
             quiz = st.session_state.quiz_data
@@ -1286,29 +1357,51 @@ elif app_mode == "planner":
     if not st.session_state.context_text:
         st.warning(f"Upload notes to generate a {lang} timetable.")
     else:
-        if st.button("🪄 Create Scientific Revision Plan"):
-            with st.spinner(f"Optimizing schedule in {lang}..."):
-                prompt = f"Create a structured revision timetable in {st.session_state.selected_language}. Be specific about hours, sub-topics, and breaks. Context: {st.session_state.context_text[:12000]}"
-                st.session_state.queued_prompt = prompt
-                st.session_state.app_mode = "chat"
-                st.rerun()
+        if st.button("🪄 Create Professional Study Schedule"):
+            with st.spinner(f"Scheduling in {lang}..."):
+                prompt = [
+                    {"role": "system", "content": f"You are a master of scientific revision planning. Create a detailed, day-by-day revision timetable based on the major topics. "
+                                                  f"Be specific about hours, sub-topics, active recall slots, and breaks. "
+                                                  f"Response MUST be in {lang}. Use Markdown with emojis."},
+                    {"role": "user", "content": f"Study Context: {st.session_state.context_text[:12000]}"}
+                ]
+                try:
+                    # Using the direct helper for speed
+                    st.session_state.study_plan_content = chat_with_groq(prompt, override_key=_get_override_key())
+                except Exception as e:
+                    st.error(f"Planning Error: {e}")
+
+        if st.session_state.get("study_plan_content"):
+            st.markdown(st.session_state.study_plan_content)
+            col_pl, col_dl = st.columns([1,1])
+            with col_pl:
+                if st.button("💾 Save Plan to Chat", use_container_width=True):
+                    st.session_state.messages.append({"role": "assistant", "content": f"### 📅 {lang} Revision Plan\n{st.session_state.study_plan_content}"})
+                    st.success("Plan saved to history!")
+            with col_dl:
+                 st.download_button("📥 Download as TXT", st.session_state.study_plan_content, "study_plan.txt", use_container_width=True)
     st.stop()
 
 elif app_mode == "voice":
-    st.header("🎙️ Voice Assistant Mode")
-    st.markdown("Speak clearly to discuss your study materials with the AI.")
-    audio_val = st.audio_input("Record your question", key="voice_main")
+    st.header("🎙️ Intelligent Voice Mode")
+    lang_v = st.session_state.get("selected_language", "English")
+    st.markdown(f"Discuss your materials in **{lang_v}**. Use commands like *'Generate quiz'* or *'Create mind map'*.")
+    audio_val = st.audio_input("Start speaking...", key="voice_main")
     if audio_val:
-        with st.spinner("Processing your voice..."):
+        with st.spinner("Processing voice context..."):
             try:
                 transcript = transcribe_audio(audio_val.read(), override_key=_get_override_key())
                 txt = transcript.text if hasattr(transcript, "text") else str(transcript)
                 if txt.strip():
-                    st.session_state.queued_prompt = txt
-                    st.session_state.app_mode = "chat"
+                    txt_low = txt.lower()
+                    if "quiz" in txt_low: st.session_state.app_mode = "quiz"
+                    elif "flash" in txt_low: st.session_state.app_mode = "flashcards"
+                    elif "map" in txt_low: st.session_state.app_mode = "mindmap"
+                    elif "plan" in txt_low: st.session_state.app_mode = "planner"
+                    else: st.session_state.queued_prompt = txt
                     st.rerun()
             except Exception as e:
-                st.error(f"Voice Error: {e}")
+                st.error(f"Voice Recognition Error: {e}")
     st.stop()
 
 # ── Empty state (Chat Mode Only) ───────────────────────
@@ -1401,6 +1494,7 @@ if user_input:
                     st.session_state.context_text,
                     override_key=current_key,
                     persona_prompt=persona_prompt,
+                    language=st.session_state.get("selected_language", "English")
                 ):
                     full_response += chunk
                     placeholder.markdown(full_response + "▌")
