@@ -156,6 +156,38 @@ def stream_chat_with_groq(
         raise  # re-raise so app.py can handle UI feedback
 
 
+def chat_with_groq(
+    messages: list[dict],
+    json_mode: bool = False,
+    override_key: Optional[str] = None,
+    model: Optional[str] = MODEL,
+) -> str:
+    """Non-streaming chat response for tool calls (JSON or text)."""
+    key = key_manager.get_key(override=override_key)
+    if not key:
+        raise ValueError("No Groq API key available.")
+
+    client = Groq(api_key=key)
+    try:
+        response_format = {"type": "json_object"} if json_mode else {"type": "text"}
+        completion = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            response_format=response_format,
+            max_tokens=2048,
+            temperature=0.3 if json_mode else 0.7,
+        )
+        key_manager.mark_used(key)
+        return completion.choices[0].message.content
+    except Exception as e:
+        err = str(e).lower()
+        if "rate_limit" in err or "429" in err:
+            key_manager.mark_rate_limited(key)
+        elif "authentication" in err or "api_key" in err or "401" in err or "invalid" in err:
+            key_manager.mark_invalid(key)
+        raise e
+
+
 def transcribe_audio(audio_bytes: bytes, override_key: Optional[str] = None) -> str:
     """Uses Groq Whisper API to transcribe audio bytes to text."""
     key = key_manager.get_key(override=override_key)
