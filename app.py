@@ -1114,16 +1114,26 @@ if app_mode == "flashcards":
         if st.button("🪄 Generate Professional Flashcards"):
             with st.spinner(f"Creating {lang} study deck..."):
                 prompt = [
-                    {"role": "system", "content": f"You are a master educator. Create 10 expert Q&A flashcards from the material. Return ONLY JSON like {{\"flashcards\": [{{'q': '...', 'a': '...'}}]}}. Language: {lang}"},
-                    {"role": "user", "content": f"Content: {st.session_state.context_text[:15000]}"}
+                    {"role": "system", "content": f"You are a master educator. Create 10 expert Q&A flashcards based strictly on the study material. "
+                                                  f"Return ONLY a strictly valid JSON object. Do NOT include any preamble, notes, or explanations. "
+                                                  f"Format: {{\"flashcards\": [{{'q': 'Question text', 'a': 'Answer text'}}]}}. "
+                                                  f"All content MUST be in {lang}."},
+                    {"role": "user", "content": f"Study Material: {st.session_state.context_text[:12000]}"}
                 ]
                 try:
-                    res_content = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
+                    res_raw = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
+                    # Robust extraction in case of partial matches
+                    res_content = res_raw.strip()
+                    if not res_content.startswith("{"):
+                        # Try to find the first '{'
+                        idx = res_content.find("{")
+                        if idx != -1: res_content = res_content[idx:]
+                    
                     data = json.loads(res_content)
                     st.session_state.flashcards = data.get("flashcards") or list(data.values())[0]
                     st.session_state.current_card = 0
                 except Exception as e:
-                    st.error(f"Generation Error: {e}")
+                    st.error(f"Generation Error: {e}. Try reducing the context or using a shorter document.")
         
         if st.session_state.flashcards:
             cards = st.session_state.flashcards
@@ -1171,18 +1181,26 @@ elif app_mode == "quiz":
         if st.button(f"🪄 Build {lang} Quiz"):
             with st.spinner("Generating challenges..."):
                 prompt = [
-                    {"role": "system", "content": f"Create 5 challenging MCQs from the text. Return ONLY JSON: {{\"quiz\": [{{'q': '...', 'options': ['...'], 'correct': '...', 'explanation': '...'}}]}}. Language: {lang}"},
-                    {"role": "user", "content": f"Context: {st.session_state.context_text[:15000]}"}
+                    {"role": "system", "content": f"Create 5 challenging MCQs based strictly on the provided text. "
+                                                  f"Return ONLY a strictly valid JSON object. No preamble. "
+                                                  f"Format: {{\"quiz\": [{{'q': '...', 'options': ['A', 'B', 'C', 'D'], 'correct': 'Correct Option Text', 'explanation': 'Brief reason'}}]}}. "
+                                                  f"All content MUST be in {lang}."},
+                    {"role": "user", "content": f"Context Material: {st.session_state.context_text[:12000]}"}
                 ]
                 try:
-                    res_content = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
+                    res_raw = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
+                    res_content = res_raw.strip()
+                    if not res_content.startswith("{"):
+                        idx = res_content.find("{")
+                        if idx != -1: res_content = res_content[idx:]
+                        
                     data = json.loads(res_content)
                     st.session_state.quiz_data = data.get("quiz") or list(data.values())[0]
                     st.session_state.quiz_current = 0
                     st.session_state.quiz_score = 0
                     st.session_state.quiz_feedback = None
                 except Exception as e:
-                    st.error(f"Quiz generation failed: {e}")
+                    st.error(f"Quiz Error: {e}. Please ensure the study material is clear.")
 
         if st.session_state.quiz_data:
             quiz = st.session_state.quiz_data
