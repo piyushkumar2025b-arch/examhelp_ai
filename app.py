@@ -249,19 +249,51 @@ def export_chat_history() -> str:
     return "\n".join(lines)
 
 
-def get_api_key() -> str | None:
-    """Get API key from env, secrets, or session state."""
-    # Try Streamlit secrets first (for cloud deploy)
+### ── API KEY ROTATION ──────────────────────────────────────────────────
+# Three keys tried in order. Key 1 = env/.env/manual, Keys 2 & 3 = hardcoded fallbacks.
+_FALLBACK_KEYS = [
+    "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",   # key 2
+    "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",   # key 3
+]
+
+def _get_primary_key() -> str | None:
+    """Return user-supplied key (env / secrets / manual input), if any."""
     try:
         return st.secrets["GROQ_API_KEY"]
     except Exception:
         pass
-    # Try env var
     key = os.getenv("GROQ_API_KEY")
-    if key:
+    if key and key not in _FALLBACK_KEYS:   # avoid re-adding fallbacks
         return key
-    # Try session state (user-entered)
     return st.session_state.get("manual_api_key", None)
+
+def get_api_key() -> str | None:
+    """Return the currently active API key (primary or current fallback index)."""
+    primary = _get_primary_key()
+    idx = st.session_state.get("_key_idx", 0)
+
+    all_keys = ([primary] if primary else []) + _FALLBACK_KEYS
+    if not all_keys:
+        return None
+    # Clamp index
+    idx = min(idx, len(all_keys) - 1)
+    return all_keys[idx]
+
+def _rotate_key() -> bool:
+    """
+    Advance to the next available key.
+    Returns True if a new key is available, False if all are exhausted.
+    """
+    primary = _get_primary_key()
+    all_keys = ([primary] if primary else []) + _FALLBACK_KEYS
+    idx = st.session_state.get("_key_idx", 0) + 1
+    if idx < len(all_keys):
+        st.session_state["_key_idx"] = idx
+        return True
+    return False
+
+def _reset_key_rotation():
+    st.session_state["_key_idx"] = 0
 
 
 # ─────────────────────────────────────────────
@@ -282,10 +314,21 @@ with st.sidebar:
 
     # ── API KEY ──────────────────────────────
     st.markdown('<div class="sidebar-section">🔑 API Configuration</div>', unsafe_allow_html=True)
-    api_key = get_api_key()
-    if api_key:
-        st.success("Groq API key loaded ✓", icon="✅")
-        os.environ["GROQ_API_KEY"] = api_key
+
+    primary = _get_primary_key()
+    all_keys = ([primary] if primary else []) + _FALLBACK_KEYS
+    key_idx = st.session_state.get("_key_idx", 0)
+    key_idx = min(key_idx, len(all_keys) - 1)
+    active_key = all_keys[key_idx] if all_keys else None
+    active_num = key_idx + 1
+
+    if active_key:
+        os.environ["GROQ_API_KEY"] = active_key
+        st.success(f"API key #{active_num} of {len(all_keys)} active ✓", icon="✅")
+        if key_idx > 0:
+            if st.button("🔁 Reset to Key #1", use_container_width=True):
+                _reset_key_rotation()
+                st.rerun()
     else:
         manual_key = st.text_input(
             "Enter Groq API Key",
@@ -492,36 +535,68 @@ if user_input:
     with st.chat_message("user", avatar="👤"):
         st.markdown(user_input)
 
-    # Stream assistant response
+    # Stream assistant response (with automatic API key rotation)
     with st.chat_message("assistant", avatar="🎓"):
         response_placeholder = st.empty()
         full_response = ""
 
-        try:
-            # Build message history for API (last 20 messages to stay within limits)
-            history = [
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages[-20:]
-            ]
+        # Build message history for API (last 20 messages)
+        history = [
+            {"role": m["role"], "content": m["content"]}
+            for m in st.session_state.messages[-20:]
+        ]
 
-            for chunk in stream_chat_with_groq(history, st.session_state.context_text):
-                full_response += chunk
-                response_placeholder.markdown(full_response + "▌")
+        max_attempts = 3
+        attempt = 0
+        success = False
 
-            response_placeholder.markdown(full_response)
+        while attempt < max_attempts and not success:
+            current_key = get_api_key()
+            if not current_key:
+                full_response = "⚠️ **No API key available.** All keys exhausted or none configured."
+                response_placeholder.error(full_response)
+                break
 
-        except ValueError as e:
-            full_response = f"⚠️ **Configuration Error:** {str(e)}"
-            response_placeholder.error(full_response)
-        except Exception as e:
-            err_msg = str(e)
-            if "api_key" in err_msg.lower() or "authentication" in err_msg.lower():
-                full_response = "⚠️ **Invalid API key.** Please check your Groq API key in the sidebar."
-            elif "rate_limit" in err_msg.lower():
-                full_response = "⚠️ **Rate limit hit.** You've exceeded the free tier limit. Please wait a moment and try again."
-            else:
-                full_response = f"⚠️ **Error:** {err_msg}"
-            response_placeholder.error(full_response)
+            os.environ["GROQ_API_KEY"] = current_key
+            full_response = ""
+            try:
+                for chunk in stream_chat_with_groq(history, st.session_state.context_text):
+                    full_response += chunk
+                    response_placeholder.markdown(full_response + "▌")
+                response_placeholder.markdown(full_response)
+                success = True
+
+            except ValueError as e:
+                full_response = f"⚠️ **Configuration Error:** {str(e)}"
+                response_placeholder.error(full_response)
+                break
+
+            except Exception as e:
+                err_msg = str(e)
+                is_rate_limit = "rate_limit" in err_msg.lower() or "429" in err_msg
+                is_auth_error = "api_key" in err_msg.lower() or "authentication" in err_msg.lower() or "401" in err_msg
+
+                if is_rate_limit or is_auth_error:
+                    reason = "Rate limit hit" if is_rate_limit else "Invalid/expired key"
+                    key_num = st.session_state.get("_key_idx", 0) + 1
+                    if _rotate_key():
+                        next_num = st.session_state.get("_key_idx", 0) + 1
+                        response_placeholder.warning(
+                            f"⚡ {reason} on key #{key_num}. Switching to key #{next_num} automatically…",
+                            icon="🔄"
+                        )
+                        attempt += 1
+                        continue
+                    else:
+                        full_response = "⚠️ **All API keys exhausted.** Please add a new Groq API key in the sidebar."
+                        response_placeholder.error(full_response)
+                        break
+                else:
+                    full_response = f"⚠️ **Error:** {err_msg}"
+                    response_placeholder.error(full_response)
+                    break
+
+            attempt += 1
 
     # Save assistant response
     st.session_state.messages.append({"role": "assistant", "content": full_response})
