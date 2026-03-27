@@ -5,7 +5,7 @@ import time
 import json
 from dotenv import load_dotenv
 
-from utils.groq_client import stream_chat_with_groq, transcribe_audio
+from utils.groq_client import stream_chat_with_groq, transcribe_audio, chat_with_groq
 from utils.pdf_handler import extract_text_from_pdf, get_pdf_metadata, get_pdf_summary_stats
 from utils.youtube_handler import get_youtube_transcript, format_transcript_as_context, extract_video_id, get_transcript_stats
 from utils.web_handler import scrape_web_page, format_web_context, get_web_stats
@@ -1034,11 +1034,12 @@ with st.sidebar:
     st.markdown('<div class="section-label">🛠️ Study Toolbox</div>', unsafe_allow_html=True)
     
     tools = [
-        {"id": "flash", "name": "Flashcards", "icon": "🃏", "desc": "Generate Q&A cards", "mode": "flashcards"},
-        {"id": "quiz", "name": "Quiz Mode", "icon": "📝", "desc": "Test your knowledge", "mode": "quiz"},
-        {"id": "map", "name": "Mind Map", "icon": "📊", "desc": "Visualize concepts", "mode": "mindmap"},
-        {"id": "plan", "name": "Study Planner", "icon": "📅", "desc": "Get a revision plan", "mode": "planner"},
-        {"id": "chat", "name": "Standard Chat", "icon": "💬", "desc": "Back to normal mode", "mode": "chat"},
+        {"id": "flash", "name": "Flashcards", "icon": "🃏", "desc": "Structured Q&A drill", "mode": "flashcards"},
+        {"id": "quiz", "name": "Quiz Mode", "icon": "📝", "desc": "Interactive assessment", "mode": "quiz"},
+        {"id": "map", "name": "Mind Map", "icon": "📊", "desc": "Visual concept mapping", "mode": "mindmap"},
+        {"id": "plan", "name": "Study Planner", "icon": "📅", "desc": "Tailored revision timetable", "mode": "planner"},
+        {"id": "voice", "name": "Voice Assistant", "icon": "🎙️", "desc": "Speak to your tutor", "mode": "voice"},
+        {"id": "chat", "name": "Standard Chat", "icon": "💬", "desc": "General study conversation", "mode": "chat"},
     ]
 
     for t in tools:
@@ -1106,89 +1107,82 @@ app_mode = st.session_state.get("app_mode", "chat")
 
 if app_mode == "flashcards":
     st.header("🃏 Flashcard Generator")
+    lang = st.session_state.get("selected_language", "English")
     if not st.session_state.context_text:
-        st.warning("Please upload a PDF or add context in the sidebar first.")
+        st.warning(f"Please upload material to generate {lang} flashcards.")
     else:
-        if st.button("🪄 Generate New Flashcards"):
-            with st.spinner("Generating flashcards..."):
+        if st.button("🪄 Generate Professional Flashcards"):
+            with st.spinner(f"Creating {lang} study deck..."):
                 prompt = [
-                    {"role": "system", "content": "You are a flashcard generator. Create 10 Q&A flashcards from the study material. Return ONLY a JSON list of objects like: [{\"q\": \"...\", \"a\": \"...\"}]"},
-                    {"role": "user", "content": f"Context: {st.session_state.context_text[:15000]}"}
+                    {"role": "system", "content": f"You are a master educator. Create 10 expert Q&A flashcards from the material. Return ONLY JSON like {{\"flashcards\": [{{'q': '...', 'a': '...'}}]}}. Language: {lang}"},
+                    {"role": "user", "content": f"Content: {st.session_state.context_text[:15000]}"}
                 ]
                 try:
-                    from groq import Groq
-                    key = key_manager.get_key(override=_get_override_key())
-                    client = Groq(api_key=key)
-                    resp = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=prompt, response_format={"type": "json_object"})
-                    data = json.loads(resp.choices[0].message.content)
-                    st.session_state.flashcards = data.get("flashcards") or data.get("cards") or list(data.values())[0]
+                    res_content = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
+                    data = json.loads(res_content)
+                    st.session_state.flashcards = data.get("flashcards") or list(data.values())[0]
                     st.session_state.current_card = 0
                 except Exception as e:
-                    st.error(f"Failed to generate: {e}")
+                    st.error(f"Generation Error: {e}")
         
         if st.session_state.flashcards:
             cards = st.session_state.flashcards
             idx = st.session_state.current_card
             card = cards[idx]
             
-            st.markdown(f"### Card {idx + 1} of {len(cards)}")
+            st.markdown(f"### {lang} Flashcard {idx + 1} / {len(cards)}")
             
             with st.container():
                 st.markdown(f"""
-                <div style="background:var(--bg3); border:2px solid var(--accent); border-radius:15px; padding:40px; text-align:center; min-height:200px; display:flex; align-items:center; justify-content:center; flex-direction:column; margin-bottom:20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-                    <div style="color:var(--text3); font-size:0.8rem; margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">Question</div>
-                    <div style="font-size:1.5rem; font-weight:700; color:var(--text);">{card['q']}</div>
+                <div style="background:var(--bg3); border:2px solid var(--accent); border-radius:15px; padding:40px; text-align:center; min-height:220px; display:flex; align-items:center; justify-content:center; flex-direction:column; margin-bottom:20px; box-shadow: 0 10px 40px rgba(0,0,0,0.25);">
+                    <div style="color:var(--text3); font-size:0.8rem; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px; font-weight:700;">Question</div>
+                    <div style="font-size:1.6rem; font-weight:800; color:var(--text); line-height:1.2;">{card['q']}</div>
                 </div>
                 """, unsafe_allow_html=True)
                 
                 with st.expander("👁️ Reveal Answer"):
                     st.markdown(f"""
-                    <div style="background:var(--green-bg); border:1px solid var(--green); border-radius:10px; padding:20px; text-align:center; margin-top:10px;">
-                        <div style="color:var(--green); font-size:0.8rem; margin-bottom:10px; text-transform:uppercase; letter-spacing:1px;">Answer</div>
-                        <div style="font-size:1.3rem; color:var(--text);">{card['a']}</div>
+                    <div style="background:var(--green-bg); border:1px solid var(--green); border-radius:12px; padding:25px; text-align:center; margin-top:10px;">
+                        <div style="color:var(--green); font-size:0.8rem; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px; font-weight:700;">Answer</div>
+                        <div style="font-size:1.4rem; color:var(--text); font-weight:500;">{card['a']}</div>
                     </div>
                     """, unsafe_allow_html=True)
             
             col_a, col_b, col_c = st.columns([1,1,1])
             with col_a:
-                if st.button("⬅️ Previous", disabled=(idx == 0)):
-                    st.session_state.current_card -= 1
-                    st.rerun()
+                if st.button("⬅️ Back", disabled=(idx == 0), use_container_width=True):
+                    st.session_state.current_card -= 1; st.rerun()
             with col_b:
-                st.markdown(f"<p style='text-align:center; padding-top:10px;'>{idx+1}/{len(cards)}</p>", unsafe_allow_html=True)
+                if st.button("💾 Save to Chat", use_container_width=True):
+                    summary = "\n".join([f"Q: {c['q']} | A: {c['a']}" for c in cards])
+                    st.session_state.messages.append({"role": "assistant", "content": f"### 🃏 Generated Flashcards ({lang})\n\n{summary}"})
+                    st.success("Saved to history!")
             with col_c:
-                if st.button("Next ➡️", disabled=(idx == len(cards)-1)):
-                    st.session_state.current_card += 1
-                    st.rerun()
-            
-            if st.button("🔄 Reset"):
-                st.session_state.flashcards = []
-                st.rerun()
+                if st.button("Next ➡️", disabled=(idx == len(cards)-1), use_container_width=True):
+                    st.session_state.current_card += 1; st.rerun()
     st.stop()
 
 elif app_mode == "quiz":
     st.header("📝 Smart Quiz Mode")
+    lang = st.session_state.get("selected_language", "English")
     if not st.session_state.context_text:
-        st.warning("Please upload a PDF or add context in the sidebar first.")
+        st.warning(f"Please upload context to start a {lang} quiz.")
     else:
-        if st.button("🪄 Generate 5-Question Quiz"):
-            with st.spinner("Preparing quiz..."):
+        if st.button(f"🪄 Build {lang} Quiz"):
+            with st.spinner("Generating challenges..."):
                 prompt = [
-                    {"role": "system", "content": "Create a 5-question multiple choice quiz from the context. Return ONLY JSON like: {\"quiz\": [{\"q\": \"...\", \"options\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": \"A\", \"explanation\": \"...\"}]}"},
+                    {"role": "system", "content": f"Create 5 challenging MCQs from the text. Return ONLY JSON: {{\"quiz\": [{{'q': '...', 'options': ['...'], 'correct': '...', 'explanation': '...'}}]}}. Language: {lang}"},
                     {"role": "user", "content": f"Context: {st.session_state.context_text[:15000]}"}
                 ]
                 try:
-                    from groq import Groq
-                    key = key_manager.get_key(override=_get_override_key())
-                    client = Groq(api_key=key)
-                    resp = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=prompt, response_format={"type": "json_object"})
-                    data = json.loads(resp.choices[0].message.content)
+                    res_content = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
+                    data = json.loads(res_content)
                     st.session_state.quiz_data = data.get("quiz") or list(data.values())[0]
                     st.session_state.quiz_current = 0
                     st.session_state.quiz_score = 0
                     st.session_state.quiz_feedback = None
                 except Exception as e:
-                    st.error(f"Failed to generate quiz: {e}")
+                    st.error(f"Quiz generation failed: {e}")
 
         if st.session_state.quiz_data:
             quiz = st.session_state.quiz_data
@@ -1196,99 +1190,111 @@ elif app_mode == "quiz":
             
             if idx < len(quiz):
                 q = quiz[idx]
-                st.markdown(f"### Question {idx + 1} of {len(quiz)}")
-                st.info(q['q'])
+                st.markdown(f"### Assessment: Question {idx + 1} of {len(quiz)}")
+                st.info(f"**{q['q']}**")
                 
-                choice = st.radio("Select your answer:", q['options'], key=f"q_{idx}")
+                choice = st.radio(f"Select your {lang} answer:", q['options'], key=f"qz_{idx}")
                 
-                if st.button("Submit Answer") and not st.session_state.quiz_feedback:
-                    if choice == q['correct']:
-                        st.session_state.quiz_score += 1
-                        st.session_state.quiz_feedback = ("success", f"✅ Correct! {q['explanation']}")
-                    else:
-                        st.session_state.quiz_feedback = ("error", f"❌ Wrong. The correct answer was {q['correct']}. {q['explanation']}")
-                    st.rerun()
+                col_s, col_n = st.columns([1,1])
+                with col_s:
+                    if st.button("✅ Submit Result", use_container_width=True) and not st.session_state.quiz_feedback:
+                        if choice == q['correct']:
+                            st.session_state.quiz_score += 1
+                            st.session_state.quiz_feedback = ("success", f"⚡ **Correct!** {q['explanation']}")
+                        else:
+                            st.session_state.quiz_feedback = ("error", f"❌ **Not quite.** Correct was: {q['correct']}. {q['explanation']}")
+                        st.rerun()
 
                 if st.session_state.quiz_feedback:
                     type, msg = st.session_state.quiz_feedback
                     if type == "success": st.success(msg)
                     else: st.error(msg)
-                    
-                    if st.button("Next Question"):
-                        st.session_state.quiz_current += 1
-                        st.session_state.quiz_feedback = None
-                        st.rerun()
+                    with col_n:
+                        if st.button("Continue ➡️", use_container_width=True):
+                            st.session_state.quiz_current += 1
+                            st.session_state.quiz_feedback = None
+                            st.rerun()
             else:
                 st.balloons()
-                st.success(f"### Quiz Complete!\nYour Score: {st.session_state.quiz_score} / {len(quiz)}")
-                if st.button("🔄 Try Again"):
-                    st.session_state.quiz_data = []
-                    st.rerun()
+                st.success(f"### 🎉 Quiz Finished!\n**Final Performance:** {st.session_state.quiz_score} / {len(quiz)}")
+                if st.button("🔄 Try Again", use_container_width=True):
+                    st.session_state.quiz_data = []; st.rerun()
     st.stop()
 
 elif app_mode == "mindmap":
-    st.header("📊 Mind Map Export")
+    st.header("📊 Interactive Concept Map")
+    lang = st.session_state.get("selected_language", "English")
     if not st.session_state.context_text:
-        st.warning("Please upload a PDF or add context in the sidebar first.")
+        st.warning(f"Please provide context to visualize it in {lang}.")
     else:
-        if st.button("🪄 Visualize Context as Mind Map"):
-            with st.spinner("Analyzing concepts..."):
+        if st.button("🪄 Map Out Core Concepts"):
+            with st.spinner(f"Mapping relationships in {lang}..."):
                 prompt = [
-                    {"role": "system", "content": "Generate a detailed Mermaid.js mind map (graph TD) of the key concepts from the text. Provide ONLY the raw code block starting with 'graph TD'. No explanation."},
-                    {"role": "user", "content": f"Context: {st.session_state.context_text[:10000]}"}
+                    {"role": "system", "content": f"Create a detailed Mermaid.js mind map (graph TD) node-by-node. Language: {lang}. Output ONLY raw mermaid code block."},
+                    {"role": "user", "content": f"Context: {st.session_state.context_text[:12000]}"}
                 ]
                 try:
-                    from groq import Groq
-                    key = key_manager.get_key(override=_get_override_key())
-                    client = Groq(api_key=key)
-                    resp = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=prompt)
-                    mm_code = resp.choices[0].message.content
-                    # Extract mermaid block
-                    if "```mermaid" in mm_code:
-                        mm_code = mm_code.split("```mermaid")[1].split("```")[0]
-                    elif "```" in mm_code:
-                        mm_code = mm_code.split("```")[1].split("```")[0]
-                    
+                    mm_code = chat_with_groq(prompt, override_key=_get_override_key())
+                    if "```mermaid" in mm_code: mm_code = mm_code.split("```mermaid")[1].split("```")[0]
+                    elif "```" in mm_code: mm_code = mm_code.split("```")[1].split("```")[0]
                     st.session_state.mindmap_code = mm_code.strip()
                 except Exception as e:
-                    st.error(f"Failed to generate map: {e}")
+                    st.error(f"Visualization Error: {e}")
 
         if st.session_state.get("mindmap_code"):
-            st.markdown("### Interactive Concept Map")
-            # Mermaid Renderer Component
+            # Mermaid Renderer
             html_code = f"""
-            <div id="mermaid-root">
-                <pre class="mermaid">
-                {st.session_state.mindmap_code}
-                </pre>
+            <div id="mermaid-root" style="background:var(--bg3); padding:20px; border-radius:12px; border:1px solid var(--border);">
+                <pre class="mermaid">{st.session_state.mindmap_code}</pre>
             </div>
             <script type="module">
                 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-                mermaid.initialize({{ startOnLoad: true, theme: 'dark' }});
+                mermaid.initialize({{ startOnLoad: true, theme: 'dark', securityLevel: 'loose' }});
             </script>
             """
             import streamlit.components.v1 as components
             components.html(html_code, height=600, scrolling=True)
             
-            with st.expander("📝 View Raw Code"):
+            with st.expander("🛠️ Mind Map Options"):
                 st.code(st.session_state.mindmap_code, language="mermaid")
+                if st.button("💾 Keep Map in History"):
+                    st.session_state.messages.append({"role": "assistant", "content": f"### 📊 Concept Map ({lang})\n```mermaid\n{st.session_state.mindmap_code}\n```"})
+                    st.success("Map saved!")
     st.stop()
 
 elif app_mode == "planner":
     st.header("📅 Study Planner")
+    lang = st.session_state.get("selected_language", "English")
     if not st.session_state.context_text:
-        st.warning("Please upload a PDF or add context in the sidebar first.")
+        st.warning(f"Upload notes to generate a {lang} timetable.")
     else:
-        if st.button("🪄 Create Revision Timetable"):
-            with st.spinner("Scheduling..."):
-                prompt = f"Create a structured, day-by-day revision timetable based on the major topics in this study material. Use the following format:\n\n# Revision Plan\n## Day 1: [Topic]\n- Focus: [Sub-goals]\n- Time: [Hours]\n\nContext: {st.session_state.context_text[:12000]}"
+        if st.button("🪄 Create Scientific Revision Plan"):
+            with st.spinner(f"Optimizing schedule in {lang}..."):
+                prompt = f"Create a structured revision timetable in {st.session_state.selected_language}. Be specific about hours, sub-topics, and breaks. Context: {st.session_state.context_text[:12000]}"
                 st.session_state.queued_prompt = prompt
                 st.session_state.app_mode = "chat"
                 st.rerun()
     st.stop()
 
+elif app_mode == "voice":
+    st.header("🎙️ Voice Assistant Mode")
+    st.markdown("Speak clearly to discuss your study materials with the AI.")
+    audio_val = st.audio_input("Record your question", key="voice_main")
+    if audio_val:
+        with st.spinner("Processing your voice..."):
+            try:
+                transcript = transcribe_audio(audio_val.read(), override_key=_get_override_key())
+                txt = transcript.text if hasattr(transcript, "text") else str(transcript)
+                if txt.strip():
+                    st.session_state.queued_prompt = txt
+                    st.session_state.app_mode = "chat"
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Voice Error: {e}")
+    st.stop()
+
 # ── Empty state (Chat Mode Only) ───────────────────────
-if not st.session_state.messages:
+if not st.session_state.messages and app_mode == "chat":
     st.markdown("""
     <div class="hero-wrap">
       <div class="hero-badge">✦ Powered by Groq · llama-3.3-70b-versatile</div>
