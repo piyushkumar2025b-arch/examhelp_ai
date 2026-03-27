@@ -616,6 +616,38 @@ def get_theme_css():
   [data-testid="stChatMessage"][data-testid*="user"] {{
     padding-left: 2rem !important;
   }}
+
+  /* ── Tool Cards ── */
+  .tool-card {{
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }}
+  .tool-card:hover {{
+    border-color: var(--accent);
+    transform: translateX(4px);
+    background: var(--accent-bg);
+    box-shadow: -4px 0 0 var(--accent);
+  }}
+  .tool-icon {{
+    width: 38px; height: 38px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }}
+  .tool-info {{ flex: 1; }}
+  .tool-name {{ font-size: 0.85rem; font-weight: 700; color: var(--text); display: block; }}
+  .tool-desc {{ font-size: 0.7rem; color: var(--text3); line-height: 1.3; }}
 </style>
 """
 
@@ -998,132 +1030,37 @@ with st.sidebar:
             st.selectbox("Load File", ["No sessions saved"], disabled=True, label_visibility="collapsed")
             st.button("📂 Load", disabled=True, use_container_width=True)
 
-    # Add the hidden button click overlay styles
-    st.markdown("""
-    <style>
-    .click-container {
-        position: relative;
-        margin-bottom: 4px;
-    }
-    .click-container .stButton {
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        z-index: 10;
-        opacity: 0;
-    }
-    .click-container .stButton > button {
-        width: 100%; height: 100%; cursor: pointer;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # ── Study Toolbox (Real Options) ──────────
+    st.markdown('<div class="section-label">🛠️ Study Toolbox</div>', unsafe_allow_html=True)
+    
+    tools = [
+        {"id": "flash", "name": "Flashcards", "icon": "🃏", "desc": "Generate Q&A cards", "mode": "flashcards"},
+        {"id": "quiz", "name": "Quiz Mode", "icon": "📝", "desc": "Test your knowledge", "mode": "quiz"},
+        {"id": "map", "name": "Mind Map", "icon": "📊", "desc": "Visualize concepts", "mode": "mindmap"},
+        {"id": "plan", "name": "Study Planner", "icon": "📅", "desc": "Get a revision plan", "mode": "planner"},
+        {"id": "chat", "name": "Standard Chat", "icon": "💬", "desc": "Back to normal mode", "mode": "chat"},
+    ]
 
-    with st.expander("🚀 Advanced Features", expanded=True):
-        st.markdown('<div style="padding:2px 0;">', unsafe_allow_html=True)
-
-        # Flashcards
-        st.markdown('<div class="click-container">', unsafe_allow_html=True)
-        if st.button(" ", key="btn_flash", use_container_width=True):
-            st.session_state.app_mode = "flashcards"
+    for t in tools:
+        st.markdown(f"""
+        <div class="click-container">
+            <div class="tool-card">
+                <div class="tool-icon">{t['icon']}</div>
+                <div class="tool-info">
+                    <span class="tool-name">{t['name']}</span>
+                    <span class="tool-desc">{t['desc']}</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        # Hidden button overlay
+        st.markdown('<div style="margin-top:-60px">', unsafe_allow_html=True)
+        if st.button(" ", key=f"tool_{t['id']}", use_container_width=True):
+            st.session_state.app_mode = t['mode']
             st.rerun()
-        st.markdown("""
-        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
-          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
-          <div class="roadmap-text">
-            <strong>🃏 Flashcard Generator</strong>
-            Auto-generate Q&amp;A flashcards from your uploaded material
-          </div>
-        </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # Quiz
-        st.markdown('<div class="click-container">', unsafe_allow_html=True)
-        if st.button(" ", key="btn_quiz", use_container_width=True):
-            st.session_state.app_mode = "quiz"
-            st.rerun()
-        st.markdown("""
-        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
-          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
-          <div class="roadmap-text">
-            <strong>📝 Smart Quiz Mode</strong>
-            AI-generated multiple-choice quizzes with instant feedback
-          </div>
-        </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Sessions
-        st.markdown("""
-        <div class="roadmap-item" style="opacity:1.0;">
-          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
-          <div class="roadmap-text">
-            <strong>📁 Study Sessions</strong>
-            Save &amp; reload named chat sessions across browser visits<br>
-            <em>(Use the tool above to save/load)</em>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Mind Map
-        st.markdown('<div class="click-container">', unsafe_allow_html=True)
-        if st.button(" ", key="btn_map", use_container_width=True):
-            st.session_state.app_mode = "mindmap"
-            st.rerun()
-        st.markdown("""
-        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
-          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
-          <div class="roadmap-text">
-            <strong>📊 Mind Map Export</strong>
-            Visualise key concepts as an interactive mind map
-          </div>
-        </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Planner
-        st.markdown('<div class="click-container">', unsafe_allow_html=True)
-        if st.button(" ", key="btn_planner", use_container_width=True):
-            st.session_state.app_mode = "planner"
-            st.rerun()
-        st.markdown("""
-        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
-          <span class="roadmap-badge badge-soon" style="background:rgba(217,119,6,0.1); color:var(--accent); border-color:var(--accent-bd);">Active</span>
-          <div class="roadmap-text">
-            <strong>📅 Study Planner</strong>
-            AI-generated revision timetable based on your topics
-          </div>
-        </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Chat Return
-        st.markdown('<div class="click-container">', unsafe_allow_html=True)
-        if st.button(" ", key="btn_chat", use_container_width=True):
-            st.session_state.app_mode = "chat"
-            st.rerun()
-        st.markdown("""
-        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none; background:var(--accent-bg); border: 1px solid var(--accent-bd);">
-          <span class="roadmap-badge badge-planned" style="color:var(--accent); background:transparent; border-color:var(--accent);">Active</span>
-          <div class="roadmap-text">
-            <strong>💬 Return to Chat</strong>
-            Go back to standard study chat mode
-          </div>
-        </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Non-clickable placeholders
-        st.markdown("""
-        <div class="roadmap-item" style="opacity: 0.8;">
-          <span class="roadmap-badge badge-idea">Native</span>
-          <div class="roadmap-text">
-            <strong>🎙️ Voice Input</strong>
-            Ask questions by speaking instead of typing<br>
-            <em>(Available below in Chat view)</em>
-          </div>
-        </div>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown('<div style="margin-bottom:1rem"></div>', unsafe_allow_html=True)
 
     st.markdown(
         '<div class="poweredby">Powered by <span>Groq</span> · <span>llama-3.3-70b-versatile</span></div>',
@@ -1296,10 +1233,45 @@ elif app_mode == "mindmap":
     else:
         if st.button("🪄 Visualize Context as Mind Map"):
             with st.spinner("Analyzing concepts..."):
-                prompt = f"Generate a detailed Mermaid.js mind map (graph TD) of the key concepts from this text. Provide ONLY the raw code block starting with 'graph TD'. Text: {st.session_state.context_text[:10000]}"
-                st.session_state.queued_prompt = prompt
-                st.session_state.app_mode = "chat"
-                st.rerun()
+                prompt = [
+                    {"role": "system", "content": "Generate a detailed Mermaid.js mind map (graph TD) of the key concepts from the text. Provide ONLY the raw code block starting with 'graph TD'. No explanation."},
+                    {"role": "user", "content": f"Context: {st.session_state.context_text[:10000]}"}
+                ]
+                try:
+                    from groq import Groq
+                    key = key_manager.get_key(override=_get_override_key())
+                    client = Groq(api_key=key)
+                    resp = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=prompt)
+                    mm_code = resp.choices[0].message.content
+                    # Extract mermaid block
+                    if "```mermaid" in mm_code:
+                        mm_code = mm_code.split("```mermaid")[1].split("```")[0]
+                    elif "```" in mm_code:
+                        mm_code = mm_code.split("```")[1].split("```")[0]
+                    
+                    st.session_state.mindmap_code = mm_code.strip()
+                except Exception as e:
+                    st.error(f"Failed to generate map: {e}")
+
+        if st.session_state.get("mindmap_code"):
+            st.markdown("### Interactive Concept Map")
+            # Mermaid Renderer Component
+            html_code = f"""
+            <div id="mermaid-root">
+                <pre class="mermaid">
+                {st.session_state.mindmap_code}
+                </pre>
+            </div>
+            <script type="module">
+                import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+                mermaid.initialize({{ startOnLoad: true, theme: 'dark' }});
+            </script>
+            """
+            import streamlit.components.v1 as components
+            components.html(html_code, height=600, scrolling=True)
+            
+            with st.expander("📝 View Raw Code"):
+                st.code(st.session_state.mindmap_code, language="mermaid")
     st.stop()
 
 elif app_mode == "planner":
