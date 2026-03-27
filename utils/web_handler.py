@@ -1,70 +1,53 @@
+"""web_handler.py — Scrape and clean web page content for study context."""
+
+from __future__ import annotations
 import requests
 from bs4 import BeautifulSoup
-import re
 
-
+MAX_CHARS = 12_000
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
+        "Chrome/120.0.0.0 Safari/537.36"
     )
 }
 
 
-def scrape_web_page(url: str, timeout: int = 10) -> tuple[str, str]:
+def scrape_web_page(url: str) -> tuple[str, str]:
     """
-    Scrape readable text content from a web URL.
-    Returns (page_text, page_title).
-    Raises ValueError with a helpful message on failure.
+    Scrape the main text content from a URL.
+
+    Returns:
+        (page_text, page_title)
+
+    Raises:
+        ValueError on network or parsing failure.
     """
     try:
-        response = requests.get(url, headers=HEADERS, timeout=timeout)
-        response.raise_for_status()
-    except requests.exceptions.ConnectionError:
-        raise ValueError(f"Could not connect to {url}. Check the URL and your internet connection.")
-    except requests.exceptions.Timeout:
-        raise ValueError(f"Request to {url} timed out. The site may be slow or unreachable.")
-    except requests.exceptions.HTTPError as e:
-        raise ValueError(f"HTTP error {e.response.status_code} when accessing {url}.")
-    except Exception as e:
-        raise ValueError(f"Could not fetch the page: {str(e)}")
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        raise ValueError(f"Could not fetch URL: {e}")
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Remove noisy tags
-    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "advertisement", "noscript"]):
+    # Remove non-content tags
+    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form"]):
         tag.decompose()
 
-    # Get page title
-    title = soup.title.string.strip() if soup.title and soup.title.string else url
+    title = soup.title.string.strip() if soup.title else url
 
-    # Extract main content — prefer <article>, <main>, then fall back to <body>
-    main_content = (
-        soup.find("article")
-        or soup.find("main")
-        or soup.find("div", {"id": re.compile(r"content|main|article", re.I)})
-        or soup.find("div", {"class": re.compile(r"content|main|article|post", re.I)})
-        or soup.body
-    )
+    # Prefer article / main content
+    main = soup.find("article") or soup.find("main") or soup.find("body")
+    text = main.get_text(separator="\n", strip=True) if main else soup.get_text()
 
-    if not main_content:
-        raise ValueError("Could not extract readable content from this page.")
+    # Collapse blank lines
+    lines = [l for l in text.splitlines() if l.strip()]
+    cleaned = "\n".join(lines)
 
-    # Get text and clean it up
-    raw_text = main_content.get_text(separator="\n")
-    lines = [line.strip() for line in raw_text.splitlines()]
-    cleaned_lines = [line for line in lines if len(line) > 30]  # filter out nav cruft
-    page_text = "\n".join(cleaned_lines)
-
-    if len(page_text) < 100:
-        raise ValueError("Page content is too short or could not be parsed properly.")
-
-    return page_text, title
+    return cleaned[:MAX_CHARS], title
 
 
-def format_web_context(page_text: str, title: str, url: str) -> str:
-    """
-    Format scraped web content for AI context injection.
-    """
-    return f"Web Page: {title}\nSource URL: {url}\n\n{page_text}"
+def format_web_context(text: str, title: str, url: str) -> str:
+    return f"Web Article: {title}\nSource: {url}\n\n{text}"

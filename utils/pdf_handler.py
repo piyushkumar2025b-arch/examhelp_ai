@@ -1,47 +1,43 @@
-import fitz  # PyMuPDF
+"""pdf_handler.py — Extract text and metadata from uploaded PDF files."""
+
+from __future__ import annotations
 import io
+from typing import BinaryIO
+
+try:
+    import fitz  # PyMuPDF
+except ImportError:
+    fitz = None  # type: ignore
 
 
-def extract_text_from_pdf(uploaded_file) -> str:
-    """
-    Extract all text from an uploaded PDF file (Streamlit UploadedFile object).
-    Returns the extracted text as a string.
-    """
+MAX_CHARS = 15_000
+
+
+def extract_text_from_pdf(file: BinaryIO) -> str:
+    """Return extracted text from a PDF file object (max MAX_CHARS chars)."""
+    if fitz is None:
+        return "Error: PyMuPDF not installed. Run: pip install PyMuPDF"
     try:
-        pdf_bytes = uploaded_file.read()
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-
-        text_parts = []
-        for page_num, page in enumerate(doc, start=1):
-            page_text = page.get_text("text")
-            if page_text.strip():
-                text_parts.append(f"[Page {page_num}]\n{page_text.strip()}")
-
-        doc.close()
-
-        if not text_parts:
-            return "No readable text found in this PDF. It may be a scanned image-based PDF."
-
-        full_text = "\n\n".join(text_parts)
-        return full_text
-
+        data = file.read()
+        doc = fitz.open(stream=data, filetype="pdf")
+        parts: list[str] = []
+        for page in doc:
+            parts.append(page.get_text())
+        full_text = "\n".join(parts)
+        return full_text[:MAX_CHARS]
     except Exception as e:
-        return f"Error reading PDF: {str(e)}"
+        return f"Error extracting PDF text: {e}"
 
 
-def get_pdf_metadata(uploaded_file) -> dict:
-    """
-    Returns basic metadata about the PDF.
-    """
+def get_pdf_metadata(file: BinaryIO) -> dict:
+    """Return basic metadata dict from a PDF."""
+    if fitz is None:
+        return {}
     try:
-        pdf_bytes = uploaded_file.read()
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        meta = {
-            "pages": doc.page_count,
-            "title": doc.metadata.get("title", uploaded_file.name),
-            "author": doc.metadata.get("author", "Unknown"),
-        }
-        doc.close()
+        data = file.read()
+        doc = fitz.open(stream=data, filetype="pdf")
+        meta = doc.metadata or {}
+        meta["page_count"] = doc.page_count
         return meta
-    except Exception as e:
-        return {"pages": "?", "title": uploaded_file.name, "author": "Unknown"}
+    except Exception:
+        return {}

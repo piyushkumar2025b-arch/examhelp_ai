@@ -7,6 +7,7 @@ from utils.groq_client import stream_chat_with_groq
 from utils.pdf_handler import extract_text_from_pdf, get_pdf_metadata
 from utils.youtube_handler import get_youtube_transcript, format_transcript_as_context, extract_video_id
 from utils.web_handler import scrape_web_page, format_web_context
+from utils import key_manager
 
 load_dotenv()
 
@@ -58,14 +59,6 @@ st.markdown("""
     background: transparent !important;
     border: none !important;
     padding: 0.2rem 0 !important;
-  }
-
-  /* User message bubble */
-  [data-testid="stChatMessage"][data-testid*="user"] .stMarkdown,
-  div[class*="user"] .stMarkdown {
-    background: #1e1e1f !important;
-    border-radius: 18px 18px 4px 18px !important;
-    padding: 12px 16px !important;
   }
 
   /* Chat input box */
@@ -201,13 +194,12 @@ def init_state():
     defaults = {
         "messages": [],
         "context_text": "",
-        "context_sources": [],   # list of dicts: {type, label}
-        "api_key_set": False,
+        "context_sources": [],
         "theme": "dark",
     }
-    for key, val in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = val
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
 
 init_state()
 
@@ -216,17 +208,12 @@ init_state()
 # HELPERS
 # ─────────────────────────────────────────────
 def add_context(new_text: str, source_label: str, source_type: str):
-    """Append new context and register its source badge."""
     separator = "\n\n" + "="*60 + "\n\n"
     if st.session_state.context_text:
         st.session_state.context_text += separator + new_text
     else:
         st.session_state.context_text = new_text
-
-    st.session_state.context_sources.append({
-        "type": source_type,
-        "label": source_label,
-    })
+    st.session_state.context_sources.append({"type": source_type, "label": source_label})
 
 
 def clear_context():
@@ -235,7 +222,6 @@ def clear_context():
 
 
 def export_chat_history() -> str:
-    """Export chat messages as a markdown string."""
     lines = [f"# ExamHelp Chat Export\n_Exported: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}_\n"]
     if st.session_state.context_sources:
         lines.append("## Study Materials Used")
@@ -249,62 +235,24 @@ def export_chat_history() -> str:
     return "\n".join(lines)
 
 
-### ── API KEY ROTATION ──────────────────────────────────────────────────
-# Three keys tried in order. Key 1 = env/.env/manual, Keys 2 & 3 = hardcoded fallbacks.
-_FALLBACK_KEYS = [
-    "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",   # key 1
-    "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",   # key 2
-    "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",   # key 3
-    "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",   # key 4
-    "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",   # key 5
-    "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",   # key 6
-]
-
-def _get_primary_key() -> str | None:
-    """Return user-supplied key (env / secrets / manual input), if any."""
+def _get_override_key() -> str | None:
+    """Return user-supplied key from secrets / env / manual input, if any."""
     try:
-        return st.secrets["GROQ_API_KEY"]
+        k = st.secrets.get("GROQ_API_KEY", "")
+        if k:
+            return k
     except Exception:
         pass
-    key = os.getenv("GROQ_API_KEY")
-    if key and key not in _FALLBACK_KEYS:   # avoid re-adding fallbacks
-        return key
-    return st.session_state.get("manual_api_key", None)
-
-def get_api_key() -> str | None:
-    """Return the currently active API key (primary or current fallback index)."""
-    primary = _get_primary_key()
-    idx = st.session_state.get("_key_idx", 0)
-
-    all_keys = ([primary] if primary else []) + _FALLBACK_KEYS
-    if not all_keys:
-        return None
-    # Clamp index
-    idx = min(idx, len(all_keys) - 1)
-    return all_keys[idx]
-
-def _rotate_key() -> bool:
-    """
-    Advance to the next available key.
-    Returns True if a new key is available, False if all are exhausted.
-    """
-    primary = _get_primary_key()
-    all_keys = ([primary] if primary else []) + _FALLBACK_KEYS
-    idx = st.session_state.get("_key_idx", 0) + 1
-    if idx < len(all_keys):
-        st.session_state["_key_idx"] = idx
-        return True
-    return False
-
-def _reset_key_rotation():
-    st.session_state["_key_idx"] = 0
+    env_key = os.getenv("GROQ_API_KEY", "")
+    if env_key:
+        return env_key
+    return st.session_state.get("manual_api_key") or None
 
 
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
 with st.sidebar:
-    # Logo / Title
     st.markdown("""
     <div style='padding: 0.5rem 0 1rem 0;'>
       <div style='font-size:1.5rem; font-weight:700; letter-spacing:-0.5px; color:#ececec;'>
@@ -316,23 +264,15 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # ── API KEY ──────────────────────────────
-    st.markdown('<div class="sidebar-section">🔑 API Configuration</div>', unsafe_allow_html=True)
+    # ── API KEY STATUS ────────────────────────
+    st.markdown('<div class="sidebar-section">🔑 API Status</div>', unsafe_allow_html=True)
 
-    primary = _get_primary_key()
-    all_keys = ([primary] if primary else []) + _FALLBACK_KEYS
-    key_idx = st.session_state.get("_key_idx", 0)
-    key_idx = min(key_idx, len(all_keys) - 1)
-    active_key = all_keys[key_idx] if all_keys else None
-    active_num = key_idx + 1
+    override = _get_override_key()
+    active_key = key_manager.get_key(override=override)
 
     if active_key:
-        os.environ["GROQ_API_KEY"] = active_key
-        st.success(f"API key #{active_num} of {len(all_keys)} active ✓", icon="✅")
-        if key_idx > 0:
-            if st.button("🔁 Reset to Key #1", use_container_width=True):
-                _reset_key_rotation()
-                st.rerun()
+        masked = f"{active_key[:8]}…{active_key[-4:]}"
+        st.success(f"API key active: `{masked}` ✓", icon="✅")
     else:
         manual_key = st.text_input(
             "Enter Groq API Key",
@@ -342,10 +282,23 @@ with st.sidebar:
         )
         if manual_key:
             st.session_state["manual_api_key"] = manual_key
-            os.environ["GROQ_API_KEY"] = manual_key
             st.success("API key saved!", icon="✅")
         else:
-            st.warning("Add your Groq API key to start chatting.", icon="⚠️")
+            st.warning("No API key found. Enter one above or set GROQ_API_KEY in .env", icon="⚠️")
+
+    # ── KEY HEALTH (admin view, collapsed) ───
+    with st.expander("🔧 Key Pool Health", expanded=False):
+        rows = key_manager.status_table()
+        for r in rows:
+            color = "#5ccc8a" if "available" in r["status"] else "#cc785c"
+            st.markdown(
+                f"<div style='font-size:0.75rem; font-family:monospace; color:{color}; margin:2px 0;'>"
+                f"{r['key']} — {r['status']} | ✓{r['uses']} ✗{r['errors']}</div>",
+                unsafe_allow_html=True,
+            )
+        if st.button("🔄 Reset All Cooldowns", use_container_width=True):
+            key_manager.reset_all_cooldowns()
+            st.rerun()
 
     st.divider()
 
@@ -414,8 +367,8 @@ with st.sidebar:
             with st.spinner("Scraping page content..."):
                 try:
                     page_text, page_title = scrape_web_page(web_url)
-                    context_text = format_web_context(page_text, page_title, web_url)
-                    add_context(context_text, page_title[:50], "web")
+                    ctx = format_web_context(page_text, page_title, web_url)
+                    add_context(ctx, page_title[:50], "web")
                     st.success(f"Loaded: {page_title[:40]}...", icon="🌐")
                 except ValueError as e:
                     st.error(str(e))
@@ -427,15 +380,17 @@ with st.sidebar:
         st.markdown('<div class="sidebar-section">📎 Active Context</div>', unsafe_allow_html=True)
         for src in st.session_state.context_sources:
             icon = {"pdf": "📄", "youtube": "▶️", "web": "🌐"}.get(src["type"], "📎")
-            st.markdown(f"""
-            <div class="context-badge">{icon} {src['label'][:35]}</div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="context-badge">{icon} {src["label"][:35]}</div>', unsafe_allow_html=True)
         st.markdown("")
         if st.button("🗑️ Clear All Context", use_container_width=True):
             clear_context()
             st.rerun()
     else:
-        st.markdown('<div style="color:#444; font-size:0.82rem; margin-top:0.5rem;">No context loaded yet.<br>Upload a PDF, paste a YouTube link, or add a web URL above.</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="color:#444; font-size:0.82rem; margin-top:0.5rem;">'
+            'No context loaded yet.<br>Upload a PDF, paste a YouTube link, or add a web URL above.</div>',
+            unsafe_allow_html=True,
+        )
 
     st.divider()
 
@@ -457,14 +412,16 @@ with st.sidebar:
             st.session_state.messages = []
             st.rerun()
 
-    st.markdown('<div style="color:#333; font-size:0.72rem; margin-top:2rem; text-align:center;">Powered by Groq · llama-3.1-8b-instant</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="color:#333; font-size:0.72rem; margin-top:2rem; text-align:center;">'
+        'Powered by Groq · llama-3.1-8b-instant</div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ─────────────────────────────────────────────
 # MAIN CHAT AREA
 # ─────────────────────────────────────────────
-
-# Header
 st.markdown("""
 <div style='text-align:center; padding: 1rem 0 0.5rem 0;'>
   <div style='font-size:1.1rem; font-weight:600; color:#ececec; letter-spacing:-0.3px;'>ExamHelp</div>
@@ -472,7 +429,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Active context chips in main area (if any)
 if st.session_state.context_sources:
     chips_html = "".join([
         f'<span class="context-badge">'
@@ -484,17 +440,12 @@ if st.session_state.context_sources:
         f'<div style="text-align:center; margin-bottom:0.8rem;">'
         f'<span style="font-size:0.75rem; color:#555; margin-right:6px;">Studying:</span>'
         f'{chips_html}</div>',
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
-# Welcome message if no chat yet
 if not st.session_state.messages:
     st.markdown("""
-    <div style='
-      text-align:center;
-      padding: 3rem 2rem;
-      color: #444;
-    '>
+    <div style='text-align:center; padding: 3rem 2rem; color: #444;'>
       <div style='font-size:2.8rem; margin-bottom:1rem;'>📚</div>
       <div style='font-size:1.05rem; font-weight:500; color:#666; margin-bottom:0.5rem;'>
         Ready to help you study
@@ -529,72 +480,70 @@ user_input = st.chat_input(
 )
 
 if user_input:
-    # Check API key
-    if not get_api_key():
-        st.error("Please enter your Groq API key in the sidebar first!", icon="🔑")
+    override = _get_override_key()
+    active_key = key_manager.get_key(override=override)
+
+    if not active_key:
+        st.error("No API key available. Please enter a Groq API key in the sidebar.", icon="🔑")
         st.stop()
 
-    # Add user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user", avatar="👤"):
         st.markdown(user_input)
 
-    # Stream assistant response (with automatic API key rotation)
     with st.chat_message("assistant", avatar="🎓"):
         response_placeholder = st.empty()
         full_response = ""
 
-        # Build message history for API (last 20 messages)
         history = [
             {"role": m["role"], "content": m["content"]}
             for m in st.session_state.messages[-20:]
         ]
 
-        max_attempts = 6
+        # Retry loop — tries every available key once
+        max_attempts = key_manager.MAX_RETRIES
         attempt = 0
         success = False
 
         while attempt < max_attempts and not success:
-            current_key = get_api_key()
+            current_key = key_manager.get_key(override=override)
             if not current_key:
-                full_response = "⚠️ **No API key available.** All keys exhausted or none configured."
-                response_placeholder.error(full_response)
+                full_response = "⚠️ **All API keys are cooling down.** Please wait ~60 seconds and try again."
+                response_placeholder.warning(full_response)
                 break
 
-            os.environ["GROQ_API_KEY"] = current_key
             full_response = ""
             try:
-                for chunk in stream_chat_with_groq(history, st.session_state.context_text):
+                for chunk in stream_chat_with_groq(
+                    history,
+                    st.session_state.context_text,
+                    override_key=current_key,
+                ):
                     full_response += chunk
                     response_placeholder.markdown(full_response + "▌")
+
                 response_placeholder.markdown(full_response)
                 success = True
 
             except ValueError as e:
-                full_response = f"⚠️ **Configuration Error:** {str(e)}"
+                full_response = f"⚠️ **Configuration Error:** {e}"
                 response_placeholder.error(full_response)
                 break
 
             except Exception as e:
                 err_msg = str(e)
-                is_rate_limit = "rate_limit" in err_msg.lower() or "429" in err_msg
-                is_auth_error = "api_key" in err_msg.lower() or "authentication" in err_msg.lower() or "401" in err_msg
+                is_rate = "rate_limit" in err_msg.lower() or "429" in err_msg
+                is_auth  = "authentication" in err_msg.lower() or "401" in err_msg or "invalid" in err_msg.lower()
 
-                if is_rate_limit or is_auth_error:
-                    reason = "Rate limit hit" if is_rate_limit else "Invalid/expired key"
-                    key_num = st.session_state.get("_key_idx", 0) + 1
-                    if _rotate_key():
-                        next_num = st.session_state.get("_key_idx", 0) + 1
-                        response_placeholder.warning(
-                            f"⚡ {reason} on key #{key_num}. Switching to key #{next_num} automatically…",
-                            icon="🔄"
-                        )
-                        attempt += 1
-                        continue
-                    else:
-                        full_response = "⚠️ **All API keys exhausted.** Please add a new Groq API key in the sidebar."
-                        response_placeholder.error(full_response)
-                        break
+                if is_rate or is_auth:
+                    reason = "Rate limit" if is_rate else "Invalid key"
+                    masked = f"{current_key[:8]}…{current_key[-4:]}"
+                    response_placeholder.warning(
+                        f"⚡ {reason} on `{masked}`. Switching keys automatically…",
+                        icon="🔄",
+                    )
+                    attempt += 1
+                    continue
                 else:
                     full_response = f"⚠️ **Error:** {err_msg}"
                     response_placeholder.error(full_response)
@@ -602,5 +551,8 @@ if user_input:
 
             attempt += 1
 
-    # Save assistant response
+        if not success and not full_response:
+            full_response = "⚠️ **All API keys are currently rate-limited.** Please wait ~60 seconds and try again."
+            response_placeholder.warning(full_response)
+
     st.session_state.messages.append({"role": "assistant", "content": full_response})

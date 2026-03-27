@@ -1,1 +1,1 @@
-# ExamHelp utils package
+# utils package
