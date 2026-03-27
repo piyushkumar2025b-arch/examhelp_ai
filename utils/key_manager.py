@@ -1,7 +1,9 @@
 """
-key_manager.py — Secure, rate-limit-aware Groq API key rotation.
+key_manager.py — Secure, rate-limit-aware Groq API key rotation with full failover.
 
 Keys are loaded from environment variables or Streamlit secrets — NEVER hardcoded.
+All 8 keys are kept active and the system automatically switches between them
+to ensure uninterrupted output generation.
 
 How to configure keys:
   Local dev  → .env file:
@@ -70,7 +72,7 @@ _RAW_KEYS: list[str] = _load_keys()
 # Config
 # ─────────────────────────────────────────────────────────────────────────────
 COOLDOWN_SECONDS: float = 62.0
-MAX_RETRIES: int = max(len(_RAW_KEYS) * 2, 2)
+MAX_RETRIES: int = max(len(_RAW_KEYS) * 2, 4)  # At least 4, or 2× number of keys
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Per-key state (module-level — survives Streamlit reruns in same process)
@@ -88,15 +90,40 @@ _state: dict[str, dict] = {
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_key(override: Optional[str] = None) -> Optional[str]:
+    """Get the best available key. Returns override if provided, otherwise
+    picks the key with the longest time since last use that isn't on cooldown."""
     if override and override.strip():
         return override.strip()
     now = time.time()
     with _lock:
         available = [k for k in _RAW_KEYS if _state[k]["cooldown_until"] <= now]
         if available:
+            # Pick the least-recently-used key for best distribution
             return min(available, key=lambda k: _state[k]["last_used"])
         if _RAW_KEYS:
+            # All on cooldown — pick the one that comes off soonest
             return min(_RAW_KEYS, key=lambda k: _state[k]["cooldown_until"])
+    return None
+
+
+def get_next_key(exclude_key: Optional[str] = None, override: Optional[str] = None) -> Optional[str]:
+    """Get the next available key, excluding a specific key that just failed.
+    This is the core of the failover system."""
+    if override and override.strip():
+        # If using override, can't failover
+        return None
+    now = time.time()
+    with _lock:
+        available = [
+            k for k in _RAW_KEYS 
+            if _state[k]["cooldown_until"] <= now and k != exclude_key
+        ]
+        if available:
+            return min(available, key=lambda k: _state[k]["last_used"])
+        # Try keys on cooldown but not the excluded one
+        remaining = [k for k in _RAW_KEYS if k != exclude_key]
+        if remaining:
+            return min(remaining, key=lambda k: _state[k]["cooldown_until"])
     return None
 
 
@@ -124,6 +151,18 @@ def mark_invalid(key: str) -> None:
 def seconds_until_available(key: str) -> float:
     with _lock:
         return max(0.0, _state[key]["cooldown_until"] - time.time())
+
+
+def total_keys() -> int:
+    """Return total number of configured keys."""
+    return len(_RAW_KEYS)
+
+
+def available_keys_count() -> int:
+    """Return number of keys not on cooldown."""
+    now = time.time()
+    with _lock:
+        return len([k for k in _RAW_KEYS if _state[k]["cooldown_until"] <= now])
 
 
 def status_table() -> list[dict]:

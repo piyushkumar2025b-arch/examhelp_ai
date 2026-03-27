@@ -7,4 +7,4 @@ primaryColor = "#cc785c"
 font = "sans serif"
 
 [server]
-maxUploadSize = 50
+maxUploadSize = 10

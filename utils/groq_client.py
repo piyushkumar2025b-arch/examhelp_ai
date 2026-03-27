@@ -1,8 +1,9 @@
 """
-groq_client.py — Streaming Groq API client with automatic key rotation.
+groq_client.py — Streaming Groq API client with automatic key rotation & persona support.
 
 Uses key_manager to pick the best available key before every call,
 and reports rate-limit / auth errors back so key_manager can update state.
+Supports persona mode where the AI adopts a historical character's speaking style.
 """
 
 from __future__ import annotations
@@ -34,12 +35,14 @@ OUTPUT QUALITY RULES — Follow these every time:
 - For maths/science, show working step-by-step with clear notation.
 - Keep answers focused — don't pad with filler phrases like "Great question!" or "Certainly!".
 - End long answers with a short **"💡 Remember:"** tip that captures the single most important idea.
+- ALWAYS provide COMPLETE answers — never truncate, never say "I'll continue in the next message".
+- If an answer is long, structure it well but include ALL the information.
 
 TONE: Encouraging, clear, and direct. Like a smart tutor who respects the student's time."""
 
-MODEL = "llama-3.3-70b-versatile"   # upgraded for better output quality
-FALLBACK_MODEL = "llama-3.1-8b-instant"
-MAX_CONTEXT_CHARS = 25_000           # increased to support larger documents
+MODEL = "llama-3.3-70b-versatile"   # primary model
+FALLBACK_MODEL = "llama-3.1-8b-instant"  # fallback
+MAX_CONTEXT_CHARS = 25_000
 
 
 def _build_messages(
@@ -51,7 +54,6 @@ def _build_messages(
 
     if context_text:
         trimmed = context_text[:MAX_CONTEXT_CHARS]
-        # Count sources/type hints for better AI framing
         source_hint = ""
         if "[Page " in trimmed:
             source_hint = " (PDF document with page markers)"
@@ -83,9 +85,14 @@ def stream_chat_with_groq(
     context_text: str = "",
     override_key: Optional[str] = None,
     model: Optional[str] = None,
+    persona_prompt: str = "",
 ) -> Generator[str, None, None]:
     """
     Yields response text chunks as they stream from the Groq API.
+    Automatically rotates through ALL available keys on failure.
+    
+    Args:
+        persona_prompt: Additional system prompt for persona/character mode.
 
     Raises:
         ValueError — configuration / validation error (do not retry).
@@ -99,12 +106,17 @@ def stream_chat_with_groq(
     messages = _build_messages(history, context_text)
     chosen_model = model or MODEL
 
+    # Build system prompt with optional persona
+    full_system = SYSTEM_PROMPT
+    if persona_prompt:
+        full_system += persona_prompt
+
     try:
         stream = client.chat.completions.create(
             model=chosen_model,
-            messages=[{"role": "system", "content": SYSTEM_PROMPT}] + messages,
-            max_tokens=2048,       # increased for richer responses
-            temperature=0.65,      # slightly lower for more precise answers
+            messages=[{"role": "system", "content": full_system}] + messages,
+            max_tokens=4096,       # increased for complete responses
+            temperature=0.65,
             top_p=0.9,
             stream=True,
         )
@@ -118,13 +130,13 @@ def stream_chat_with_groq(
 
     except Exception as e:
         err = str(e).lower()
-        if "model_not_found" in err or "model" in err and "not" in err:
+        if "model_not_found" in err or ("model" in err and "not" in err):
             # Fall back to smaller model
             try:
                 stream = client.chat.completions.create(
                     model=FALLBACK_MODEL,
-                    messages=[{"role": "system", "content": SYSTEM_PROMPT}] + messages,
-                    max_tokens=2048,
+                    messages=[{"role": "system", "content": full_system}] + messages,
+                    max_tokens=4096,
                     temperature=0.65,
                     stream=True,
                 )
