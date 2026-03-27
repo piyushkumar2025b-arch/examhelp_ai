@@ -410,7 +410,7 @@ with st.sidebar:
             st.session_state.messages = []
             st.rerun()
 
-    st.markdown('<div style="color:#333; font-size:0.72rem; margin-top:2rem; text-align:center;">Powered by Groq · llama3-8b-8192</div>', unsafe_allow_html=True)
+    st.markdown('<div style="color:#333; font-size:0.72rem; margin-top:2rem; text-align:center;">Powered by Groq · llama-3.1-8b-instant</div>', unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────
