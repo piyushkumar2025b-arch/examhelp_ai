@@ -4,9 +4,9 @@ import datetime
 from dotenv import load_dotenv
 
 from utils.groq_client import stream_chat_with_groq
-from utils.pdf_handler import extract_text_from_pdf, get_pdf_metadata
-from utils.youtube_handler import get_youtube_transcript, format_transcript_as_context, extract_video_id
-from utils.web_handler import scrape_web_page, format_web_context
+from utils.pdf_handler import extract_text_from_pdf, get_pdf_metadata, get_pdf_summary_stats
+from utils.youtube_handler import get_youtube_transcript, format_transcript_as_context, extract_video_id, get_transcript_stats
+from utils.web_handler import scrape_web_page, format_web_context, get_web_stats
 from utils import key_manager
 
 load_dotenv()
@@ -513,7 +513,7 @@ with st.sidebar:
       <div class="eh-logo-icon">📚</div>
       <div class="eh-logo-text">
         <div class="eh-logo-title">ExamHelp</div>
-        <div class="eh-logo-sub">AI Study Assistant · Groq</div>
+        <div class="eh-logo-sub">AI Study Assistant · Groq 70B</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -590,16 +590,31 @@ with st.sidebar:
             with st.spinner("Extracting text…"):
                 loaded = 0
                 for uf in uploaded_files:
-                    uf.seek(0); meta = get_pdf_metadata(uf)
-                    uf.seek(0); text = extract_text_from_pdf(uf)
+                    uf.seek(0)
+                    stats = get_pdf_summary_stats(uf)
+                    uf.seek(0)
+                    meta = get_pdf_metadata(uf)
+                    uf.seek(0)
+                    text = extract_text_from_pdf(uf)
                     if text.startswith("Error"):
                         st.error(f"Failed: {uf.name}")
                     else:
                         label = meta.get("title") or uf.name
                         add_context(f"PDF: {label}\n\n{text}", label, "pdf")
                         loaded += 1
+                        # Show rich stats
+                        pages = stats.get("pages", "?")
+                        words = stats.get("words", 0)
+                        author = stats.get("author", "")
+                        toc = stats.get("toc_entries", 0)
+                        detail = f"📄 **{uf.name}** — {pages} pages · {words:,} words"
+                        if author:
+                            detail += f" · by {author}"
+                        if toc:
+                            detail += f" · {toc} chapters"
+                        st.success(detail)
                 if loaded:
-                    st.success(f"Loaded {loaded} PDF(s)!", icon="📄")
+                    st.success(f"✅ {loaded} PDF(s) ready — ask me anything about them!", icon="📚")
 
     st.divider()
 
@@ -609,14 +624,24 @@ with st.sidebar:
                            label_visibility="collapsed", key="yt_input")
     if yt_url:
         if st.button("🎬 Load Transcript", use_container_width=True):
-            with st.spinner("Fetching transcript…"):
+            with st.spinner("Fetching transcript… this may take a moment"):
                 try:
                     transcript, vid_id = get_youtube_transcript(yt_url)
+                    stats = get_transcript_stats(transcript)
                     ctx = format_transcript_as_context(transcript, vid_id)
                     add_context(ctx, f"YT: youtube.com/watch?v={vid_id}", "youtube")
-                    st.success("Transcript loaded!", icon="▶️")
+                    mins = stats.get("duration_minutes", "?")
+                    words = stats.get("word_count", 0)
+                    segs = stats.get("segment_count", 0)
+                    st.success(f"▶️ **{mins} min** video · {words:,} words · {segs} segments loaded!")
                 except ValueError as e:
-                    st.error(str(e))
+                    err = str(e)
+                    if "transcript" in err.lower() or "disabled" in err.lower() or "no transcript" in err.lower():
+                        st.error("❌ No transcript available for this video. Try a video with captions enabled.")
+                    elif "video id" in err.lower():
+                        st.error("❌ Invalid YouTube URL. Please check the link and try again.")
+                    else:
+                        st.error(f"❌ {err}")
 
     st.divider()
 
@@ -626,14 +651,21 @@ with st.sidebar:
                             label_visibility="collapsed", key="web_input")
     if web_url:
         if st.button("🔗 Load Web Page", use_container_width=True):
-            with st.spinner("Scraping page…"):
+            with st.spinner("Reading page content…"):
                 try:
                     page_text, page_title = scrape_web_page(web_url)
+                    stats = get_web_stats(page_text, page_title)
                     ctx = format_web_context(page_text, page_title, web_url)
                     add_context(ctx, page_title[:50], "web")
-                    st.success(f"Loaded: {page_title[:35]}…", icon="🌐")
+                    words = stats.get("word_count", 0)
+                    short_title = page_title[:40] + ("…" if len(page_title) > 40 else "")
+                    st.success(f"🌐 **{short_title}** — {words:,} words extracted!")
                 except ValueError as e:
-                    st.error(str(e))
+                    err = str(e)
+                    if "fetch" in err.lower() or "connect" in err.lower():
+                        st.error("❌ Couldn't reach that URL. Check the link or try a different page.")
+                    else:
+                        st.error(f"❌ {err}")
 
     st.divider()
 
@@ -740,7 +772,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
 
     st.markdown(
-        '<div class="poweredby">Powered by <span>Groq</span> · <span>llama-3.1-8b-instant</span></div>',
+        '<div class="poweredby">Powered by <span>Groq</span> · <span>llama-3.3-70b-versatile</span></div>',
         unsafe_allow_html=True,
     )
 
@@ -778,7 +810,7 @@ if st.session_state.context_sources:
 if not st.session_state.messages:
     st.markdown("""
     <div class="hero-wrap">
-      <div class="hero-badge">✦ Powered by Groq · llama-3.1-8b-instant</div>
+      <div class="hero-badge">✦ Powered by Groq · llama-3.3-70b-versatile</div>
       <div class="hero-title">Study smarter,<br><em>not harder</em></div>
       <div class="hero-sub">
         Upload your notes, lecture PDFs, YouTube videos, or any article —
