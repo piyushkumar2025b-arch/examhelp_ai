@@ -1033,6 +1033,18 @@ with st.sidebar:
             st.session_state.context_sources = []
             st.rerun()
 
+    # ── Academic Goals (New Addition) ─────────
+    st.markdown('<div class="section-label">🎯 Academic Goals</div>', unsafe_allow_html=True)
+    if "study_goals" not in st.session_state: st.session_state.study_goals = []
+    new_goal = st.text_input("Add Goal", placeholder="+ New study goal...", label_visibility="collapsed", key="goal_in")
+    if new_goal and st.button("Add", use_container_width=True):
+        st.session_state.study_goals.append({"text": new_goal, "done": False})
+        st.rerun()
+    for i, g in enumerate(st.session_state.study_goals):
+        st.checkbox(g["text"], value=g["done"], key=f"goal_{i}")
+    
+    st.divider()
+    
     # ── Focus Timer ──────────────────────────
     st.markdown('<div class="section-label">⏱️ Focus Timer</div>', unsafe_allow_html=True)
     if "timer_running" not in st.session_state: st.session_state.timer_running = False
@@ -1322,6 +1334,15 @@ if app_mode == "flashcards":
                 <div style="width:{int((mastery_count/len(cards))*100)}%; height:100%; background:var(--green); border-radius:2px;"></div>
             </div>
             """, unsafe_allow_html=True)
+            
+            # Export Buttons (New Addition)
+            st.divider()
+            col_ex1, col_ex2 = st.columns(2)
+            with col_ex1:
+                st.download_button("📤 JSON Export", json.dumps(cards), "deck.json", use_container_width=True)
+            with col_ex2:
+                df = pd.DataFrame(cards)
+                st.download_button("📊 CSV Export", df.to_csv(index=False), "deck.csv", use_container_width=True)
     st.stop()
 
 elif app_mode == "quiz":
