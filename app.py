@@ -1,9 +1,19 @@
-import streamlit as st
-import os
 import datetime
-import time
 import json
+import os
+import re
+import time
+import base64
+import streamlit as st
+import pandas as pd
 from dotenv import load_dotenv
+
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+except ImportError:
+    px = None
+    go = None
 
 from utils.groq_client import stream_chat_with_groq, transcribe_audio, chat_with_groq
 from utils.pdf_handler import extract_text_from_pdf, get_pdf_metadata, get_pdf_summary_stats
@@ -11,6 +21,8 @@ from utils.youtube_handler import get_youtube_transcript, format_transcript_as_c
 from utils.web_handler import scrape_web_page, format_web_context, get_web_stats
 from utils import key_manager
 from utils.personas import PERSONAS, get_persona_names, get_persona_by_name, build_persona_prompt
+from utils.ocr_handler import extract_text_from_image
+from utils.analytics import get_subject_mastery_radar, get_study_intensity_heatmap
 
 load_dotenv()
 
@@ -579,78 +591,71 @@ def get_theme_css():
     align-items: center;
     gap: 6px;
     padding: 5px 10px;
-    border-radius: 8px;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    font-size: 0.73rem;
-    font-family: var(--mono);
-    margin-bottom: 4px;
-    transition: border-color 0.2s;
-  }}
-  .status-indicator:hover {{
-    border-color: var(--border2);
-  }}
-
-  /* ── Theme toggle button ── */
-  .theme-toggle {{
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 10px;
-    border-radius: 8px;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    font-size: 0.78rem;
-    color: var(--text2);
-    cursor: pointer;
-    transition: all 0.15s;
-    width: 100%;
-    justify-content: center;
-  }}
-  .theme-toggle:hover {{
-    border-color: var(--accent);
-    color: var(--accent);
-  }}
-
-  /* ── Chat message user bubble ── */
-  [data-testid="stChatMessage"][data-testid*="user"] {{
-    padding-left: 2rem !important;
-  }}
-
-  /* ── Perfect Toolbox Fix (No Gaps) ── */
-  [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div {{
+    border  /* ── ABSOLUTE ZERO-GAP OVERRIDE ── */
+  [data-testid="stVerticalBlock"] {{
     gap: 0 !important;
+  }}
+  [data-testid="stVerticalBlock"] > div {{
     padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    gap: 0 !important;
   }}
-  .toolbox-wrap {{
-    margin-bottom: 12px;
-  }}
+
+  /* Toolbox Cards - Precision Layout */
   .tool-card {{
     background: var(--bg3);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 16px;
+    padding: 14px;
     transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     display: flex;
     align-items: center;
-    gap: 15px;
-    height: 78px;
+    gap: 12px;
+    height: 72px;
     box-sizing: border-box;
     position: relative;
-    z-index: 1;
+    z-index: 10;
     pointer-events: none;
-    margin-top: 6px;
+    margin-top: 5px;
   }}
   .tool-card:hover {{
     border-color: var(--accent);
     background: var(--accent-bg);
-    transform: translateX(4px);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.3), inset 6px 0 0 var(--accent);
+    transform: scale(1.02);
+    box-shadow: 0 4px 25px rgba(0,0,0,0.4);
   }}
   .tool-icon {{
-    width: 44px; height: 44px;
+    width: 40px; height: 40px;
     background: var(--bg2);
     border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }}
+  .tool-info {{ flex: 1; overflow: hidden; }}
+  .tool-name {{ font-size: 0.88rem; font-weight: 800; color: var(--text); display: block; white-space: nowrap; text-overflow: ellipsis; }}
+  .tool-desc {{ font-size: 0.72rem; color: var(--text3); line_height: 1.2; margin-top: 1px; white-space: nowrap; text-overflow: ellipsis; }}
+
+  /* Hidden Button Overlay with High Priority */
+  [data-testid="stSidebar"] div.stButton {{
+    height: 72px !important;
+    margin-bottom: -72px !important;
+    position: relative;
+    z-index: 50 !important;
+  }}
+  [data-testid="stSidebar"] div.stButton button {{
+    position: absolute;
+    width: 100% !important;
+    height: 72px !important;
+    margin-top: 5px !important;
+    opacity: 0 !important;
+    z-index: 100;
+    border: none !important;
+    background: transparent !important;
+  }}
+</style>
+er: 1px solid var(--border);
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
     font-size: 1.4rem;
@@ -1024,7 +1029,71 @@ with st.sidebar:
             st.session_state.messages = []
             st.session_state.total_output_chars = 0
             st.session_state.total_output_lines = 0
+            st.session_state.context_text = ""
+            st.session_state.context_sources = []
             st.rerun()
+
+    # ── Focus Timer ──────────────────────────
+    st.markdown('<div class="section-label">⏱️ Focus Timer</div>', unsafe_allow_html=True)
+    if "timer_running" not in st.session_state: st.session_state.timer_running = False
+    col_t1, col_t2 = st.columns([2, 1])
+    with col_t1:
+        st.session_state.timer_start = st.number_input("Mins", min_value=1, max_value=120, value=25, label_visibility="collapsed")
+    with col_t2:
+        if st.button("▶️ Go" if not st.session_state.timer_running else "⏹️ Stop", use_container_width=True):
+            st.session_state.timer_running = not st.session_state.timer_running
+    
+    # ── OCR / Notes Scanner (New) ───────────
+    st.markdown('<div class="section-label">📸 Notes Scanner (OCR)</div>', unsafe_allow_html=True)
+    scanned_file = st.file_uploader("Upload Image", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="ocr_up")
+    if scanned_file:
+        if st.button("🔍 Run OCR Scan", use_container_width=True):
+            with st.spinner("Extracting handwritten text..."):
+                 ocr_text = extract_text_from_image(scanned_file.read())
+                 if ocr_text.startswith("OCR"): st.error(ocr_text)
+                 else:
+                     add_context(f"OCR Scan: {scanned_file.name}\n\n{ocr_text}", scanned_file.name, "web")
+                     st.success("✅ Scanned text loaded into context!")
+
+    # ── Academic Analytics (Massive charts) ──
+    st.markdown('<div class="section-label">📈 Mastery Tracker</div>', unsafe_allow_html=True)
+    radar_chart = get_subject_mastery_radar({})
+    if radar_chart: st.plotly_chart(radar_chart, use_container_width=True, config={'displayModeBar': False})
+
+    # ── Exam Countdown ──────────────────────
+    st.markdown('<div class="section-label">🗓️ Exam Countdown</div>', unsafe_allow_html=True)
+    if "exam_date" not in st.session_state: st.session_state.exam_date = datetime.date.today() + datetime.timedelta(days=30)
+    
+    col_e1, col_e2 = st.columns([2, 1])
+    with col_e1:
+         st.session_state.exam_date = st.date_input("Date", value=st.session_state.exam_date, label_visibility="collapsed")
+    with col_e2:
+        days_left = (st.session_state.exam_date - datetime.date.today()).days
+        color = "var(--green)" if days_left > 14 else "var(--accent)"
+        st.markdown(f'<div style="text-align:center; font-weight:800; color:{color}; font-size:1.1rem; padding-top:4px;">{days_left}d</div>', unsafe_allow_html=True)
+
+    # ── Model Intelligence Toggle ────────────
+    intelligence_level = st.select_slider(
+        "Performance vs Accuracy",
+        options=["Fast (8B)", "Smart (70B)"],
+        value="Smart (70B)",
+        label_visibility="collapsed"
+    )
+    st.session_state.model_choice = "llama-3.1-8b-instant" if "Fast" in intelligence_level else "llama-3.3-70b-versatile"
+
+    # ── Context Intelligence Dashboard (New) ──
+    if st.session_state.context_text:
+        st.markdown('<div class="section-label">📜 Context Summary</div>', unsafe_allow_html=True)
+        if "last_context_summary" not in st.session_state or st.session_state.get("last_context_hash") != hash(st.session_state.context_text):
+            with st.spinner("Analyzing insight..."):
+                try:
+                    summary_prompt = [{"role": "system", "content": "Briefly summarize the core topics of this material in exactly 3 bullet points with emojis."}, {"role": "user", "content": st.session_state.context_text[:8000]}]
+                    st.session_state.last_context_summary = chat_with_groq(summary_prompt, model="llama-3.1-8b-instant")
+                    st.session_state.last_context_hash = hash(st.session_state.context_text)
+                except Exception:
+                    st.session_state.last_context_summary = "Ready to discuss your notes."
+        
+        st.markdown(f'<div style="font-size:0.75rem; color:var(--text3); line-height:1.4; background:var(--bg3); padding:10px; border-radius:8px; border-left:3px solid var(--accent);">{st.session_state.last_context_summary}</div>', unsafe_allow_html=True)
 
     # ── Academic Analytics (New) ──────────────
     st.markdown('<div class="section-label">📈 Academic Analytics</div>', unsafe_allow_html=True)
@@ -1042,13 +1111,13 @@ with st.sidebar:
             <span>Concepts Mastered</span> <span>{concepts_total}</span>
         </div>
         <div style="height:4px; background:var(--bg2); border-radius:2px; margin-bottom:10px;">
-            <div style="width:{min(100, concepts_total*10)}%; height:100%; background:var(--accent); border-radius:2px;"></div>
+            <div style="width:{int(min(100.0, float(concepts_total)*10.0))}%; height:100%; background:var(--accent); border-radius:2px;"></div>
         </div>
         <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text3); margin-bottom:4px;">
             <span>Knowledge Density</span> <span>{actual_words:,} words</span>
         </div>
         <div style="height:4px; background:var(--bg2); border-radius:2px;">
-            <div style="width:{min(100, actual_words/100)}%; height:100%; background:var(--accent); border-radius:2px; opacity:0.6;"></div>
+            <div style="width:{int(min(100.0, float(actual_words)/100.0))}%; height:100%; background:var(--accent); border-radius:2px; opacity:0.6;"></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1225,16 +1294,34 @@ if app_mode == "flashcards":
             
             col_a, col_b, col_c = st.columns([1,1,1])
             with col_a:
-                if st.button("⬅️ Back", disabled=(idx == 0), use_container_width=True):
-                    st.session_state.current_card -= 1; st.rerun()
+                if st.button("❌ Need more", use_container_width=True):
+                    # Tracking (simplistic)
+                    if "card_mastery" not in st.session_state: st.session_state.card_mastery = {}
+                    st.session_state.card_mastery[idx] = "fail"
+                    if idx < len(cards)-1: st.session_state.current_card += 1; st.rerun()
             with col_b:
-                if st.button("💾 Save to Chat", use_container_width=True):
+                if st.button("💾 Save Deck", use_container_width=True):
                     summary = "\n".join([f"Q: {c['q']} | A: {c['a']}" for c in cards])
                     st.session_state.messages.append({"role": "assistant", "content": f"### 🃏 Generated Flashcards ({lang})\n\n{summary}"})
-                    st.success("Saved to history!")
+                    st.success("Saved!")
             with col_c:
-                if st.button("Next ➡️", disabled=(idx == len(cards)-1), use_container_width=True):
-                    st.session_state.current_card += 1; st.rerun()
+                if st.button("✅ Got it", use_container_width=True):
+                    if "card_mastery" not in st.session_state: st.session_state.card_mastery = {}
+                    st.session_state.card_mastery[idx] = "pass"
+                    if idx < len(cards)-1: st.session_state.current_card += 1; st.rerun()
+                elif idx == len(cards)-1:
+                    if st.button("Finish 🏁", use_container_width=True):
+                         st.session_state.flashcards = []
+                         st.rerun()
+
+            # Progress Bar
+            mastery_count = sum(1 for v in st.session_state.get("card_mastery", {}).values() if v == "pass")
+            st.markdown(f"""
+            <div style="font-size:0.7rem; color:var(--text3); margin-top:10px;">Mastery: {mastery_count} / {len(cards)}</div>
+            <div style="height:4px; background:var(--bg2); border-radius:2px; margin-top:4px;">
+                <div style="width:{int((mastery_count/len(cards))*100)}%; height:100%; background:var(--green); border-radius:2px;"></div>
+            </div>
+            """, unsafe_allow_html=True)
     st.stop()
 
 elif app_mode == "quiz":
@@ -1295,10 +1382,17 @@ elif app_mode == "quiz":
                         st.rerun()
 
                 if st.session_state.quiz_feedback:
-                    type, msg = st.session_state.quiz_feedback
-                    if type == "success": st.success(msg)
-                    else: st.error(msg)
-                    with col_n:
+                    type_f, msg_f = st.session_state.quiz_feedback
+                    if type_f == "success": st.success(msg_f)
+                    else: st.error(msg_f)
+                    
+                    col_expl, col_cont = st.columns([1,1])
+                    with col_expl:
+                        if st.button("💡 Explain more", use_container_width=True):
+                            st.session_state.queued_prompt = f"Explain the concept behind this question more deeply: {q['q']}. The correct answer was {q['correct']}. Context: {q['explanation']}"
+                            st.session_state.app_mode = "chat"
+                            st.rerun()
+                    with col_cont:
                         if st.button("Continue ➡️", use_container_width=True):
                             st.session_state.quiz_current += 1
                             st.session_state.quiz_feedback = None
@@ -1382,20 +1476,6 @@ elif app_mode == "planner":
                  st.download_button("📥 Download as TXT", st.session_state.study_plan_content, "study_plan.txt", use_container_width=True)
     st.stop()
 
-elif app_mode == "voice":
-    st.header("🎙️ Intelligent Voice Mode")
-    lang_v = st.session_state.get("selected_language", "English")
-    st.markdown(f"Discuss your materials in **{lang_v}**. Use commands like *'Generate quiz'* or *'Create mind map'*.")
-    audio_val = st.audio_input("Start speaking...", key="voice_main")
-    if audio_val:
-        with st.spinner("Processing voice context..."):
-            try:
-                transcript = transcribe_audio(audio_val.read(), override_key=_get_override_key())
-                txt = transcript.text if hasattr(transcript, "text") else str(transcript)
-                if txt.strip():
-                    txt_low = txt.lower()
-                    if "quiz" in txt_low: st.session_state.app_mode = "quiz"
-                    elif "flash" in txt_low: st.session_state.app_mode = "flashcards"
                     elif "map" in txt_low: st.session_state.app_mode = "mindmap"
                     elif "plan" in txt_low: st.session_state.app_mode = "planner"
                     else: st.session_state.queued_prompt = txt
