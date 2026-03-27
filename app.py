@@ -975,80 +975,124 @@ with st.sidebar:
             st.selectbox("Load File", ["No sessions saved"], disabled=True, label_visibility="collapsed")
             st.button("📂 Load", disabled=True, use_container_width=True)
 
-    st.divider()
-
+    # Add the hidden button click overlay styles
     st.markdown("""
-    <div style="padding:2px 0">
-
-    <a href="?action=flashcards" target="_self" style="text-decoration:none; display:block; color:inherit;">
-    <div class="roadmap-item">
-      <span class="roadmap-badge badge-soon">Soon</span>
-      <div class="roadmap-text">
-        <strong>🃏 Flashcard Generator</strong>
-        Auto-generate Q&amp;A flashcards from your uploaded material
-      </div>
-    </div>
-    </a>
-
-    <a href="?action=quiz" target="_self" style="text-decoration:none; display:block; color:inherit;">
-    <div class="roadmap-item">
-      <span class="roadmap-badge badge-soon">Soon</span>
-      <div class="roadmap-text">
-        <strong>📝 Smart Quiz Mode</strong>
-        AI-generated multiple-choice quizzes with instant feedback
-      </div>
-    </div>
-    </a>
-
-    <div class="roadmap-item" style="opacity: 0.9;">
-      <span class="roadmap-badge badge-planned">Planned</span>
-      <div class="roadmap-text">
-        <strong>📁 Study Sessions</strong>
-        Save &amp; reload named chat sessions across browser visits<br>
-        <em>(Use the tool above to save/load sessions)</em>
-      </div>
-    </div>
-
-    <a href="?action=mindmap" target="_self" style="text-decoration:none; display:block; color:inherit;">
-    <div class="roadmap-item">
-      <span class="roadmap-badge badge-planned">Planned</span>
-      <div class="roadmap-text">
-        <strong>📊 Mind Map Export</strong>
-        Visualise key concepts as an interactive mind map
-      </div>
-    </div>
-    </a>
-
-    <div class="roadmap-item" style="opacity: 0.9;">
-      <span class="roadmap-badge badge-planned">Planned</span>
-      <div class="roadmap-text">
-        <strong>🌍 Multi-language</strong>
-        Chat and receive answers in your preferred language<br>
-        <em>(Use Language selector above)</em>
-      </div>
-    </div>
-
-    <div class="roadmap-item" style="opacity: 0.9;">
-      <span class="roadmap-badge badge-idea">Idea</span>
-      <div class="roadmap-text">
-        <strong>🎙️ Voice Input</strong>
-        Ask questions by speaking instead of typing<br>
-        <em>(Available directly in the main chat view)</em>
-      </div>
-    </div>
-
-    <a href="?action=planner" target="_self" style="text-decoration:none; display:block; color:inherit;">
-    <div class="roadmap-item">
-      <span class="roadmap-badge badge-idea">Idea</span>
-      <div class="roadmap-text">
-        <strong>📅 Study Planner</strong>
-        AI-generated revision timetable based on your topics
-      </div>
-    </div>
-    </a>
-
-    </div>
+    <style>
+    .click-container {
+        position: relative;
+        margin-bottom: 4px;
+    }
+    .click-container .stButton {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 10;
+        opacity: 0;
+    }
+    .click-container .stButton > button {
+        width: 100%; height: 100%; cursor: pointer;
+    }
+    </style>
     """, unsafe_allow_html=True)
+
+    with st.expander("🚀 Advanced Features", expanded=True):
+        st.markdown('<div style="padding:2px 0;">', unsafe_allow_html=True)
+
+        # Flashcards
+        st.markdown('<div class="click-container">', unsafe_allow_html=True)
+        if st.button(" ", key="btn_flash", use_container_width=True):
+            st.session_state.app_mode = "flashcards"
+            st.rerun()
+        st.markdown("""
+        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
+          <span class="roadmap-badge badge-soon">Active</span>
+          <div class="roadmap-text">
+            <strong>🃏 Flashcard Generator</strong>
+            Auto-generate Q&amp;A flashcards from your uploaded material
+          </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Quiz
+        st.markdown('<div class="click-container">', unsafe_allow_html=True)
+        if st.button(" ", key="btn_quiz", use_container_width=True):
+            st.session_state.app_mode = "quiz"
+            st.rerun()
+        st.markdown("""
+        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
+          <span class="roadmap-badge badge-soon">Active</span>
+          <div class="roadmap-text">
+            <strong>📝 Smart Quiz Mode</strong>
+            AI-generated multiple-choice quizzes with instant feedback
+          </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Sessions
+        st.markdown("""
+        <div class="roadmap-item" style="opacity:0.9;">
+          <span class="roadmap-badge badge-planned">Active</span>
+          <div class="roadmap-text">
+            <strong>📁 Study Sessions</strong>
+            Save &amp; reload named chat sessions across browser visits<br>
+            <em>(Use the tool above to save/load)</em>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Mind Map
+        st.markdown('<div class="click-container">', unsafe_allow_html=True)
+        if st.button(" ", key="btn_map", use_container_width=True):
+            st.session_state.app_mode = "mindmap"
+            st.rerun()
+        st.markdown("""
+        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none;">
+          <span class="roadmap-badge badge-planned">Active</span>
+          <div class="roadmap-text">
+            <strong>📊 Mind Map Export</strong>
+            Visualise key concepts as an interactive mind map
+          </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Chat Return
+        st.markdown('<div class="click-container">', unsafe_allow_html=True)
+        if st.button(" ", key="btn_chat", use_container_width=True):
+            st.session_state.app_mode = "chat"
+            st.rerun()
+        st.markdown("""
+        <div class="roadmap-item" style="margin-top:-45px; pointer-events:none; background:var(--accent-bg); border: 1px solid var(--accent-bd);">
+          <span class="roadmap-badge badge-planned" style="color:var(--accent); background:transparent; border-color:var(--accent);">Active</span>
+          <div class="roadmap-text">
+            <strong>💬 Return to Chat</strong>
+            Go back to standard study chat mode
+          </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Non-clickable placeholders
+        st.markdown("""
+        <div class="roadmap-item" style="opacity: 0.8;">
+          <span class="roadmap-badge badge-idea">Idea</span>
+          <div class="roadmap-text">
+            <strong>🎙️ Voice Input</strong>
+            Ask questions by speaking instead of typing<br>
+            <em>(Available natively in Chat view)</em>
+          </div>
+        </div>
+        <div class="roadmap-item" style="opacity: 0.8;">
+          <span class="roadmap-badge badge-idea">Idea</span>
+          <div class="roadmap-text">
+            <strong>📅 Study Planner</strong>
+            AI-generated revision timetable based on your topics
+          </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
+
     st.markdown(
         '<div class="poweredby">Powered by <span>Groq</span> · <span>llama-3.3-70b-versatile</span></div>',
         unsafe_allow_html=True,
@@ -1089,7 +1133,42 @@ if st.session_state.context_sources:
         unsafe_allow_html=True,
     )
 
-# ── Empty state ──────────────────────────────
+app_mode = st.session_state.get("app_mode", "chat")
+
+if app_mode == "flashcards":
+    st.header("🃏 Flashcard Generator")
+    if not st.session_state.context_text:
+        st.warning("Please upload a PDF or add context in the sidebar first.")
+    else:
+        if st.button("🪄 Generate Flashcards from Context"):
+            st.session_state.queued_prompt = "Based strictly on the provided context, act as a Flashcard Generator. Create 10 challenging Q&A flashcards. Output them exactly one per paragraph, with the format: Q: [Question] \n A: [Answer]"
+            st.session_state.app_mode = "chat"
+            st.rerun()
+    st.stop()
+
+elif app_mode == "quiz":
+    st.header("📝 Smart Quiz Mode")
+    if not st.session_state.context_text:
+        st.warning("Please upload a PDF or add context in the sidebar first.")
+    else:
+        if st.button("🪄 Start Interactive Quiz"):
+            st.session_state.queued_prompt = "Based on the provided study material, act as a Smart Quiz Master. Ask me a 5-question multiple-choice quiz. Ask them ONE at a time. Do not move to the next question until I answer."
+            st.session_state.app_mode = "chat"
+            st.rerun()
+    st.stop()
+
+elif app_mode == "mindmap":
+    st.header("📊 Mind Map Export")
+    if not st.session_state.context_text:
+        st.warning("Please upload a PDF or add context in the sidebar first.")
+    else:
+        if st.button("🪄 Generate Mind Map"):
+            st.session_state.queued_prompt = "Generate a comprehensive Mermaid.js mind map (graph TD) of the key concepts from the study material. Provide ONLY the raw Mermaid code block."
+            st.session_state.app_mode = "chat"
+            st.rerun()
+    st.stop()
+
+# ── Empty state (Chat Mode Only) ───────────────────────
 if not st.session_state.messages:
     st.markdown("""
     <div class="hero-wrap">
