@@ -154,3 +154,26 @@ def stream_chat_with_groq(
         elif "authentication" in err or "api_key" in err or "401" in err or "invalid" in err:
             key_manager.mark_invalid(key)
         raise  # re-raise so app.py can handle UI feedback
+
+
+def transcribe_audio(audio_bytes: bytes, override_key: Optional[str] = None) -> str:
+    """Uses Groq Whisper API to transcribe audio bytes to text."""
+    key = key_manager.get_key(override=override_key)
+    if not key:
+        raise ValueError("No Groq API key available.")
+    
+    client = Groq(api_key=key)
+    try:
+        transcription = client.audio.transcriptions.create(
+            file=("audio.wav", audio_bytes),
+            model="whisper-large-v3",
+            response_format="text"
+        )
+        return transcription
+    except Exception as e:
+        err = str(e).lower()
+        if "rate_limit" in err or "429" in err:
+            key_manager.mark_rate_limited(key)
+        elif "authentication" in err or "api_key" in err or "401" in err or "invalid" in err:
+            key_manager.mark_invalid(key)
+        raise ValueError(f"Transcription failed: {e}")

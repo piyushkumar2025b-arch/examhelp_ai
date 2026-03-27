@@ -402,12 +402,16 @@ def get_categories() -> list[str]:
     return cats
 
 
-def build_persona_prompt(persona: dict) -> str:
-    """Build a system prompt modifier based on the selected persona."""
-    if persona["name"] == "Default (ExamHelp)":
-        return ""
+def build_persona_prompt(persona: dict, language: str = "English") -> str:
+    """Build a system prompt modifier based on the selected persona and language."""
+    base = ""
+    if language and language != "English":
+        base = f"\n\nCRITICAL RULE: You MUST answer strictly in {language}. All explanations, headers, and bullet points must be translated to {language}.\n"
 
-    return (
+    if persona["name"] == "Default (ExamHelp)":
+        return base
+
+    return base + (
         f"\n\nPERSONA MODE ACTIVE — You are teaching as {persona['name']} ({persona['era']}).\n"
         f"CHARACTER: {persona['core']}\n"
         f"SPEAKING STYLE: {persona['voice']}\n"

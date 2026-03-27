@@ -5,7 +5,7 @@ import time
 import json
 from dotenv import load_dotenv
 
-from utils.groq_client import stream_chat_with_groq
+from utils.groq_client import stream_chat_with_groq, transcribe_audio
 from utils.pdf_handler import extract_text_from_pdf, get_pdf_metadata, get_pdf_summary_stats
 from utils.youtube_handler import get_youtube_transcript, format_transcript_as_context, extract_video_id, get_transcript_stats
 from utils.web_handler import scrape_web_page, format_web_context, get_web_stats
@@ -37,6 +37,10 @@ def init_state():
         "total_output_lines": 0,
         "selected_persona": "Default (ExamHelp)",
         "theme_mode": "dark",
+        "selected_language": "English",
+        "saved_sessions": {},
+        "queued_prompt": None,
+        "last_audio": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -702,6 +706,14 @@ with st.sidebar:
             unsafe_allow_html=True,
         )
 
+    st.markdown('<div class="section-label">🌍 Language</div>', unsafe_allow_html=True)
+    languages = ["English", "Spanish", "French", "German", "Hindi", "Mandarin", "Japanese", "Arabic"]
+    current_lang = st.session_state.get("selected_language", "English")
+    sel_lang = st.selectbox("Select Language", languages, index=languages.index(current_lang) if current_lang in languages else 0, label_visibility="collapsed")
+    if sel_lang != current_lang:
+        st.session_state.selected_language = sel_lang
+        st.rerun()
+
     st.divider()
 
     # ── API Status ────────────────────────────
@@ -921,69 +933,47 @@ with st.sidebar:
 
     st.divider()
 
-    # ── Feature Roadmap ───────────────────────
-    with st.expander("🚀 Upcoming Features"):
-        st.markdown("""
-        <div style="padding:2px 0">
+    st.markdown('<div class="section-label">📁 Study Sessions</div>', unsafe_allow_html=True)
+    col3, col4 = st.columns(2)
+    with col3:
+        session_name = st.text_input("Save As", placeholder="e.g. Chapter 4", label_visibility="collapsed")
+        if st.button("💾 Save", use_container_width=True):
+            if session_name and st.session_state.messages:
+                st.session_state.saved_sessions[session_name] = {
+                    "messages": st.session_state.messages.copy(), 
+                    "context": st.session_state.context_text,
+                    "sources": st.session_state.context_sources.copy()
+                }
+                st.success("Saved!")
+    with col4:
+        if st.session_state.saved_sessions:
+            load_name = st.selectbox("Load File", list(st.session_state.saved_sessions.keys()), label_visibility="collapsed")
+            if st.button("📂 Load", use_container_width=True):
+                data = st.session_state.saved_sessions[load_name]
+                st.session_state.messages = data["messages"]
+                st.session_state.context_text = data["context"]
+                st.session_state.context_sources = data["sources"]
+                st.rerun()
+        else:
+            st.selectbox("Load File", ["No sessions saved"], disabled=True, label_visibility="collapsed")
+            st.button("📂 Load", disabled=True, use_container_width=True)
 
-        <div class="roadmap-item">
-          <span class="roadmap-badge badge-soon">Soon</span>
-          <div class="roadmap-text">
-            <strong>🃏 Flashcard Generator</strong>
-            Auto-generate Q&amp;A flashcards from your uploaded material
-          </div>
-        </div>
+    st.divider()
 
-        <div class="roadmap-item">
-          <span class="roadmap-badge badge-soon">Soon</span>
-          <div class="roadmap-text">
-            <strong>📝 Smart Quiz Mode</strong>
-            AI-generated multiple-choice quizzes with instant feedback
-          </div>
-        </div>
-
-        <div class="roadmap-item">
-          <span class="roadmap-badge badge-planned">Planned</span>
-          <div class="roadmap-text">
-            <strong>📁 Study Sessions</strong>
-            Save &amp; reload named chat sessions across browser visits
-          </div>
-        </div>
-
-        <div class="roadmap-item">
-          <span class="roadmap-badge badge-planned">Planned</span>
-          <div class="roadmap-text">
-            <strong>📊 Mind Map Export</strong>
-            Visualise key concepts as an interactive mind map
-          </div>
-        </div>
-
-        <div class="roadmap-item">
-          <span class="roadmap-badge badge-planned">Planned</span>
-          <div class="roadmap-text">
-            <strong>🌍 Multi-language</strong>
-            Chat and receive answers in your preferred language
-          </div>
-        </div>
-
-        <div class="roadmap-item">
-          <span class="roadmap-badge badge-idea">Idea</span>
-          <div class="roadmap-text">
-            <strong>🎙️ Voice Input</strong>
-            Ask questions by speaking instead of typing
-          </div>
-        </div>
-
-        <div class="roadmap-item">
-          <span class="roadmap-badge badge-idea">Idea</span>
-          <div class="roadmap-text">
-            <strong>📅 Study Planner</strong>
-            AI-generated revision timetable based on your topics
-          </div>
-        </div>
-
-        </div>
-        """, unsafe_allow_html=True)
+    # ── Quick Tools ───────────────────────────────
+    st.markdown('<div class="section-label">🛠️ Quick Tools</div>', unsafe_allow_html=True)
+    if st.button("🃏 Flashcard Generator", help="Auto-generate Q&A flashcards from your uploaded material", use_container_width=True):
+        st.session_state.queued_prompt = "Based on the provided study material, act as a Flashcard Generator. Create 10 challenging Q&A flashcards to test my knowledge. Format as bold question, then bold answer."
+        st.rerun()
+    if st.button("📝 Smart Quiz Mode", help="AI-generated multiple-choice quizzes with instant feedback", use_container_width=True):
+        st.session_state.queued_prompt = "Based on the provided study material, act as a Smart Quiz Master. Ask me one multiple-choice question at a time. Wait for my answer before giving feedback and moving to the next question."
+        st.rerun()
+    if st.button("📊 Mind Map Export", help="Visualise key concepts as an interactive mind map", use_container_width=True):
+        st.session_state.queued_prompt = "Generate a comprehensive Mermaid.js mind map (graph TD) of the key concepts from the study material. Provide ONLY the raw Mermaid code block."
+        st.rerun()
+    if st.button("📅 Study Planner", help="AI-generated revision timetable based on your topics", use_container_width=True):
+        st.session_state.queued_prompt = "Create a structured, day-by-day revision timetable based on the major topics in the provided study material. Be highly specific about timeframes."
+        st.rerun()
 
     st.markdown(
         '<div class="poweredby">Powered by <span>Groq</span> · <span>llama-3.3-70b-versatile</span></div>',
@@ -1035,14 +1025,6 @@ if not st.session_state.messages:
         Upload your notes, lecture PDFs, YouTube videos, or any article —
         then ask anything and get sharp, exam-focused answers instantly.
       </div>
-      <div class="prompt-pills">
-        <div class="pill">📋 Summarise this PDF</div>
-        <div class="pill">🎯 What are the key exam topics?</div>
-        <div class="pill">🧠 Quiz me on this chapter</div>
-        <div class="pill">📌 Explain this concept simply</div>
-        <div class="pill">✍️ Generate study notes</div>
-        <div class="pill">🔍 Compare these two ideas</div>
-      </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1055,8 +1037,25 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
 
-# ── Chat input ────────────────────────────────
+# ── Voice Input & Chat Input ────────────────────────────────
+audio_val = st.audio_input("Record a voice question", label_visibility="collapsed")
+if audio_val and audio_val != st.session_state.get("last_audio"):
+    st.session_state.last_audio = audio_val
+    with st.spinner("Transcribing voice..."):
+        try:
+            transcript = transcribe_audio(audio_val.read(), override_key=_get_override_key())
+            if hasattr(transcript, "text") and transcript.text.strip():
+                st.session_state.queued_prompt = transcript.text
+            elif isinstance(transcript, str) and transcript.strip():
+                st.session_state.queued_prompt = transcript
+        except Exception as e:
+            st.error(f"Voice transcription failed: {e}")
+
 user_input = st.chat_input("Ask anything about your study material…", key="chat_input")
+
+if st.session_state.queued_prompt:
+    user_input = st.session_state.queued_prompt
+    st.session_state.queued_prompt = None
 
 if user_input:
     override = _get_override_key()
@@ -1087,7 +1086,10 @@ if user_input:
         # Build persona prompt
         persona_prompt = ""
         if persona and st.session_state.selected_persona != "Default (ExamHelp)":
-            persona_prompt = build_persona_prompt(persona)
+            persona_prompt = build_persona_prompt(persona, language=st.session_state.get("selected_language", "English"))
+        elif st.session_state.get("selected_language", "English") != "English":
+            # If default persona but language changed
+            persona_prompt = f"\n\nCRITICAL RULE: You MUST answer strictly in {st.session_state.selected_language}. All explanations, headers, and bullet points must be translated to {st.session_state.selected_language}."
 
         while attempt < max_attempts and not success:
             current_key = key_manager.get_key(override=override)
