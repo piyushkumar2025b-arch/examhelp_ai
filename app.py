@@ -48,6 +48,23 @@ def init_state():
 
 init_state()
 
+# ─────────────────────────────────────────────
+# QUERY PARAMS DISPATCHER (For Quick Tools)
+# ─────────────────────────────────────────────
+if "action" in st.query_params:
+    action = st.query_params["action"]
+    if action == "flashcards":
+        st.session_state.queued_prompt = "Based on the provided study material, act as a Flashcard Generator. Create 10 challenging Q&A flashcards to test my knowledge. Format as bold question, then bold answer."
+    elif action == "quiz":
+        st.session_state.queued_prompt = "Based on the provided study material, act as a Smart Quiz Master. Ask me one multiple-choice question at a time. Wait for my answer before giving feedback and moving to the next question."
+    elif action == "mindmap":
+        st.session_state.queued_prompt = "Generate a comprehensive Mermaid.js mind map (graph TD) of the key concepts from the study material. Provide ONLY the raw Mermaid code block."
+    elif action == "planner":
+        st.session_state.queued_prompt = "Create a structured, day-by-day revision timetable based on the major topics in the provided study material. Be highly specific about timeframes."
+    
+    st.query_params.clear()
+    st.rerun()
+
 
 # ─────────────────────────────────────────────
 # THEME CSS — Dark & Light modes (Claude-inspired)
@@ -960,21 +977,78 @@ with st.sidebar:
 
     st.divider()
 
-    # ── Quick Tools ───────────────────────────────
-    st.markdown('<div class="section-label">🛠️ Quick Tools</div>', unsafe_allow_html=True)
-    if st.button("🃏 Flashcard Generator", help="Auto-generate Q&A flashcards from your uploaded material", use_container_width=True):
-        st.session_state.queued_prompt = "Based on the provided study material, act as a Flashcard Generator. Create 10 challenging Q&A flashcards to test my knowledge. Format as bold question, then bold answer."
-        st.rerun()
-    if st.button("📝 Smart Quiz Mode", help="AI-generated multiple-choice quizzes with instant feedback", use_container_width=True):
-        st.session_state.queued_prompt = "Based on the provided study material, act as a Smart Quiz Master. Ask me one multiple-choice question at a time. Wait for my answer before giving feedback and moving to the next question."
-        st.rerun()
-    if st.button("📊 Mind Map Export", help="Visualise key concepts as an interactive mind map", use_container_width=True):
-        st.session_state.queued_prompt = "Generate a comprehensive Mermaid.js mind map (graph TD) of the key concepts from the study material. Provide ONLY the raw Mermaid code block."
-        st.rerun()
-    if st.button("📅 Study Planner", help="AI-generated revision timetable based on your topics", use_container_width=True):
-        st.session_state.queued_prompt = "Create a structured, day-by-day revision timetable based on the major topics in the provided study material. Be highly specific about timeframes."
-        st.rerun()
+    st.markdown("""
+    <div style="padding:2px 0">
 
+    <a href="?action=flashcards" target="_self" style="text-decoration:none; display:block; color:inherit;">
+    <div class="roadmap-item">
+      <span class="roadmap-badge badge-soon">Soon</span>
+      <div class="roadmap-text">
+        <strong>🃏 Flashcard Generator</strong>
+        Auto-generate Q&amp;A flashcards from your uploaded material
+      </div>
+    </div>
+    </a>
+
+    <a href="?action=quiz" target="_self" style="text-decoration:none; display:block; color:inherit;">
+    <div class="roadmap-item">
+      <span class="roadmap-badge badge-soon">Soon</span>
+      <div class="roadmap-text">
+        <strong>📝 Smart Quiz Mode</strong>
+        AI-generated multiple-choice quizzes with instant feedback
+      </div>
+    </div>
+    </a>
+
+    <div class="roadmap-item" style="opacity: 0.9;">
+      <span class="roadmap-badge badge-planned">Planned</span>
+      <div class="roadmap-text">
+        <strong>📁 Study Sessions</strong>
+        Save &amp; reload named chat sessions across browser visits<br>
+        <em>(Use the tool above to save/load sessions)</em>
+      </div>
+    </div>
+
+    <a href="?action=mindmap" target="_self" style="text-decoration:none; display:block; color:inherit;">
+    <div class="roadmap-item">
+      <span class="roadmap-badge badge-planned">Planned</span>
+      <div class="roadmap-text">
+        <strong>📊 Mind Map Export</strong>
+        Visualise key concepts as an interactive mind map
+      </div>
+    </div>
+    </a>
+
+    <div class="roadmap-item" style="opacity: 0.9;">
+      <span class="roadmap-badge badge-planned">Planned</span>
+      <div class="roadmap-text">
+        <strong>🌍 Multi-language</strong>
+        Chat and receive answers in your preferred language<br>
+        <em>(Use Language selector above)</em>
+      </div>
+    </div>
+
+    <div class="roadmap-item" style="opacity: 0.9;">
+      <span class="roadmap-badge badge-idea">Idea</span>
+      <div class="roadmap-text">
+        <strong>🎙️ Voice Input</strong>
+        Ask questions by speaking instead of typing<br>
+        <em>(Available directly in the main chat view)</em>
+      </div>
+    </div>
+
+    <a href="?action=planner" target="_self" style="text-decoration:none; display:block; color:inherit;">
+    <div class="roadmap-item">
+      <span class="roadmap-badge badge-idea">Idea</span>
+      <div class="roadmap-text">
+        <strong>📅 Study Planner</strong>
+        AI-generated revision timetable based on your topics
+      </div>
+    </div>
+    </a>
+
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown(
         '<div class="poweredby">Powered by <span>Groq</span> · <span>llama-3.3-70b-versatile</span></div>',
         unsafe_allow_html=True,
