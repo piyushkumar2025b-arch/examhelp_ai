@@ -145,8 +145,8 @@ class AppController:
         safe_expr = (expr
                      .replace('×', '*').replace('÷', '/').replace('^', '**')
                      .replace('−', '-').replace('π', 'pi')
-                     .replace('√(', 'sqrt(').replace('ln(', 'log(')
-                     .replace('log(', 'log10(').replace('x²', '**2')
+                     .replace('√(', 'sqrt(').replace('x²', '**2')
+                     .replace('log(', 'log10(').replace('ln(', 'log(')
                      .replace('x³', '**3').replace('|x|', 'Abs(')
                      .replace('| (OR)', '|').replace('& (AND)', '&')
                      .replace('~ (NOT)', '~').replace('^ (XOR)', '^')

@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 import re
-from youtube_transcript_api import YouTubeTranscriptApi
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+    _HAS_YT_API = True
+except ImportError:
+    YouTubeTranscriptApi = None
+    _HAS_YT_API = False
 
 MAX_CHARS = 30_000   # increased to allow longer videos
 TIMESTAMP_INTERVAL = 60  # add a timestamp marker every N seconds

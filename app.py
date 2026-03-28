@@ -340,6 +340,16 @@ st.markdown(get_theme_css(), unsafe_allow_html=True)
 # ─────────────────────────────────────────────
 # HELPERS
 # ─────────────────────────────────────────────
+def _safe_js_text(text: str) -> str:
+    """Escape text for safe embedding inside a JS string literal."""
+    text = re.sub(r'[*#\_`~]', '', text)
+    text = re.sub(r'\[.+?\]\(.+?\)', '', text)
+    text = re.sub('<[^<]+?>', '', text)
+    text = text.replace('\\', '\\\\').replace('"', '').replace("'", '')
+    text = text.replace('\n', ' ').replace('\r', ' ')
+    return text.strip()
+
+
 def add_context(new_text: str, source_label: str, source_type: str):
     sep = "\n\n" + "="*60 + "\n\n"
     st.session_state.context_text = (
@@ -1497,9 +1507,8 @@ else:
                         st.toast("Bookmarked!")
                 with ac3:
                     if st.button("🔊", key=f"speak_{i}", help="Read aloud"):
-                        import re
-                        clean_text = re.sub('<[^<]+?>', '', msg["content"]).replace("*", "").replace("#", "").replace('"', '').replace("'", "").replace('\n', ' ')[:2000]
-                        js_code = f"<script>window.parent.speechSynthesis.cancel(); const speech = new window.parent.SpeechSynthesisUtterance(\"{clean_text}\"); window.parent.speechSynthesis.speak(speech);</script>"
+                        safe_speak = _safe_js_text(msg["content"][:2000])
+                        js_code = f'<script>window.parent.speechSynthesis.cancel();const s=new window.parent.SpeechSynthesisUtterance("{safe_speak}");window.parent.speechSynthesis.speak(s);</script>'
                         import streamlit.components.v1 as components
                         components.html(js_code, height=0, width=0)
                         st.toast("Reading aloud...")
@@ -1764,19 +1773,8 @@ else:
 
             # Browser-Native Text-to-Speech execution (If Voice Mode enabled)
             if st.session_state.get("voice_mode"):
-                import re
-                speak_text = re.sub(r'[*#\_`~]', '', cleaned_text)
-                speak_text = re.sub(r'\[.+?\]\(.+?\)', '', speak_text)
-                speak_text = speak_text.replace('"', '').replace("'", "").replace('\n', ' ')[:1500] 
-                
-                js_code = f"""
-                <script>
-                    const speech = new SpeechSynthesisUtterance("{speak_text}");
-                    speech.rate = 1.0;
-                    window.speechSynthesis.cancel();
-                    window.speechSynthesis.speak(speech);
-                </script>
-                """
+                safe_speak = _safe_js_text(cleaned_text[:1500])
+                js_code = f'<script>window.speechSynthesis.cancel();const s=new SpeechSynthesisUtterance("{safe_speak}");s.rate=1.0;window.speechSynthesis.speak(s);</script>'
                 import streamlit.components.v1 as components
                 components.html(js_code, height=0)
 
