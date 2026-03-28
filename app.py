@@ -105,6 +105,28 @@ if "action" in st.query_params:
     st.query_params.clear()
     st.rerun()
 
+if "chat" in st.query_params:
+    encoded_chat = st.query_params["chat"]
+    try:
+        import zlib
+        decoded_bytes = base64.urlsafe_b64decode(encoded_chat.encode("utf-8"))
+        decompressed = zlib.decompress(decoded_bytes).decode('utf-8')
+        minimal_history = json.loads(decompressed)
+        st.session_state.messages = [{"role": m["r"], "content": m["c"]} for m in minimal_history]
+        st.query_params.clear()
+        st.rerun()
+    except Exception as e:
+        print(f"Chat load error: {e}")
+        st.query_params.clear()
+
+def generate_share_link(chat_history):
+    import zlib
+    minimal_history = [{"r": m["role"], "c": m["content"]} for m in chat_history]
+    json_str = json.dumps(minimal_history)
+    compressed = zlib.compress(json_str.encode("utf-8"))
+    encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
+    return encoded
+
 
 # ─────────────────────────────────────────────
 # THEME CSS — Dark & Light modes (Claude-inspired)
@@ -206,12 +228,49 @@ def get_theme_css():
     100% {{ transform: translateY(0); opacity: 1; }}
   }}
   [data-testid="stChatMessage"] {{
-    background: transparent !important;
-    border: none !important;
-    padding: 0.15rem 0 !important;
+    background: var(--bg2-glass) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--bd-glass) !important;
+    border-radius: 12px !important;
+    padding: 1.2rem 1.4rem !important;
+    margin-bottom: 1.2rem !important;
     animation: messageSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.02) !important;
+  }}
+  
+  /* Right align user messages securely */
+  [data-testid="stChatMessage"]:has(.user-message-hook) {{
+    background: var(--bg3-glass) !important;
+    border: 1px solid var(--accent-bd) !important;
+    margin-left: 20% !important;
+    border-top-right-radius: 2px !important;
+    flex-direction: row-reverse !important;
+  }}
+  /* Left align assistant messages */
+  [data-testid="stChatMessage"]:not(:has(.user-message-hook)) {{
+    margin-right: 15% !important;
+    border-top-left-radius: 2px !important;
+  }}
+  
+  /* Internal spacing inside chat bubbles */
+  [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {{
+    line-height: 1.6 !important;
+    font-size: 0.95rem !important;
   }}
 
+  /* Action Bar Styling */
+  .chat-action-bar {{
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+  }}
+  [data-testid="stChatMessage"]:hover .chat-action-bar {{
+    opacity: 1;
+  }}
+  
   /* ── Chat input ── */
   [data-testid="stChatInputContainer"] {{
     background: linear-gradient(to top, var(--bg) 60%, transparent) !important;
@@ -2030,17 +2089,45 @@ for i_msg, msg in enumerate(st.session_state.messages):
     avatar = "🎓" if msg["role"] == "assistant" else "👤"
     if msg["role"] == "assistant" and persona and st.session_state.selected_persona != "Default (ExamHelp)":
         avatar = persona["emoji"]
+        
     with st.chat_message(msg["role"], avatar=avatar):
+        # Hidden hook for CSS targeting right-alignment on User
+        if msg["role"] == "user":
+            st.markdown("<div class='user-message-hook'></div>", unsafe_allow_html=True)
+            
         st.markdown(msg["content"])
-        # Bookmark button
-        is_bookmarked = any(b.get("idx") == i_msg for b in st.session_state.bookmarks)
-        bm_label = "🔖 Bookmarked" if is_bookmarked else "🔖 Bookmark"
-        if st.button(bm_label, key=f"bm_msg_{i_msg}"):
-            if not is_bookmarked:
-                st.session_state.bookmarks.append({"idx": i_msg, "role": msg["role"], "content": msg["content"]})
-            else:
-                st.session_state.bookmarks = [b for b in st.session_state.bookmarks if b.get("idx") != i_msg]
-            st.rerun()
+        
+        # Professional Action Bar (ChatGPT-style)
+        if msg["role"] == "assistant":
+            # Add subtle divider
+            st.markdown("<hr style='border: none; border-top: 1px dashed var(--bd-glass); margin: 12px 0;'>", unsafe_allow_html=True)
+            
+            c1, c2, c3, c4, c_fill = st.columns([1, 1, 1, 1, 8])
+            with c1:
+                if st.button("👍", key=f"like_{i_msg}", help="Good response", use_container_width=True):
+                    st.toast("Feedback saved - appreciated!", icon="✅")
+            with c2:
+                if st.button("👎", key=f"dislike_{i_msg}", help="Bad response", use_container_width=True):
+                    st.toast("Feedback saved - we will improve.", icon="📉")
+            with c3:
+                if st.button("📋", key=f"copy_{i_msg}", help="Copy response", use_container_width=True):
+                    try:
+                        import pyperclip
+                        pyperclip.copy(msg["content"])
+                        st.toast("Copied to clipboard!", icon="📋")
+                    except Exception:
+                        st.toast("Clipboard API unavailable. Select and copy manually.", icon="⚠️")
+            with c4:
+                @st.dialog("🔗 Share Chat")
+                def share_dialog(idx):
+                    st.write("Share this specific conversation state.")
+                    code = generate_share_link(st.session_state.messages[:idx+1])
+                    share_url = f"?chat={code}"
+                    st.code(share_url, language="text")
+                    st.info("Append this code to the application URL to share.")
+                
+                if st.button("🔗", key=f"share_{i_msg}", help="Share Chat State", use_container_width=True):
+                    share_dialog(i_msg)
 
 # ── Auto-scroll to bottom FAB ─────────────────
 if st.session_state.messages:
