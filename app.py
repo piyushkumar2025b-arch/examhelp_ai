@@ -208,17 +208,19 @@ def get_theme_css():
   }}
   [data-testid="stChatInputContainer"] textarea {{
     background-color: var(--bg3) !important;
-    border: 1px solid var(--border2) !important;
-    border-radius: 14px !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 20px !important;
     color: var(--text) !important;
     font-family: var(--sans) !important;
     font-size: 0.95rem !important;
-    padding: 14px 18px !important;
-    transition: border-color 0.2s, box-shadow 0.2s !important;
+    padding: 16px 20px !important;
+    transition: all 0.25s ease !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
   }}
   [data-testid="stChatInputContainer"] textarea:focus {{
     border-color: var(--accent) !important;
-    box-shadow: 0 0 0 3px var(--accent-bg) !important;
+    box-shadow: 0 0 0 4px var(--accent-bg), 0 4px 20px rgba(0,0,0,0.1) !important;
+    background-color: var(--bg2) !important;
   }}
   [data-testid="stChatInputContainer"] textarea::placeholder {{
     color: var(--text3) !important;
@@ -238,20 +240,21 @@ def get_theme_css():
     background-color: var(--bg3) !important;
     border: 1px solid var(--border) !important;
     color: var(--text2) !important;
-    border-radius: 10px !important;
+    border-radius: 12px !important;
     font-family: var(--sans) !important;
-    font-size: 0.84rem !important;
+    font-size: 0.88rem !important;
     font-weight: 500 !important;
-    padding: 0.45rem 0.9rem !important;
-    transition: all 0.18s ease !important;
-    letter-spacing: 0.01em !important;
+    padding: 0.5rem 1.1rem !important;
+    transition: all 0.2s ease !important;
+    letter-spacing: 0.015em !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03) !important;
   }}
   .stButton > button:hover {{
     border-color: var(--accent) !important;
     color: var(--accent) !important;
     background-color: var(--accent-bg) !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 12px rgba(217,119,6,0.12) !important;
+    transform: translateY(-1.5px) !important;
+    box-shadow: 0 6px 15px rgba(217,119,6,0.15) !important;
   }}
 
   /* ── Select box ── */
@@ -388,22 +391,28 @@ def get_theme_css():
   .source-chip {{
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    border-radius: 6px;
-    padding: 3px 9px;
-    font-size: 0.75rem;
+    gap: 6px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
     color: var(--text2);
-    font-family: var(--mono);
-    margin: 2px 3px 2px 0;
-    transition: border-color 0.15s;
+    font-family: var(--sans);
+    margin: 3px 4px 3px 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   }}
-  .source-chip:hover {{ border-color: var(--accent); }}
+  .source-chip:hover {{ 
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(217,119,6,0.1);
+  }}
   .source-chip .chip-dot {{
     width: 6px; height: 6px;
     border-radius: 50%;
-    background: var(--green);
+    background: var(--accent);
     flex-shrink: 0;
   }}
 
@@ -478,16 +487,18 @@ def get_theme_css():
   }}
   .stat-box {{
     flex: 1;
-    background: var(--bg3);
+    background: var(--bg2);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.55rem 0.4rem;
+    border-radius: 12px;
+    padding: 0.7rem 0.5rem;
     text-align: center;
-    transition: border-color 0.2s, transform 0.15s;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   }}
   .stat-box:hover {{
     border-color: var(--accent-bd);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
   }}
   .stat-val {{
     font-size: 1rem;
@@ -565,17 +576,18 @@ def get_theme_css():
   .study-banner {{
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: var(--bg3);
+    gap: 12px;
+    background: linear-gradient(90deg, var(--bg2), var(--bg3));
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 14px;
-    margin-bottom: 1rem;
-    font-size: 0.82rem;
+    border-radius: 16px;
+    padding: 10px 18px;
+    margin-bottom: 1.5rem;
+    font-size: 0.85rem;
     color: var(--text2);
     flex-wrap: wrap;
+    box-shadow: 0 4px 16px var(--card-shadow);
   }}
-  .study-banner-label {{ color: var(--text3); font-size: 0.76rem; }}
+  .study-banner-label {{ color: var(--text3); font-size: 0.76rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }}
 
   /* ── Persona card ── */
   .persona-chip {{
