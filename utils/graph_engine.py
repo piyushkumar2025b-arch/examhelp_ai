@@ -1,8 +1,14 @@
 import numpy as np
 import plotly.graph_objects as go
-from sympy import sympify, symbols, lambdify, diff
+
+try:
+    from sympy import sympify, symbols, lambdify, diff
+except ImportError:
+    sympify = symbols = lambdify = diff = None
 
 def _safe_lambdify(expr_str, var_symbols):
+    if sympify is None:
+        return None, "Error: Math engine (sympy) is not installed."
     try:
         safe_str = expr_str.replace('^', '**').replace('×', '*').replace('÷', '/').replace('−', '-')
         expr = sympify(safe_str)

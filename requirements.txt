@@ -8,3 +8,8 @@ python-dotenv==1.0.1
 pillow>=11.0.0,<12
 pandas>=2.0.0
 plotly>=5.18.0
+sympy>=1.12
+duckduckgo-search>=5.0.0
+wikipedia>=1.4.0
+SpeechRecognition>=3.10.0
+pyttsx3>=2.90

@@ -1,6 +1,15 @@
 import streamlit as st
-import wikipedia
-from duckduckgo_search import DDGS
+
+try:
+    import wikipedia
+except ImportError:
+    wikipedia = None
+    
+try:
+    from duckduckgo_search import DDGS
+except ImportError:
+    DDGS = None
+
 from utils.groq_client import chat_with_groq
 from utils.app_controller import AppController
 
@@ -24,6 +33,7 @@ class QueryEngine:
     @staticmethod
     @st.cache_data(ttl=3600, show_spinner=False)
     def search_duckduckgo(query: str, max_results=3):
+        if DDGS is None: return []
         try:
             results = DDGS().text(query, max_results=max_results)
             if not results: return []
@@ -34,6 +44,7 @@ class QueryEngine:
     @staticmethod
     @st.cache_data(ttl=3600, show_spinner=False)
     def search_wikipedia(query: str, max_results=1):
+        if wikipedia is None: return []
         try:
             results = wikipedia.search(query, results=max_results)
             if not results: return []
