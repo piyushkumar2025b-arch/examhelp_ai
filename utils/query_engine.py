@@ -4,7 +4,7 @@ try:
     import wikipedia
 except ImportError:
     wikipedia = None
-    
+
 try:
     from ddgs import DDGS
 except ImportError:
@@ -16,136 +16,196 @@ except ImportError:
 import requests
 import json
 import re
+import urllib.parse
 
 from utils.groq_client import chat_with_groq
 from utils.app_controller import AppController
 
 class QueryEngine:
-    
+
     @staticmethod
     def classify_query(query: str):
-        query_lower = query.lower()
-        if any(w in query_lower for w in ["calculate", "plus", "minus", "divided by", "times"]) or ("+" in query_lower and "=" not in query_lower):
+        q = query.lower()
+        if any(w in q for w in ["calculate", "plus", "minus", "divided by", "times"]) or ("+" in q and "=" not in q):
             return "math"
-        if any(w in query_lower for w in ["plot", "graph", "draw", "curve"]):
+        if any(w in q for w in ["plot", "graph", "draw", "curve"]):
             return "graph"
-        if any(w in query_lower for w in ["who is", "what is", "history of", "capital of", "define", "concept of"]):
+        if any(w in q for w in ["who is", "what is", "history of", "capital of", "define", "concept of"]):
             return "factual"
-        if any(w in query_lower for w in ["latest", "recent", "news", "today", "update", "happened"]):
+        if any(w in q for w in ["latest", "recent", "news", "today", "update", "happened"]):
             return "recent"
-        if any(w in query_lower for w in ["code", "error", "exception", "python", "java", "script", "how to build", "syntax"]):
+        if any(w in q for w in ["code", "error", "exception", "python", "java", "script", "how to build", "syntax"]):
             return "code"
-        if any(w in query_lower for w in ["paper", "research", "study", "journal", "abstract", "scientific"]):
+        if any(w in q for w in ["paper", "research", "study", "journal", "abstract", "scientific"]):
             return "scientific"
-        if any(w in query_lower for w in ["book", "author", "literature", "novel", "write", "summary of"]):
+        if any(w in q for w in ["book", "author", "literature", "novel", "write", "summary of"]):
             return "literary"
         return "complex"
 
-    # --- 10+ HEAVY DUTY FREE ACADEMIC APIS ---
+    # ── Free Academic APIs ─────────────────────────────────────────────────
 
     @staticmethod
     def search_google_books(query: str):
         try:
-            url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=2"
-            resp = requests.get(url, timeout=3)
+            url = f"https://www.googleapis.com/books/v1/volumes?q={urllib.parse.quote(query)}&maxResults=2"
+            resp = requests.get(url, timeout=4)
             data = resp.json()
             items = data.get("items", [])
-            return [{"title": i["volumeInfo"].get("title"), "snippet": i["volumeInfo"].get("description", "")[:400], "link": i["volumeInfo"].get("infoLink")} for i in items]
-        except: return []
+            return [{"title": i["volumeInfo"].get("title"),
+                     "snippet": i["volumeInfo"].get("description", "")[:400],
+                     "link": i["volumeInfo"].get("infoLink")} for i in items]
+        except:
+            return []
 
     @staticmethod
     def search_open_library(query: str):
         try:
-            url = f"https://openlibrary.org/search.json?q={query}&limit=2"
-            resp = requests.get(url, timeout=3)
+            url = f"https://openlibrary.org/search.json?q={urllib.parse.quote(query)}&limit=2"
+            resp = requests.get(url, timeout=4)
             data = resp.json()
             docs = data.get("docs", [])
-            return [{"title": d.get("title"), "snippet": f"Author: {', '.join(d.get('author_name', []))}", "link": f"https://openlibrary.org{d.get('key')}"} for d in docs if d.get("title")]
-        except: return []
+            return [{"title": d.get("title"),
+                     "snippet": f"Author: {', '.join(d.get('author_name', []))}",
+                     "link": f"https://openlibrary.org{d.get('key')}"}
+                    for d in docs if d.get("title")]
+        except:
+            return []
 
     @staticmethod
     def search_arxiv(query: str):
         try:
-            # Simple atom feed parse-like regex for free extraction
-            url = f"http://export.arxiv.org/api/query?search_query=all:{query}&max_results=2"
-            resp = requests.get(url, timeout=4)
-            titles = re.findall(r'<title>(.*?)</title>', resp.text)[1:] # Skip main feed title
+            url = f"http://export.arxiv.org/api/query?search_query=all:{urllib.parse.quote(query)}&max_results=2"
+            resp = requests.get(url, timeout=5)
+            titles = re.findall(r'<title>(.*?)</title>', resp.text)[1:]
             summaries = re.findall(r'<summary>(.*?)</summary>', resp.text, re.DOTALL)
-            links = re.findall(r'<id>(.*?)</id>', resp.text)[1:]
-            return [{"title": t, "snippet": s[:400], "link": l} for t, s, l in zip(titles, summaries, links)]
-        except: return []
+            links = re.findall(r'<id>(http[^<]+)</id>', resp.text)
+            return [{"title": t.strip(), "snippet": s.strip()[:400], "link": l.strip()}
+                    for t, s, l in zip(titles, summaries, links)]
+        except:
+            return []
+
+    @staticmethod
+    def search_semantic_scholar(query: str):
+        """Semantic Scholar — free, no key required."""
+        try:
+            url = f"https://api.semanticscholar.org/graph/v1/paper/search?query={urllib.parse.quote(query)}&limit=2&fields=title,abstract,url,year"
+            headers = {"User-Agent": "ExamHelpAI/1.0"}
+            resp = requests.get(url, headers=headers, timeout=5)
+            data = resp.json()
+            results = []
+            for p in data.get("data", []):
+                results.append({
+                    "title": p.get("title", ""),
+                    "snippet": (p.get("abstract") or "")[:400],
+                    "link": p.get("url", f"https://www.semanticscholar.org/paper/{p.get('paperId','')}")
+                })
+            return results
+        except:
+            return []
+
+    @staticmethod
+    def search_pubmed(query: str):
+        """PubMed via NCBI Entrez — free, no key required."""
+        try:
+            search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={urllib.parse.quote(query)}&retmax=2&retmode=json"
+            resp = requests.get(search_url, timeout=4)
+            ids = resp.json().get("esearchresult", {}).get("idlist", [])
+            if not ids:
+                return []
+            fetch_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={','.join(ids)}&retmode=json"
+            resp2 = requests.get(fetch_url, timeout=4)
+            result_data = resp2.json().get("result", {})
+            results = []
+            for pmid in ids:
+                item = result_data.get(pmid, {})
+                title = item.get("title", "")
+                if title:
+                    results.append({
+                        "title": title,
+                        "snippet": f"Published: {item.get('pubdate', '')} | Source: {item.get('source', '')}",
+                        "link": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+                    })
+            return results
+        except:
+            return []
 
     @staticmethod
     def search_stack_overflow(query: str):
         try:
-            url = f"https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q={query}&site=stackoverflow"
-            resp = requests.get(url, timeout=3)
+            url = f"https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q={urllib.parse.quote(query)}&site=stackoverflow&filter=withbody"
+            resp = requests.get(url, timeout=4)
             data = resp.json()
             items = data.get("items", [])
-            return [{"title": i.get("title"), "snippet": "StackOverflow Answer", "link": i.get("link")} for i in items[:2]]
-        except: return []
+            return [{"title": i.get("title"), "snippet": "StackOverflow Answer", "link": i.get("link")}
+                    for i in items[:2]]
+        except:
+            return []
 
     @staticmethod
     def search_news(query: str):
-        # Using a free aggregator mock if API key is missing, or fallback to DDG news
         return QueryEngine.search_duckduckgo(f"news {query}", max_results=2)
-
-    @staticmethod
-    def get_world_time(location: str = "London"):
-        try:
-            url = f"https://worldtimeapi.org/api/timezone/Europe/{location.capitalize()}"
-            resp = requests.get(url, timeout=2)
-            data = resp.json()
-            return f"Current time in {location}: {data.get('datetime')}"
-        except: return ""
 
     @staticmethod
     def get_weather(city: str):
         try:
-            # Using free wttr.in for text-based weather context
-            resp = requests.get(f"https://wttr.in/{city}?format=3", timeout=3)
+            resp = requests.get(f"https://wttr.in/{urllib.parse.quote(city)}?format=3", timeout=3)
             return resp.text.strip()
-        except: return ""
+        except:
+            return ""
 
     @staticmethod
     def search_dictionary(word: str):
         try:
-            url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
-            resp = requests.get(url, timeout=2)
+            url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{urllib.parse.quote(word)}"
+            resp = requests.get(url, timeout=3)
             data = resp.json()
             if isinstance(data, list):
                 defns = data[0].get("meanings", [{}])[0].get("definitions", [{}])[0].get("definition", "")
-                return defns
-        except: return ""
+                example = data[0].get("meanings", [{}])[0].get("definitions", [{}])[0].get("example", "")
+                return defns + (f" (e.g. {example})" if example else "")
+        except:
+            return ""
 
     @staticmethod
-    def search_biorxiv(query: str):
+    def search_crossref(query: str):
+        """CrossRef — free DOI/paper search, no key needed."""
         try:
-            url = f"https://api.biorxiv.org/details/biorxiv/2023-01-01/2025-12-31/0/{query}"
-            resp = requests.get(url, timeout=4)
-            data = resp.json()
-            collection = data.get("collection", [])
-            return [{"title": c.get("title"), "snippet": c.get("abstract", "")[:400], "link": f"https://doi.org/{c.get('doi')}"} for c in collection[:2]]
-        except: return []
+            url = f"https://api.crossref.org/works?query={urllib.parse.quote(query)}&rows=2&select=title,abstract,URL,author,published"
+            headers = {"User-Agent": "ExamHelpAI/1.0 (mailto:support@examhelp.ai)"}
+            resp = requests.get(url, headers=headers, timeout=5)
+            items = resp.json().get("message", {}).get("items", [])
+            results = []
+            for item in items:
+                title = " ".join(item.get("title", [""])) or ""
+                abstract = " ".join(item.get("abstract", "").split()[:60]) if item.get("abstract") else ""
+                results.append({"title": title, "snippet": abstract[:300], "link": item.get("URL", "")})
+            return results
+        except:
+            return []
 
     @staticmethod
     @st.cache_data(ttl=3600, show_spinner=False)
     def search_duckduckgo(query: str, max_results=3):
-        if DDGS is None: return []
+        if DDGS is None:
+            return []
         try:
             results = DDGS().text(query, max_results=max_results)
-            if not results: return []
-            return [{"title": r.get("title", ""), "snippet": r.get("body", ""), "link": r.get("href", "")} for r in results]
+            if not results:
+                return []
+            return [{"title": r.get("title", ""), "snippet": r.get("body", ""), "link": r.get("href", "")}
+                    for r in results]
         except Exception:
             return []
 
     @staticmethod
     @st.cache_data(ttl=3600, show_spinner=False)
     def search_wikipedia(query: str, max_results=1):
-        if wikipedia is None: return []
+        if wikipedia is None:
+            return []
         try:
             results = wikipedia.search(query, results=max_results)
-            if not results: return []
+            if not results:
+                return []
             page = wikipedia.page(results[0], auto_suggest=False)
             return [{"title": page.title, "snippet": page.summary[:800] + "...", "link": page.url}]
         except wikipedia.exceptions.DisambiguationError as e:
@@ -161,12 +221,12 @@ class QueryEngine:
     def route_and_enrich(query: str, user_context: str = ""):
         from ai.api_manager import UnifiedAPIManager
         api_manager = UnifiedAPIManager()
-        
+
         intent = QueryEngine.classify_query(query)
         sources = []
         enriched_context = ""
-        
-        # 0. RAG RETRIEVAL (Memory Layer)
+
+        # 0. RAG Retrieval
         from memory.vector_store import VectorStore
         if "vector_store" in st.session_state and st.session_state.vector_store.is_active():
             rag_results = st.session_state.vector_store.search(query)
@@ -174,68 +234,82 @@ class QueryEngine:
                 enriched_context += "\n### Relevant Context (RAG):\n"
                 for res in rag_results:
                     enriched_context += f"- {res}\n"
-        # 1. Image Check (Multimedia Intent)
+
+        # 1. Image intent
         image_url = None
         if "show me" in query.lower() or "image of" in query.lower():
-            image_query = query.lower().replace("show me", "").replace("image of", "").replace("photo of", "").strip()
+            image_query = re.sub(r'\b(show me|image of|photo of)\b', '', query, flags=re.IGNORECASE).strip()
             image_url = api_manager.call("image", image_query)
-        
-        # 2. Parallel API Execution (The Performance Core)
+
+        # 2. Route to correct APIs
         tasks = []
         if intent == "factual":
             tasks.append({"name": "wiki", "api": "wiki", "query": query})
-            if len(query.split()) < 3:
+            if len(query.split()) < 4:
                 tasks.append({"name": "dict", "api": "dict", "query": query})
         elif intent == "scientific":
             tasks.append({"name": "arxiv", "api": "arxiv", "query": query})
-            tasks.append({"name": "bio", "api": "biorxiv", "query": query})
+            tasks.append({"name": "semantic", "api": "semantic_scholar", "query": query})
         elif intent == "literary":
             tasks.append({"name": "books", "api": "books", "query": query})
         elif intent == "recent":
-            tasks.append({"name": "news", "api": "search", "query": query, "kwargs": {"max_results": 2}})
-        
-        # Always run a supplementary DDG search in parallel for maximum depth
+            tasks.append({"name": "news", "api": "search", "query": query, "kwargs": {"max_results": 3}})
+        elif intent == "code":
+            tasks.append({"name": "stackoverflow", "api": "stackoverflow", "query": query})
+
+        # Always add DDG for supplementary context
         tasks.append({"name": "search", "api": "search", "query": query, "kwargs": {"max_results": 2}})
-        
-        # Execute all tasks in parallel
+
         results = api_manager.parallel_fetch(tasks)
-        
-        # 3. Context Processing
+
+        # 3. Build enriched context string
         if results.get("wiki"):
             enriched_context += "### Wikipedia Knowledge:\n"
             for w in results["wiki"]:
                 enriched_context += f"**{w['title']}**: {w['snippet']}\n"
-                sources.append(w['link'])
-                
+                if w.get("link"): sources.append(w["link"])
+
         if results.get("arxiv"):
+            enriched_context += "\n### ArXiv Research:\n"
             for a in results["arxiv"]:
-                enriched_context += f"**ArXiv Paper: {a['title']}**: {a['snippet']}\n"
-                sources.append(a['link'])
-                
+                enriched_context += f"**{a['title']}**: {a['snippet']}\n"
+                if a.get("link"): sources.append(a["link"])
+
+        if results.get("semantic"):
+            enriched_context += "\n### Semantic Scholar:\n"
+            for s in results["semantic"]:
+                enriched_context += f"**{s['title']}**: {s['snippet']}\n"
+                if s.get("link"): sources.append(s["link"])
+
+        if results.get("stackoverflow"):
+            enriched_context += "\n### StackOverflow:\n"
+            for s in results["stackoverflow"]:
+                enriched_context += f"**{s['title']}**: {s['link']}\n"
+                if s.get("link"): sources.append(s["link"])
+
         if results.get("search"):
-            enriched_context += "\n### Research Context (Web):\n"
+            enriched_context += "\n### Web Research:\n"
             for d in results["search"]:
                 enriched_context += f"**{d['title']}**: {d['snippet']}\n"
-                sources.append(d['link'])
-        
+                if d.get("link"): sources.append(d["link"])
+
         if image_url:
-            enriched_context += f"\n\n[SYSTEM_VIEW: IMAGE_FOUND] Displaying verified visual content for query. (URL: {image_url})\n"
+            enriched_context += f"\n\n[SYSTEM_VIEW: IMAGE_FOUND] (URL: {image_url})\n"
 
         final_prompt = query
         if enriched_context:
             final_prompt += f"\n\n{enriched_context}"
-            
-        return final_prompt, list(set(sources)), intent
+
+        return final_prompt, list(set(s for s in sources if s)), intent
 
     @staticmethod
     def get_structured_system_prompt(base_prompt: str):
         return f"""{base_prompt}
-You are a GOD-LEVEL intelligence system. 
-You are equipped with a Multi-API Context Fusion Engine (Web Search, Wikipedia, Math Eval) whose output is injected directly into your prompts if applicable.
+You are equipped with a Multi-API Context Fusion Engine (Web Search, Wikipedia, ArXiv, StackOverflow).
 
 CRITICAL FORMATTING RULES:
-1. Provide a direct, highly accurate Answer immediately.
+1. Provide a direct, highly accurate answer immediately.
 2. Group deeper explanations under a 'Key Points' list.
-3. If real-world 'Sources' links were injected into your prompt context, ALWAYS append them cleanly at the very end in a bulleted list titled '### 🔗 Sources'. Do NOT hallucinate URLs. NEVER output sources if none were provided.
-Be incredibly fast, concise, and structured.
+3. If 'Sources' links were injected into your context, append them at the end under '### 🔗 Sources'. Do NOT hallucinate URLs.
+Be concise, accurate, and well-structured.
 """
