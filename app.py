@@ -2315,47 +2315,55 @@ if user_input:
             full_response = "⚠️ **All API keys are rate-limited.** Please wait ~60 seconds and try again."
             placeholder.warning(full_response)
 
-    # --- INFINITY IMAGE ENGINE (ZERO-FAILURE PIPELINE) ---
+    # --- ELITE REPRESENTATION HUB (TABBED INTERFACE) ---
+    st.divider()
+    
+    # 1. Humanize & Post-Process
+    from ai.reasoning_engine import ReasoningEngine, humanize_text
+    
+    # Check if visuals are needed via manifest
+    images, caption, cleaned_text = [], "", full_response
     if "VISUAL_MANIFEST:" in full_response:
         from ai.image_engine import process_visual_request
         images, caption, cleaned_text = process_visual_request(full_response)
+    
+    # Create the Tabbed Viewer
+    tab_exp, tab_res, tab_lab = st.tabs(["🎓 Explanation", "📚 Resources", "🛠️ Study Lab"])
+    
+    with tab_exp:
+        st.markdown(cleaned_text)
         
-        # 1. Force state to the clean version
-        full_response = cleaned_text
-        
-        # 2. Render visuals from the Infinity Aggregator
+    with tab_res:
         if images:
-            st.divider()
+            st.markdown(f"#### 🖼️ Visual Context: {caption}")
             cols = st.columns(3)
             for i, img in enumerate(images[:3]):
                 with cols[i]:
                     st.image(img, use_container_width=True)
-            if caption:
-                st.caption(f"📚 {caption}")
+            st.divider()
+            
+        st.markdown("#### 🔗 References & Research")
+        if query_sources:
+             for s in query_sources[:4]:
+                 st.markdown(f"- [{s.split('//')[-1][:30]}...]({s})")
+        else:
+            st.info("Direct AI Knowledge Engine used (No external links required).")
 
-    # --- EXAMHELP STUDY EXPORT HUB ---
-    if "## 🎯 Exam Strategy" in full_response or "## 🔍 Explanation" in full_response:
+    with tab_lab:
+        st.markdown("#### 📥 Study Material Export")
         from utils.study_generator import StudyGenerator
-        st.divider()
-        st.markdown("### 📥 Export Study Pack")
-        col1, col2, col3, col4 = st.columns(4)
-        
+        col1, col2, col3 = st.columns(3)
         with col1:
-            pdf_data = StudyGenerator.generate_pdf(f"Study Guide: {user_input[:20]}", full_response)
-            st.download_button("📄 PDF Guide", pdf_data, file_name=f"ExamHelp_Study_{user_input[:10]}.pdf")
-            
+            pdf_data = StudyGenerator.generate_pdf("Study Guide", full_response)
+            st.download_button("📄 PDF Guide", pdf_data, file_name="ExamHelp_Study.pdf")
         with col2:
-            docx_data = StudyGenerator.generate_docx(f"Research: {user_input[:20]}", full_response)
-            st.download_button("📝 DOCX Note", docx_data, file_name=f"ExamHelp_Note_{user_input[:10]}.docx")
-            
+            docx_data = StudyGenerator.generate_docx("Research Notes", full_response)
+            st.download_button("📝 DOCX Note", docx_data, file_name="ExamHelp_Note.docx")
         with col3:
-            ppt_data = StudyGenerator.generate_ppt(f"Presentation: {user_input[:20]}", full_response)
-            st.download_button("📊 PPT Slide", ppt_data, file_name=f"ExamHelp_Slide_{user_input[:10]}.pptx")
+            ppt_data = StudyGenerator.generate_ppt("Slide Deck", full_response)
+            st.download_button("📊 PPT SlideSet", ppt_data, file_name="ExamHelp_Slides.pptx")
             
-        with col4:
-            html_data = StudyGenerator.generate_html(f"Web: {user_input[:20]}", full_response)
-            st.download_button("🌐 Study Web", html_data, file_name=f"ExamHelp_Web_{user_input[:10]}.html")
-    
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    # Add Clean Response to session History
+    st.session_state.messages.append({"role": "assistant", "content": cleaned_text})
     if st.session_state.get("voice_mode") and full_response:
         AppController.speak(full_response)
