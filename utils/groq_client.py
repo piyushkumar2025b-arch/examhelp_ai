@@ -1,141 +1,142 @@
 """
-groq_client.py — Streaming Groq API client with automatic key rotation & persona support.
+groq_client.py — Groq API client with full automatic key rotation.
 
-Uses key_manager to pick the best available key before every call,
-and reports rate-limit / auth errors back so key_manager can update state.
-Supports persona mode where the AI adopts a historical character's speaking style.
+Every call (streaming or not) automatically:
+  1. Picks the key with the most headroom (fewest tokens used this minute).
+  2. On rate-limit (429) → immediately marks that key, picks next key, retries.
+  3. Retries across ALL available keys before giving up.
+  4. Reports token usage back to key_manager after every successful call
+     so the rolling-window limiter stays accurate.
 """
 
 from __future__ import annotations
-import os
+import time
+import re
+import requests
 from typing import Generator, Optional
 
 from groq import Groq
 from utils import key_manager
 
-# ─────────────────────────────────────────────────────────────────────────────
-# System prompt — focused on high-quality, exam-ready output
-# ─────────────────────────────────────────────────────────────────────────────
-SYSTEM_PROMPT = """You are ExamHelp AI, a GOD-LEVEL Study Architect and Academic Reasoning Engine. Your existence is dedicated to providing the deepest, most technically accurate, and structured academic support in the world.
-
-TRANSFORMATION PROTOCOL — You MUST operate in 'DEEP-THINK' MODE:
-1. AXIOMATIC EXPLANATION: Start every complex topic from 'First Principles'. Do not skip definitions or assume knowledge.
-2. LONG-FORM SCHOLARSHIP: For academic queries, you are prohibited from providing brief answers. Every major concept must be 4-8 comprehensive paragraphs.
-3. VISUAL MANIFEST (MANDATORY): If a concept is spatial, physical, or geometric, you MUST exactly append the following at the very end of your response:
-   ---
-   VISUAL_MANIFEST: {"query": "Highly specific search terms for academic imagery", "caption": "A technical description of the visual reference"}
-   ---
-4. SOURCE-SYNC: If [SYSTEM INJECTION] or [STUDY MATERIAL] context is provided, you MUST explicitly reference facts from it. Use markers like [Ref: Context].
-
-MANDATORY RESPONSE ARCHITECTURE:
----
-## 🧠 Conceptual Axioms (The 'Why' and the 'How')
-[Detailed first-principles breakdown]
-
-## 🔍 Logic & Deep-Dive (Technical Nuance)
-[Multi-paragraph in-depth analysis. Use LaTeX for math. Use bold for key terms.]
-
-## 🛠️ Procedural Steps (Step-by-Step Proof)
-[The exact logical sequence of operations or events.]
-
-## 🧪 Real-World Proof (Case Study)
-[A concrete application in the real world.]
-
-## 🎯 Exam Strategy (High-Yield Retention)
-[Specific tips on how this appears in exams and how to memorize it.]
----
-
-TONE: Intellectually elite, authoritative, authoritative, and exhaustive. You are the architect of a world-class scholarship."""
-
-MODEL = "llama-3.3-70b-versatile"   # primary model
-FALLBACK_MODEL = "llama-3.1-8b-instant"  # fallback
+# ── Models ────────────────────────────────────────────────────────────────────
+MODEL          = "llama-3.3-70b-versatile"
+FALLBACK_MODEL = "llama-3.1-8b-instant"
 MAX_CONTEXT_CHARS = 25_000
 
+# ── System prompt ─────────────────────────────────────────────────────────────
+SYSTEM_PROMPT = """\
+You are ExamHelp AI, a GOD-LEVEL Study Architect and Academic Reasoning Engine.
 
-import requests
-import re
-import random
+TRANSFORMATION PROTOCOL — DEEP-THINK MODE:
+1. AXIOMATIC EXPLANATION: Start every complex topic from first principles.
+2. LONG-FORM SCHOLARSHIP: For academic queries provide 4-8 comprehensive paragraphs.
+3. VISUAL MANIFEST (MANDATORY): If a concept is spatial/physical/geometric, append at the end:
+   ---
+   VISUAL_MANIFEST: {"query": "specific image search terms", "caption": "technical description"}
+   ---
+4. SOURCE-SYNC: If [STUDY MATERIAL] context is provided, explicitly reference it.
 
-def _fetch_free_api_context(query: str) -> str:
-    """Uses the free public Wikipedia API to fetch factual context for the user's latest query."""
+RESPONSE ARCHITECTURE:
+## 🧠 Conceptual Axioms
+## 🔍 Logic & Deep-Dive
+## 🛠️ Procedural Steps
+## 🧪 Real-World Proof
+## 🎯 Exam Strategy
+
+TONE: Intellectually elite, authoritative, exhaustive.\
+"""
+
+
+# ── Wikipedia quick-context helper ───────────────────────────────────────────
+
+def _fetch_wiki_context(query: str) -> str:
     try:
-        # Very basic stopword removal to get the core entity
-        clean_q = re.sub(r'\b(what|is|the|explain|how|why|who|a|an|describe|tell|me|about|calculate)\b', '', query, flags=re.IGNORECASE).strip()
-        if not clean_q or len(clean_q) < 3:
+        clean_q = re.sub(
+            r'\b(what|is|the|explain|how|why|who|a|an|describe|tell|me|about|calculate)\b',
+            '', query, flags=re.IGNORECASE
+        ).strip()
+        if len(clean_q) < 3:
             return ""
-        
-        # Take the first ~3 words as the search title
-        search_term = " ".join(clean_q.split()[:3])
-        
-        url = "https://en.wikipedia.org/w/api.php"
-        params = {
-            "action": "query",
-            "format": "json",
-            "prop": "extracts",
-            "exsentences": "4",
-            "exlimit": "1",
-            "titles": search_term,
-            "explaintext": "1",
-            "formatversion": "2",
-            "redirects": "1"
-        }
-        resp = requests.get(url, params=params, timeout=1.5)
+        term = " ".join(clean_q.split()[:3])
+        resp = requests.get(
+            "https://en.wikipedia.org/w/api.php",
+            params={"action": "query", "format": "json", "prop": "extracts",
+                    "exsentences": "4", "exlimit": "1", "titles": term,
+                    "explaintext": "1", "formatversion": "2", "redirects": "1"},
+            timeout=1.5
+        )
         if resp.status_code == 200:
-            data = resp.json()
-            pages = data.get("query", {}).get("pages", [])
-            if pages and "extract" in pages[0] and pages[0]["extract"].strip():
+            pages = resp.json().get("query", {}).get("pages", [])
+            if pages and pages[0].get("extract", "").strip():
                 return pages[0]["extract"].strip()
     except Exception:
         pass
     return ""
 
-def _build_messages(
-    history: list[dict],
-    context_text: str,
-) -> list[dict]:
-    """Prepend context to the conversation, injecting it as a system-level document."""
+
+# ── Message builder ───────────────────────────────────────────────────────────
+
+def _build_messages(history: list[dict], context_text: str) -> list[dict]:
     messages: list[dict] = []
 
     if context_text:
         trimmed = context_text[:MAX_CONTEXT_CHARS]
-        source_hint = ""
+        hint = ""
         if "[Page " in trimmed:
-            source_hint = " (PDF document with page markers)"
+            hint = " (PDF)"
         elif "YouTube Video Transcript" in trimmed:
-            source_hint = " (YouTube video transcript with timestamps)"
+            hint = " (YouTube transcript)"
         elif "Web Article:" in trimmed:
-            source_hint = " (web article/webpage)"
+            hint = " (web article)"
+        messages.append({"role": "user", "content":
+            f"=== STUDY MATERIAL{hint} ===\n\n{trimmed}\n\n=== END ===\n\n"
+            "Please acknowledge you have received this study material."})
+        messages.append({"role": "assistant", "content":
+            "✅ Study material received. Ready to provide precise, source-grounded answers."})
 
-        context_block = (
-            f"=== STUDY MATERIAL{source_hint} ===\n\n"
-            f"{trimmed}\n\n"
-            f"=== END OF STUDY MATERIAL ===\n\n"
-        )
-        messages.append({
-            "role": "user",
-            "content": context_block + "Please acknowledge you have received this study material and briefly state what it covers. If I have selected 'The Polymath' persona, please adapt your entire knowledge base to these specific materials first."
-        })
-        messages.append({
-            "role": "assistant",
-            "content": "✅ Study material and personalized goals received. I've mapped your academic profile and I'm ready to provide ultra-accurate, source-grounded answers. Let's begin."
-        })
-
-    # Fetch live free context for the very last user message to make AI perfect
-    last_user_msg = next((m["content"] for m in reversed(history) if m["role"] == "user"), None)
-    live_api_context = ""
-    if last_user_msg:
-        live_api_context = _fetch_free_api_context(last_user_msg)
-
-    if live_api_context:
-        # We silently inject the free API data right before appending the history
-        messages.append({
-            "role": "system",
-            "content": f"[SYSTEM INJECTION: The Free Open Knowledge API has retrieved the following real-time background fact for the latest query: '{live_api_context}'. Integrate this factual baseline into your upcoming answer to increase output perfection.]"
-        })
+    # Inject quick Wikipedia context for the latest user query
+    last_user = next((m["content"] for m in reversed(history) if m["role"] == "user"), None)
+    if last_user:
+        wiki_ctx = _fetch_wiki_context(last_user)
+        if wiki_ctx:
+            messages.append({"role": "system", "content":
+                f"[SYSTEM: Background fact retrieved — integrate into answer: {wiki_ctx}]"})
 
     messages.extend(history)
     return messages
 
+
+# ── Core helper: execute one attempt ─────────────────────────────────────────
+
+def _try_call(client: Groq, model: str, sys_prompt: str,
+              messages: list[dict], json_mode: bool,
+              stream: bool, max_tokens: int, temperature: float):
+    """Single non-retrying API call. Returns (result, usage_tokens)."""
+    fmt = {"type": "json_object"} if json_mode else {"type": "text"}
+    kwargs = dict(
+        model=model,
+        messages=[{"role": "system", "content": sys_prompt}] + messages,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=0.9,
+    )
+    if not stream:
+        kwargs["response_format"] = fmt
+
+    completion = client.chat.completions.create(stream=stream, **kwargs)
+
+    if stream:
+        return completion, 0   # tokens counted after stream exhausted
+    else:
+        tokens = 0
+        try:
+            tokens = completion.usage.total_tokens or 0
+        except Exception:
+            pass
+        return completion.choices[0].message.content, tokens
+
+
+# ── Public: streaming ─────────────────────────────────────────────────────────
 
 def stream_chat_with_groq(
     history: list[dict],
@@ -145,124 +146,189 @@ def stream_chat_with_groq(
     persona_prompt: str = "",
 ) -> Generator[str, None, None]:
     """
-    Yields response text chunks as they stream from the Groq API.
-    Automatically rotates through ALL available keys on failure.
-    
-    Args:
-        persona_prompt: Additional system prompt for persona/character mode.
-
-    Raises:
-        ValueError — configuration / validation error (do not retry).
-        Exception  — API error (caller should check for rate_limit / auth).
+    Yield response text chunks. Automatically rotates keys on rate-limit.
+    Tries every available key before giving up.
     """
-    key = key_manager.get_key(override=override_key)
-    if not key:
-        raise ValueError("No Groq API key available. Please add one in the sidebar.")
-
-    client = Groq(api_key=key)
-    messages = _build_messages(history, context_text)
+    messages   = _build_messages(history, context_text)
+    sys_prompt = SYSTEM_PROMPT + ("\n\n" + persona_prompt if persona_prompt else "")
     chosen_model = model or MODEL
+    tried: set[str] = set()
+    last_err = None
 
-    # Build system prompt with optional persona
-    full_system = SYSTEM_PROMPT
-    if persona_prompt:
-        full_system += persona_prompt
+    for attempt in range(key_manager.MAX_RETRIES):
+        key = (override_key if attempt == 0 else None) or key_manager.get_next_key(
+            exclude_key=next(iter(tried), None)
+        ) or key_manager.get_key()
 
-    try:
-        stream = client.chat.completions.create(
-            model=chosen_model,
-            messages=[{"role": "system", "content": full_system}] + messages,
-            max_tokens=4096,       # increased for complete responses
-            temperature=0.65,
-            top_p=0.9,
-            stream=True,
-        )
-        for chunk in stream:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+        if not key:
+            break
+        if key in tried and len(tried) >= key_manager.total_keys():
+            break
+        tried.add(key)
 
-        # Success — record usage
-        key_manager.mark_used(key)
+        client = Groq(api_key=key)
+        try:
+            stream_obj, _ = _try_call(
+                client, chosen_model, sys_prompt, messages,
+                json_mode=False, stream=True,
+                max_tokens=4096, temperature=0.65
+            )
+            total_tokens = 0
+            for chunk in stream_obj:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    total_tokens += len(delta.split())   # rough estimate
+                    yield delta
 
-    except Exception as e:
-        err = str(e).lower()
-        if "model_not_found" in err or ("model" in err and "not" in err):
-            # Fall back to smaller model
-            try:
-                stream = client.chat.completions.create(
-                    model=FALLBACK_MODEL,
-                    messages=[{"role": "system", "content": full_system}] + messages,
-                    max_tokens=4096,
-                    temperature=0.65,
-                    stream=True,
-                )
-                for chunk in stream:
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        yield delta
-                key_manager.mark_used(key)
-                return
-            except Exception:
-                pass
+            key_manager.mark_used(key, token_count=total_tokens * 4 // 3)  # words→tokens approx
+            return
 
-        if "rate_limit" in err or "429" in err:
-            key_manager.mark_rate_limited(key)
-        elif "authentication" in err or "api_key" in err or "401" in err or "invalid" in err:
-            key_manager.mark_invalid(key)
-        raise  # re-raise so app.py can handle UI feedback
+        except Exception as e:
+            err = str(e).lower()
+            last_err = e
 
+            if "rate_limit" in err or "429" in err:
+                key_manager.mark_rate_limited(key)
+                time.sleep(0.5)    # tiny pause before switching
+                continue           # next key
+
+            if "model_not_found" in err or ("model" in err and "not" in err):
+                # Try fallback model on same key before moving on
+                try:
+                    stream_obj2, _ = _try_call(
+                        client, FALLBACK_MODEL, sys_prompt, messages,
+                        json_mode=False, stream=True,
+                        max_tokens=4096, temperature=0.65
+                    )
+                    total_tokens = 0
+                    for chunk in stream_obj2:
+                        delta = chunk.choices[0].delta.content
+                        if delta:
+                            total_tokens += len(delta.split())
+                            yield delta
+                    key_manager.mark_used(key, token_count=total_tokens * 4 // 3)
+                    return
+                except Exception:
+                    pass
+                continue
+
+            if "authentication" in err or "api_key" in err or "401" in err or "invalid" in err:
+                key_manager.mark_invalid(key)
+                continue
+
+            # Unknown error — try next key
+            continue
+
+    if last_err:
+        raise last_err
+    raise ValueError("All Groq API keys exhausted or unavailable.")
+
+
+# ── Public: non-streaming (JSON / tool calls) ─────────────────────────────────
 
 def chat_with_groq(
     messages: list[dict],
     json_mode: bool = False,
     override_key: Optional[str] = None,
-    model: Optional[str] = MODEL,
+    model: Optional[str] = None,
 ) -> str:
-    """Non-streaming chat response for tool calls (JSON or text)."""
-    key = key_manager.get_key(override=override_key)
-    if not key:
-        raise ValueError("No Groq API key available.")
+    """
+    Non-streaming call. Automatically retries with next key on rate-limit.
+    Returns the response text (or JSON string).
+    """
+    chosen_model = model or MODEL
+    tried: set[str] = set()
+    last_err = None
 
-    client = Groq(api_key=key)
-    try:
-        response_format = {"type": "json_object"} if json_mode else {"type": "text"}
-        completion = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            response_format=response_format,
-            max_tokens=2048,
-            temperature=0.3 if json_mode else 0.7,
-        )
-        key_manager.mark_used(key)
-        return completion.choices[0].message.content
-    except Exception as e:
-        err = str(e).lower()
-        if "rate_limit" in err or "429" in err:
-            key_manager.mark_rate_limited(key)
-        elif "authentication" in err or "api_key" in err or "401" in err or "invalid" in err:
-            key_manager.mark_invalid(key)
-        raise e
+    for attempt in range(key_manager.MAX_RETRIES):
+        key = (override_key if attempt == 0 else None) or key_manager.get_next_key(
+            exclude_key=next(iter(tried), None)
+        ) or key_manager.get_key()
 
+        if not key:
+            break
+        if key in tried and len(tried) >= key_manager.total_keys():
+            break
+        tried.add(key)
+
+        client = Groq(api_key=key)
+        try:
+            text, tokens = _try_call(
+                client, chosen_model, SYSTEM_PROMPT, messages,
+                json_mode=json_mode, stream=False,
+                max_tokens=2048, temperature=0.3 if json_mode else 0.7
+            )
+            key_manager.mark_used(key, token_count=tokens)
+            return text
+
+        except Exception as e:
+            err = str(e).lower()
+            last_err = e
+
+            if "rate_limit" in err or "429" in err:
+                key_manager.mark_rate_limited(key)
+                time.sleep(0.3)
+                continue
+
+            if "model_not_found" in err or ("model" in err and "not" in err):
+                try:
+                    text, tokens = _try_call(
+                        client, FALLBACK_MODEL, SYSTEM_PROMPT, messages,
+                        json_mode=json_mode, stream=False,
+                        max_tokens=2048, temperature=0.3 if json_mode else 0.7
+                    )
+                    key_manager.mark_used(key, token_count=tokens)
+                    return text
+                except Exception as e2:
+                    last_err = e2
+                    continue
+
+            if "authentication" in err or "api_key" in err or "401" in err or "invalid" in err:
+                key_manager.mark_invalid(key)
+                continue
+
+            continue
+
+    if last_err:
+        raise last_err
+    raise ValueError("All Groq API keys exhausted or unavailable.")
+
+
+# ── Audio transcription ───────────────────────────────────────────────────────
 
 def transcribe_audio(audio_bytes: bytes, override_key: Optional[str] = None) -> str:
-    """Uses Groq Whisper API to transcribe audio bytes to text."""
-    key = key_manager.get_key(override=override_key)
-    if not key:
-        raise ValueError("No Groq API key available.")
-    
-    client = Groq(api_key=key)
-    try:
-        transcription = client.audio.transcriptions.create(
-            file=("audio.wav", audio_bytes),
-            model="whisper-large-v3",
-            response_format="text"
-        )
-        return transcription
-    except Exception as e:
-        err = str(e).lower()
-        if "rate_limit" in err or "429" in err:
-            key_manager.mark_rate_limited(key)
-        elif "authentication" in err or "api_key" in err or "401" in err or "invalid" in err:
-            key_manager.mark_invalid(key)
-        raise ValueError(f"Transcription failed: {e}")
+    """Groq Whisper transcription with key rotation on rate-limit."""
+    tried: set[str] = set()
+    last_err = None
+
+    for attempt in range(key_manager.MAX_RETRIES):
+        key = (override_key if attempt == 0 else None) or key_manager.get_next_key(
+            exclude_key=next(iter(tried), None)
+        ) or key_manager.get_key()
+
+        if not key or (key in tried and len(tried) >= key_manager.total_keys()):
+            break
+        tried.add(key)
+
+        client = Groq(api_key=key)
+        try:
+            result = client.audio.transcriptions.create(
+                file=("audio.wav", audio_bytes),
+                model="whisper-large-v3",
+                response_format="text"
+            )
+            key_manager.mark_used(key, token_count=200)   # audio tokens are cheaper
+            return result
+        except Exception as e:
+            err = str(e).lower()
+            last_err = e
+            if "rate_limit" in err or "429" in err:
+                key_manager.mark_rate_limited(key)
+                time.sleep(0.3)
+                continue
+            if "authentication" in err or "api_key" in err or "401" in err or "invalid" in err:
+                key_manager.mark_invalid(key)
+                continue
+            continue
+
+    raise ValueError(f"Audio transcription failed: {last_err}")
