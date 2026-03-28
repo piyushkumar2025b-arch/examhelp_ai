@@ -170,6 +170,10 @@ def chat_with_gemini(
                 gkm.mark_rate_limited(key, retry_after=retry_after)
                 continue
 
+            if resp.status_code in (503, 529):
+                gkm.mark_rate_limited(key, retry_after=15.0)
+                continue
+
             if resp.status_code in (400, 401, 403):
                 gkm.mark_invalid(key)
                 continue
@@ -223,6 +227,10 @@ def stream_chat_with_gemini(
             if resp.status_code == 429:
                 retry_after = _parse_retry_after(resp)
                 gkm.mark_rate_limited(key, retry_after=retry_after)
+                continue
+
+            if resp.status_code in (503, 529):
+                gkm.mark_rate_limited(key, retry_after=15.0)
                 continue
 
             if resp.status_code in (400, 401, 403):
