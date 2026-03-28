@@ -6,9 +6,12 @@ except ImportError:
     wikipedia = None
     
 try:
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
 except ImportError:
-    DDGS = None
+    try:
+        from duckduckgo_search import DDGS
+    except ImportError:
+        DDGS = None
 
 import requests
 import json
