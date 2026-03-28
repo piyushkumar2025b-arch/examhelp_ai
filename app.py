@@ -2027,39 +2027,37 @@ if st.session_state.queued_prompt:
     user_input = st.session_state.queued_prompt
     st.session_state.queued_prompt = None
 
-# Voice-to-calculator: detect "calculate ..." or "compute ..." commands
-if user_input and any(user_input.lower().startswith(kw) for kw in ["calculate ", "compute ", "calc ", "what is ", "solve "]):
-    import math as _math
-    calc_expr_voice = re.sub(r"^(calculate|compute|calc|what is|solve)\s+", "", user_input, flags=re.IGNORECASE).strip()
-    calc_expr_voice = calc_expr_voice.rstrip("?. ")
-    # Normalize natural language to math expressions
-    calc_expr_voice = calc_expr_voice.replace("×", "*").replace("÷", "/").replace("^", "**")
-    calc_expr_voice = calc_expr_voice.replace("plus", "+").replace("minus", "-").replace("times", "*").replace("divided by", "/")
-    calc_expr_voice = calc_expr_voice.replace("squared", "**2").replace("cubed", "**3")
-    calc_expr_voice = calc_expr_voice.replace("square root of", "sqrt(").replace("sine of", "sin(").replace("cosine of", "cos(")
-    # Fix unclosed parens
-    open_p = calc_expr_voice.count("(") - calc_expr_voice.count(")")
-    if open_p > 0:
-        calc_expr_voice += ")" * open_p
-    try:
-        _allowed = {"sin": _math.sin, "cos": _math.cos, "tan": _math.tan,
-                     "sqrt": _math.sqrt, "log": _math.log, "log10": _math.log10,
-                     "pi": _math.pi, "e": _math.e, "abs": abs, "pow": pow, "round": round,
-                     "asin": _math.asin, "acos": _math.acos, "atan": _math.atan,
-                     "factorial": _math.factorial, "ceil": _math.ceil, "floor": _math.floor,
-                     "degrees": _math.degrees, "radians": _math.radians}
-        calc_result_voice = eval(calc_expr_voice, {"__builtins__": {}}, _allowed)
-        st.session_state.calc_expr = str(calc_result_voice)
-        st.session_state.calc_result = str(calc_result_voice)
-        # Show calc result as a chat message instead
-        user_input = f"Calculate: `{calc_expr_voice}` = **{calc_result_voice}**"
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        st.session_state.messages.append({"role": "assistant", "content": f"🧮 **Calculator Result**\n\n`{calc_expr_voice}` = **{calc_result_voice}**\n\n💡 You can also open the calculator from the sidebar toolbar (🧮)."})
+# ── Smart Navigation & Calculus Triggers (Layer 2 - Active Routing)
+if user_input and any(user_input.lower().startswith(kw) for kw in ["calculate ", "compute ", "calc ", "solve "]):
+    calc_expr_voice = re.sub(r"^(calculate|compute|calc|solve)\s+", "", user_input, flags=re.IGNORECASE).strip()
+    res = AppController.evaluate_expression(calc_expr_voice)
+    if res and res != "Error":
+        st.session_state.calc_expr = str(res)
+        st.session_state.calc_result = str(res)
+        user_input_disp = f"Calculate: `{calc_expr_voice}`"
+        st.session_state.messages.append({"role": "user", "content": user_input_disp})
+        st.session_state.messages.append({"role": "assistant", "content": f"🧮 **Calculation Result:**\n\n`{calc_expr_voice}` = **{res}**\n\n💡 Try the native Calculator mode (🧮) for continuous equations."})
         st.rerun()
-    except Exception:
-        pass  # Not a valid math expression — treat as normal chat question
 
+elif user_input and any(user_input.lower().startswith(kw) for kw in ["plot ", "graph ", "draw graph "]):
+    st.session_state.app_mode = "graph"
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.messages.append({"role": "assistant", "content": f"📈 **Graph Engine Activated**\n\nI have opened the multi-dimensional graph workspace in your active view."})
+    st.rerun()
 
+elif user_input and any(kw in user_input.lower() for kw in ["open quiz", "start quiz"]):
+    st.session_state.app_mode = "quiz"
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.messages.append({"role": "assistant", "content": f"📝 **Quiz Mode Active**\n\nI have switched your workspace to the Smart Quiz Mode."})
+    st.rerun()
+
+elif user_input and any(kw in user_input.lower() for kw in ["open planner", "study planner"]):
+    st.session_state.app_mode = "planner"
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.messages.append({"role": "assistant", "content": f"📅 **Planner Mode Active**\n\nYour interactive study planner is now open."})
+    st.rerun()
+
+# ── Standard Query Processing (Layer 4 - Fusion & Routing)
 if user_input:
     override = _get_override_key()
     active_key = key_manager.get_key(override=override)
@@ -2068,18 +2066,15 @@ if user_input:
         st.error("No API key available. Please enter a Groq API key in the sidebar.", icon="🔑")
         st.stop()
 
-    search_match = re.search(r"search for (.*)", user_input.lower())
-    if search_match:
-        with st.spinner("Searching the web..."):
-            search_res = AppController.web_search(search_match.group(1), max_results=3)
-            user_input_augmented = f"{user_input}\n\n[Web Context:\n{search_res}\n]"
-            st.session_state.messages.append({"role": "user", "content": user_input_augmented})
-            with st.chat_message("user", avatar="👤"):
-                st.markdown(user_input)
-    else:
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(user_input)
+    from utils.query_engine import QueryEngine
+    
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(user_input)
+        
+    # Determine the context injection
+    with st.spinner("Consulting Multi-Intelligence Engine..."):
+        augmented_prompt, matched_sources, intent = QueryEngine.route_and_enrich(user_input, st.session_state.get("context_text", ""))
 
     # Determine assistant avatar
     assistant_avatar = "🎓"
@@ -2094,6 +2089,8 @@ if user_input:
         success = False
 
         history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-20:]]
+        if "augmented_prompt" in locals():
+            history[-1]["content"] = augmented_prompt # Invisible swap to hide API logic from UI 
 
         # Build persona prompt
         persona_prompt = ""
@@ -2102,6 +2099,8 @@ if user_input:
         elif st.session_state.get("selected_language", "English") != "English":
             # If default persona but language changed
             persona_prompt = f"\n\nCRITICAL RULE: You MUST answer strictly in {st.session_state.selected_language}. All explanations, headers, and bullet points must be translated to {st.session_state.selected_language}."
+            
+        persona_prompt = QueryEngine.get_structured_system_prompt(persona_prompt)
 
         while attempt < max_attempts and not success:
             current_key = key_manager.get_key(override=override)
