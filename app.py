@@ -1647,9 +1647,28 @@ elif app_mode == "calculator":
     calc_col1, calc_col2 = st.columns([3, 1])
     
     with calc_col1:
-        fs_input = st.text_input("Mathematical Expression", value=st.session_state.fs_calc_expr, key="fs_calc_input", placeholder="e.g. math.comb(52, 5), sin(pi/4), log(100, 10), 15 % 4")
-        
-        # Massive Grid
+        fs_input = st.text_input("Mathematical Expression", value=st.session_state.fs_calc_expr, key="fs_calc_input", placeholder="e.g. sin(pi/4), log(100), 15 % 4")
+        if fs_input != st.session_state.fs_calc_expr:
+            st.session_state.fs_calc_expr = fs_input
+            
+        def _add_fsc(val):
+            if st.session_state.fs_calc_result and st.session_state.fs_calc_result != "Error":
+                if val in ["+", "−", "×", "÷", "^", "%"]:
+                    st.session_state.fs_calc_expr = st.session_state.fs_calc_result + val
+                else: 
+                    st.session_state.fs_calc_expr = val
+                st.session_state.fs_calc_result = ""
+            else:
+                st.session_state.fs_calc_expr += val
+                
+        def _eval_fsc():
+            expr_to_eval = st.session_state.fs_calc_expr
+            st.session_state.fs_calc_result = AppController.evaluate_expression(expr_to_eval)
+            if st.session_state.fs_calc_result != "Error":
+                st.session_state.fs_calc_history.append(f"{expr_to_eval} = {st.session_state.fs_calc_result}")
+                if len(st.session_state.fs_calc_history) > 10: st.session_state.fs_calc_history.pop(0)
+                st.session_state.fs_calc_expr = st.session_state.fs_calc_result
+                
         g1, g2, g3, g4, g5, g6 = st.columns(6)
         btns_row1 = [("sin", "sin(", g1), ("cos", "cos(", g2), ("tan", "tan(", g3), ("asin", "asin(", g4), ("acos", "acos(", g5), ("atan", "atan(", g6)]
         g7, g8, g9, g10, g11, g12 = st.columns(6)
