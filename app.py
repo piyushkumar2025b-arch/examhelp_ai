@@ -981,7 +981,7 @@ with st.sidebar:
         st.divider()
 
     # ── Toolbar Row ──────────────────────────
-    tb1, tb2, tb3, tb4, tb5 = st.columns(5)
+    tb1, tb2, tb3, tb4, tb5, tb6 = st.columns(6)
     with tb1:
         if st.button("📅", key="tb_cal", help="Calendar", use_container_width=True):
             st.session_state.calculator_open = False
@@ -995,15 +995,19 @@ with st.sidebar:
             st.session_state.calculator_open = not st.session_state.calculator_open
             st.rerun()
     with tb3:
+        if st.button("📈", key="tb_graph", help="Graph Plotter", use_container_width=True):
+            st.session_state.app_mode = "graph"
+            st.rerun()
+    with tb4:
         focus_icon = "🔕" if st.session_state.focus_mode else "🔔"
         if st.button(focus_icon, key="tb_focus", help="Focus Mode", use_container_width=True):
             st.session_state.focus_mode = not st.session_state.focus_mode
             st.rerun()
-    with tb4:
+    with tb5:
         if st.button("🔖", key="tb_bm", help="Bookmarks", use_container_width=True):
             st.session_state["bookmarks_open"] = not st.session_state.get("bookmarks_open", False)
             st.rerun()
-    with tb5:
+    with tb6:
         if st.button("📜", key="tb_hist", help="Chat History", use_container_width=True):
             st.session_state.chat_history_open = not st.session_state.chat_history_open
             st.rerun()
@@ -1718,6 +1722,67 @@ elif app_mode == "calculator":
                 st.markdown(f'<div style="background:var(--bg3); border-radius:8px; padding:10px; font-family:var(--mono); font-size:0.85rem; color:var(--text); margin-bottom:8px; border:1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">{item}</div>', unsafe_allow_html=True)
         else:
             st.caption("No history.")
+    st.stop()
+
+elif app_mode == "graph":
+    from utils.graph_engine import plot_2d_graph, plot_3d_graph
+    st.header("📈 Elite Advanced Graphing")
+    
+    t_2d, t_3d = st.tabs(["2D Functions", "3D Surfaces"])
+    
+    with t_2d:
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.markdown('<div class="section-label">Inputs</div>', unsafe_allow_html=True)
+            func_str = st.text_input("f(x) List (comma-separated)", value="sin(x), cos(x)", help="e.g. x**2, sin(a*x)")
+            
+            c_min, c_max = st.columns(2)
+            with c_min:
+                x_min = float(st.number_input("X Min", value=-10.0))
+            with c_max:
+                x_max = float(st.number_input("X Max", value=10.0))
+                
+            show_deriv = st.checkbox("Show Derivatives f'(x)")
+            shade_area = st.checkbox("Shade Curve Areas")
+            
+        with col2:
+            funcs = [f.strip() for f in func_str.split(",") if f.strip()]
+            if funcs:
+                fig, errs = plot_2d_graph(funcs, x_min=x_min, x_max=x_max, points=500, theme="dark", show_derivative=show_deriv, shade_area=shade_area)
+                if errs:
+                    for e in errs: st.error(e)
+                if fig:
+                    fig.update_layout(height=600)
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Start typing mathematically valid f(x) equations to plot them.")
+
+    with t_3d:
+        col3, col4 = st.columns([1, 3])
+        with col3:
+            st.markdown('<div class="section-label">3D Coordinates</div>', unsafe_allow_html=True)
+            f3d_str = st.text_input("Z = f(x, y)", value="sin(x*y)", help="e.g. x**2 + y**2")
+            
+            c3_min, c3_max = st.columns(2)
+            with c3_min:
+                x3_min = float(st.number_input("X Start", value=-5.0))
+                y3_min = float(st.number_input("Y Start", value=-5.0))
+            with c3_max:
+                x3_max = float(st.number_input("X End", value=5.0))
+                y3_max = float(st.number_input("Y End", value=5.0))
+                
+            res3d = st.slider("Quality Mesh", min_value=15, max_value=80, value=40)
+            
+        with col4:
+            if f3d_str.strip():
+                fig3, errs3 = plot_3d_graph(f3d_str, x_min=x3_min, x_max=x3_max, y_min=y3_min, y_max=y3_max, resolution=res3d, theme="dark")
+                if errs3:
+                    for e in errs3: st.error(e)
+                if fig3:
+                    fig3.update_layout(height=650)
+                    st.plotly_chart(fig3, use_container_width=True)
+            else:
+                st.info("Input a z=function to start charting in 3 dimensions.")
     st.stop()
 
 elif app_mode == "quiz":
