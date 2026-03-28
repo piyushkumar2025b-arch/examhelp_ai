@@ -6,8 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 # Core Module Imports
-from utils.query_engine import QueryEngine
-from utils.app_controller import AppController
+# Core Module Imports
 from utils.file_engine import FileEngine
 from utils.web_handler import scrape_web_page
 from utils.groq_client import chat_with_groq
@@ -30,6 +29,8 @@ class UnifiedAPIManager:
 
     def _route(self, api_name: str, query: str, **kwargs) -> Any:
         from ai.plugin_registry import PLUGIN_REGISTRY
+        from utils.query_engine import QueryEngine
+        from utils.app_controller import AppController
         
         # 1. KNOWLEDGE & RESEARCH (WIKI / ARXIV / BOOKS)
         if api_name in PLUGIN_REGISTRY["knowledge"] or api_name == "wiki":

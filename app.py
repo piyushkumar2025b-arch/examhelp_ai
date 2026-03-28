@@ -71,6 +71,7 @@ def init_state():
         "focus_mode": False,
         "calculator_open": False,
         "chat_history_open": False,
+        "vector_store": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -85,6 +86,10 @@ def init_state():
                     st.session_state.persistent_sessions = json.load(f)
             except Exception:
                 pass
+
+    from memory.vector_store import VectorStore
+    if st.session_state.vector_store is None:
+        st.session_state.vector_store = VectorStore()
 
 init_state()
 
@@ -976,6 +981,12 @@ def add_context(new_text: str, source_label: str, source_type: str):
         if st.session_state.context_text else new_text
     )
     st.session_state.context_sources.append({"type": source_type, "label": source_label})
+    
+    # Auto-index for RAG
+    if st.session_state.vector_store:
+        # Split text into chunks for better retrieval
+        chunks = [new_text[i:i+1000] for i in range(0, len(new_text), 800)]
+        st.session_state.vector_store.add_documents(chunks)
 
 def clear_context():
     st.session_state.context_text = ""
@@ -1429,6 +1440,24 @@ with st.sidebar:
             st.session_state.context_text = ""
             st.session_state.context_sources = []
             st.rerun()
+
+    # ── Feature Roadmap ───────────────────────
+    with st.expander("🚀 Upcoming Features"):
+        num_keys = key_manager.total_keys()
+        st.markdown(f"""
+        <div class="roadmap-item">
+            <div class="roadmap-badge badge-soon">Active</div>
+            <div class="roadmap-text"><strong>Multi-Key Engine</strong> Full rotate-failover active with {num_keys} keys.</div>
+        </div>
+        <div class="roadmap-item">
+            <div class="roadmap-badge badge-soon">Next</div>
+            <div class="roadmap-text"><strong>RAG Persistent Memory</strong> Vector search via Faiss & ChromaDB.</div>
+        </div>
+        <div class="roadmap-item">
+            <div class="roadmap-badge badge-planned">Planned</div>
+            <div class="roadmap-text"><strong>Multi-Agent Teacher</strong> Interactive teacher, solver & verifier.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # ── Academic Goals (New Addition) ─────────
     st.markdown('<div class="section-label">🎯 Academic Goals</div>', unsafe_allow_html=True)
@@ -2185,9 +2214,11 @@ if audio_val and audio_val != st.session_state.get("last_audio"):
             st.error(f"Voice transcription failed: {e}")
 
 user_input = st.chat_input("Ask anything about your study material…", key="chat_input")
+txt_low = user_input.lower() if user_input else ""
 
 if st.session_state.queued_prompt:
     user_input = st.session_state.queued_prompt
+    txt_low = user_input.lower()
     st.session_state.queued_prompt = None
 
 # ── Smart Navigation & Calculus Triggers (Layer 2 - Active Routing)
@@ -2218,6 +2249,12 @@ elif user_input and any(kw in user_input.lower() for kw in ["open planner", "stu
     st.session_state.app_mode = "planner"
     st.session_state.messages.append({"role": "user", "content": user_input})
     st.session_state.messages.append({"role": "assistant", "content": f"📅 **Planner Mode Active**\n\nYour interactive study planner is now open."})
+    st.rerun()
+
+elif txt_low and any(kw in txt_low for kw in ["open mindmap", "generate mindmap", "show map", "mind map"]):
+    st.session_state.app_mode = "mindmap"
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.messages.append({"role": "assistant", "content": f"📊 **Visual Intelligence Activated**\n\nI have prepared the interactive concept workspace in your active view."})
     st.rerun()
 
 # ── Standard Query Processing (Layer 4 - Fusion & Routing)

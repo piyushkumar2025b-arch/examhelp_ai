@@ -163,6 +163,14 @@ class QueryEngine:
         sources = []
         enriched_context = ""
         
+        # 0. RAG RETRIEVAL (Memory Layer)
+        from memory.vector_store import VectorStore
+        if "vector_store" in st.session_state and st.session_state.vector_store.is_active():
+            rag_results = st.session_state.vector_store.search(query)
+            if rag_results:
+                enriched_context += "\n### Relevant Context (RAG):\n"
+                for res in rag_results:
+                    enriched_context += f"- {res}\n"
         # 1. Image Check (Multimedia Intent)
         image_url = None
         if "show me" in query.lower() or "image of" in query.lower():

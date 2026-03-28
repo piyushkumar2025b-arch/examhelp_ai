@@ -1,72 +1,34 @@
-"""reasoning_engine.py — Advanced AI Cognition and Context Fusion.
-
-Modules:
-1. ContextBuilder (Prompt Engineering & Source Injection).
-2. CognitiveRouter (Intent Detection & Provider Mapping).
-3. FactVerification (Source grounding).
-"""
-
-import streamlit as st
-from typing import List, Dict, Any, Tuple
-import re
+import networkx as nx
+from gensim.summarization import keywords # Note: gensim 3.x vs 4.x keywords behavior differs
+from rank_bm25 import BM25Okapi
+import numpy as np
 
 class ReasoningEngine:
+    """Advanced AI Reasoning Engine for concept extraction and relevance mapping."""
+    
     @staticmethod
-    def build_cognitive_prompt(query: str, retrieved_data: Dict[str, Any], user_profile: Dict = None) -> str:
-        """Fuses raw knowledge into a high-signal prompt for the LLM."""
-        
-        # 1. Source Grounding
-        context_blocks = []
-        if retrieved_data.get("wiki"):
-            context_blocks.append(f"WIKIPEDIA_DB: {retrieved_data['wiki']}")
-        if retrieved_data.get("search"):
-            context_blocks.append(f"WEB_RESEARCH: {retrieved_data['search']}")
-        if retrieved_data.get("arxiv"):
-            context_blocks.append(f"SCIENTIFIC_PAPERS: {retrieved_data['arxiv']}")
-            
-        context_str = "\n\n".join(context_blocks)
-        
-        # 2. Adaptive Prompt Construction
-        prompt = f"""
-        [USER_QUERY]: {query}
-        [GROUNDING_CONTEXT]:
-        {context_str if context_str else "No additional context found. Use base high-level knowledge."}
-        
-        [REASONING_MODE]: DEEP_THINK
-        [OUTPUT_FORMAT]: SCHOLARLY_ELITE
-        """
-        return prompt
+    def extract_concept_graph(text: str) -> nx.Graph:
+        """Build a graph of related concepts from the text."""
+        G = nx.Graph()
+        # Simplified concept extraction
+        lines = text.split('.')
+        for line in lines[:20]: # Limit for performance
+            words = [w.strip().lower() for w in line.split() if len(w.strip()) > 4]
+            for i in range(len(words)-1):
+                G.add_edge(words[i], words[i+1])
+        return G
 
     @staticmethod
-    def detect_intent(query: str) -> str:
-        """Heuristic intent detection for smart routing."""
-        q = query.lower()
-        if any(x in q for x in ["explain", "what is", "how does", "theory of"]):
-            return "academic_teaching"
-        if any(x in q for x in ["solve", "calculate", "math", "evaluate"]):
-            return "problem_solving"
-        if any(x in q for x in ["generate", "make notes", "create pdf", "summary"]):
-            return "content_generation"
-        if any(x in q for x in ["contest", "coding", "codeforces", "leetcode"]):
-            return "competition_tracking"
-        return "general_intelligence"
-
-    @staticmethod
-    def verify_facts(response: str, sources: List[str]) -> bool:
-        """Future hook for fact cross-validation."""
-        # Simple check for hallucination flags
-        hallucination_flags = ["i am a language model", "i don't have access", "as an ai"]
-        return not any(flag in response.lower() for flag in hallucination_flags)
+    def rank_relevance(query: str, documents: list[str]) -> list[str]:
+        """Rank documents by relevance using BM25."""
+        if not documents: return []
+        tokenized_corpus = [doc.lower().split() for doc in documents]
+        bm25 = BM25Okapi(tokenized_corpus)
+        tokenized_query = query.lower().split()
+        doc_scores = bm25.get_scores(tokenized_query)
+        top_indices = np.argsort(doc_scores)[::-1]
+        return [documents[i] for i in top_indices if doc_scores[i] > 0]
 
 def humanize_text(text: str) -> str:
-    """Post-processor to make technical output more conversational and 'teacher-like'."""
-    # This is a light-weight heuristic humanizer
-    mapping = {
-        "is defined as": "is basically",
-        "furthermore": "also",
-        "consequently": "so",
-        "the following steps": "here's how you do it",
-    }
-    for old, new in mapping.items():
-        text = text.replace(old, new)
-    return text
+    """Post-processing to make AI text feel more natural (placeholder for now)."""
+    return text.replace("Assistant:", "").strip()
