@@ -219,88 +219,28 @@ class QueryEngine:
 
     @staticmethod
     def route_and_enrich(query: str, user_context: str = ""):
-        from ai.api_manager import UnifiedAPIManager
-        api_manager = UnifiedAPIManager()
-
         intent = QueryEngine.classify_query(query)
         sources = []
         enriched_context = ""
 
-        # 0. RAG Retrieval
-        from memory.vector_store import VectorStore
-        if "vector_store" in st.session_state and st.session_state.vector_store.is_active():
-            rag_results = st.session_state.vector_store.search(query)
-            if rag_results:
-                enriched_context += "\n### Relevant Context (RAG):\n"
-                for res in rag_results:
-                    enriched_context += f"- {res}\n"
-
-        # 1. Image intent
-        image_url = None
-        if "show me" in query.lower() or "image of" in query.lower():
-            image_query = re.sub(r'\b(show me|image of|photo of)\b', '', query, flags=re.IGNORECASE).strip()
-            image_url = api_manager.call("image", image_query)
-
-        # 2. Route to correct APIs
-        tasks = []
-        if intent == "factual":
-            tasks.append({"name": "wiki", "api": "wiki", "query": query})
-            if len(query.split()) < 4:
-                tasks.append({"name": "dict", "api": "dict", "query": query})
-        elif intent == "scientific":
-            tasks.append({"name": "arxiv", "api": "arxiv", "query": query})
-            tasks.append({"name": "semantic", "api": "semantic_scholar", "query": query})
-        elif intent == "literary":
-            tasks.append({"name": "books", "api": "books", "query": query})
-        elif intent == "recent":
-            tasks.append({"name": "news", "api": "search", "query": query, "kwargs": {"max_results": 3}})
-        elif intent == "code":
-            tasks.append({"name": "stackoverflow", "api": "stackoverflow", "query": query})
-
-        # Always add DDG for supplementary context
-        tasks.append({"name": "search", "api": "search", "query": query, "kwargs": {"max_results": 2}})
-
-        results = api_manager.parallel_fetch(tasks)
-
-        # 3. Build enriched context string
-        if results.get("wiki"):
-            enriched_context += "### Wikipedia Knowledge:\n"
-            for w in results["wiki"]:
-                enriched_context += f"**{w['title']}**: {w['snippet']}\n"
-                if w.get("link"): sources.append(w["link"])
-
-        if results.get("arxiv"):
-            enriched_context += "\n### ArXiv Research:\n"
-            for a in results["arxiv"]:
-                enriched_context += f"**{a['title']}**: {a['snippet']}\n"
-                if a.get("link"): sources.append(a["link"])
-
-        if results.get("semantic"):
-            enriched_context += "\n### Semantic Scholar:\n"
-            for s in results["semantic"]:
-                enriched_context += f"**{s['title']}**: {s['snippet']}\n"
-                if s.get("link"): sources.append(s["link"])
-
-        if results.get("stackoverflow"):
-            enriched_context += "\n### StackOverflow:\n"
-            for s in results["stackoverflow"]:
-                enriched_context += f"**{s['title']}**: {s['link']}\n"
-                if s.get("link"): sources.append(s["link"])
-
-        if results.get("search"):
-            enriched_context += "\n### Web Research:\n"
-            for d in results["search"]:
-                enriched_context += f"**{d['title']}**: {d['snippet']}\n"
-                if d.get("link"): sources.append(d["link"])
-
-        if image_url:
-            enriched_context += f"\n\n[SYSTEM_VIEW: IMAGE_FOUND] (URL: {image_url})\n"
+        # RAG Retrieval only — instant, no network call
+        try:
+            import streamlit as st
+            from memory.vector_store import VectorStore
+            if "vector_store" in st.session_state and st.session_state.vector_store.is_active():
+                rag_results = st.session_state.vector_store.search(query)
+                if rag_results:
+                    enriched_context += "\n### Relevant Context (RAG):\n"
+                    for res in rag_results:
+                        enriched_context += f"- {res}\n"
+        except Exception:
+            pass
 
         final_prompt = query
         if enriched_context:
             final_prompt += f"\n\n{enriched_context}"
 
-        return final_prompt, list(set(s for s in sources if s)), intent
+        return final_prompt, sources, intent
 
     @staticmethod
     def get_structured_system_prompt(base_prompt: str):

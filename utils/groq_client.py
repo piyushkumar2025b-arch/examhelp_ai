@@ -66,47 +66,14 @@ TONE: Intellectually elite, authoritative, exhaustive.\
 
 
 # ── Wikipedia quick-context ────────────────────────────────────────────────────
-
-_FACTUAL_KEYWORDS = frozenset([
-    "what is", "who is", "define", "explain", "history of", "how does",
-    "capital of", "concept of", "meaning of", "formula for",
-])
+# Disabled: synchronous network call was adding 0.5-1.5s latency before first token.
+# The LLM already has this knowledge built-in — the lookup was redundant.
 
 def _should_fetch_wiki(query: str) -> bool:
-    q = query.lower()
-    return any(kw in q for kw in _FACTUAL_KEYWORDS)
-
+    return False  # Disabled for speed
 
 def _fetch_wiki_context(query: str) -> str:
-    if not _should_fetch_wiki(query):
-        return ""
-    try:
-        clean_q = re.sub(
-            r'\b(what|is|the|explain|how|why|who|a|an|describe|tell|me|about|calculate|define)\b',
-            '', query, flags=re.IGNORECASE
-        ).strip()
-        if len(clean_q) < 3:
-            return ""
-        term = " ".join(clean_q.split()[:4])
-        resp = _requests.get(
-            "https://en.wikipedia.org/w/api.php",
-            params={
-                "action": "query", "format": "json", "prop": "extracts",
-                "exsentences": "3", "exlimit": "1", "titles": term,
-                "explaintext": "1", "formatversion": "2", "redirects": "1",
-            },
-            timeout=1.5,
-        )
-        if resp.status_code == 200:
-            pages = resp.json().get("query", {}).get("pages", [])
-            if pages and pages[0].get("extract", "").strip():
-                extract = pages[0]["extract"].strip()
-                # Don't add wiki context that's longer than the query itself
-                if len(extract) > 50:
-                    return extract
-    except Exception:
-        pass
-    return ""
+    return ""  # Disabled for speed
 
 
 # ── Message builder ────────────────────────────────────────────────────────────

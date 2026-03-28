@@ -1474,14 +1474,13 @@ else:
             st.markdown(f'<span class="user-msg-hook" style="display:none"></span>', unsafe_allow_html=True)
             st.markdown(user_input)
 
-        with st.spinner("Routing query through Multi-Intelligence Engine…"):
-            try:
-                augmented_prompt, matched_sources, intent = QueryEngine.route_and_enrich(
-                    user_input, st.session_state.get("context_text",""))
-            except Exception:
-                augmented_prompt = user_input
-                matched_sources  = []
-                intent           = "complex"
+        try:
+            augmented_prompt, matched_sources, intent = QueryEngine.route_and_enrich(
+                user_input, st.session_state.get("context_text",""))
+        except Exception:
+            augmented_prompt = user_input
+            matched_sources  = []
+            intent           = "complex"
 
         assistant_avatar = persona["emoji"] if (persona and st.session_state.selected_persona != "Default (ExamHelp)") else "🎓"
 
@@ -1490,7 +1489,7 @@ else:
             full_response = ""
             success       = False
 
-            history = [{"role":m["role"],"content":m["content"]} for m in st.session_state.messages[-20:]]
+            history = [{"role":m["role"],"content":m["content"]} for m in st.session_state.messages[-12:]]
             history[-1]["content"] = augmented_prompt  # Silently enrich prompt
 
             # Persona prompt
@@ -1500,11 +1499,6 @@ else:
             elif st.session_state.get("selected_language","English") != "English":
                 lang = st.session_state.selected_language
                 persona_prompt = f"\n\nCRITICAL: Answer STRICTLY in {lang}. All explanations, headers, bullets in {lang}."
-
-            try:
-                persona_prompt = QueryEngine.get_structured_system_prompt(persona_prompt)
-            except Exception:
-                pass
 
             chosen_model = st.session_state.get("model_choice","llama-3.3-70b-versatile")
 
