@@ -2333,6 +2333,29 @@ if user_input:
             if caption:
                 st.caption(f"📚 {caption}")
 
+    # --- EXAMHELP STUDY EXPORT HUB ---
+    if "## 🎯 Exam Strategy" in full_response or "## 🔍 Explanation" in full_response:
+        from utils.study_generator import StudyGenerator
+        st.divider()
+        st.markdown("### 📥 Export Study Pack")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            pdf_data = StudyGenerator.generate_pdf(f"Study Guide: {user_input[:20]}", full_response)
+            st.download_button("📄 PDF Guide", pdf_data, file_name=f"ExamHelp_Study_{user_input[:10]}.pdf")
+            
+        with col2:
+            docx_data = StudyGenerator.generate_docx(f"Research: {user_input[:20]}", full_response)
+            st.download_button("📝 DOCX Note", docx_data, file_name=f"ExamHelp_Note_{user_input[:10]}.docx")
+            
+        with col3:
+            ppt_data = StudyGenerator.generate_ppt(f"Presentation: {user_input[:20]}", full_response)
+            st.download_button("📊 PPT Slide", ppt_data, file_name=f"ExamHelp_Slide_{user_input[:10]}.pptx")
+            
+        with col4:
+            html_data = StudyGenerator.generate_html(f"Web: {user_input[:20]}", full_response)
+            st.download_button("🌐 Study Web", html_data, file_name=f"ExamHelp_Web_{user_input[:10]}.html")
+    
     st.session_state.messages.append({"role": "assistant", "content": full_response})
     if st.session_state.get("voice_mode") and full_response:
         AppController.speak(full_response)
