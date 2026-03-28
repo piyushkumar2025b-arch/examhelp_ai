@@ -26,6 +26,7 @@ from utils import key_manager
 from utils.personas import PERSONAS, get_persona_names, get_persona_by_name, build_persona_prompt
 from utils.ocr_handler import extract_text_from_image
 from utils.analytics import get_subject_mastery_radar, get_study_intensity_heatmap, estimate_required_velocity
+from utils.app_controller import AppController
 
 load_dotenv()
 
@@ -57,6 +58,8 @@ def init_state():
         "queued_prompt": None,
         "last_audio": None,
         "app_mode": "chat",
+        "voice_mode": False,
+        "study_tasks": [],
         "flashcards": [],
         "quiz_data": [],
         "current_card": 0,
@@ -969,6 +972,12 @@ with st.sidebar:
             st.session_state.selected_language = sel_lang
             st.rerun()
 
+        st.markdown('<div class="section-label">🎙️ Global Voice</div>', unsafe_allow_html=True)
+        v_mode = st.toggle("Voice Mode ON", value=st.session_state.get("voice_mode", False), key="voice_toggle")
+        if v_mode != st.session_state.get("voice_mode", False):
+            st.session_state.voice_mode = v_mode
+            st.rerun()
+
         st.divider()
 
     # ── Toolbar Row ──────────────────────────
@@ -1519,30 +1528,11 @@ if app_mode == "flashcards":
     else:
         if st.button("🪄 Generate Professional Flashcards"):
             with st.spinner(f"Creating {lang} study deck..."):
-                prompt = [
-                    {"role": "system", "content": f"You are a master educator. Create 10 expert Q&A flashcards based strictly on the study material. "
-                                                  f"Return ONLY a strictly valid JSON object. Do NOT include any preamble, notes, or explanations. "
-                                                  f"Format: {{\"flashcards\": [{{'q': 'Question text', 'a': 'Answer text'}}]}}. "
-                                                  f"All content MUST be in {lang}."},
-                    {"role": "user", "content": f"Study Material: {st.session_state.context_text[:12000]}"}
-                ]
-                success_gen = False
-                for _ in range(key_manager.MAX_RETRIES):
-                    try:
-                        res_raw = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
-                        res_content = res_raw.strip()
-                        if not res_content.startswith("{"):
-                            idx = res_content.find("{")
-                            if idx != -1: res_content = res_content[idx:]
-                        data = json.loads(res_content)
-                        st.session_state.flashcards = data.get("flashcards") or list(data.values())[0]
-                        st.session_state.current_card = 0
-                        success_gen = True
-                        break
-                    except Exception as e:
-                        time.sleep(1)
-                        continue
-                if not success_gen:
+                cards = AppController.generate_flashcards(st.session_state.context_text, lang, _get_override_key())
+                if cards:
+                    st.session_state.flashcards = cards
+                    st.session_state.current_card = 0
+                else:
                     st.error("⚠️ Failed to generate flashcards after multiple attempts. Please try again or check your API keys.")
         
         if st.session_state.flashcards:
@@ -1553,8 +1543,13 @@ if app_mode == "flashcards":
             st.markdown(f"### {lang} Flashcard {idx + 1} / {len(cards)}")
             
             with st.container():
+                diff_color = {"easy": "var(--green)", "medium": "var(--accent)", "hard": "var(--red)"}.get(str(card.get('difficulty')).lower(), "var(--text3)")
                 st.markdown(f"""
                 <div style="background:var(--bg3); border:2px solid var(--accent); border-radius:15px; padding:40px; text-align:center; min-height:220px; display:flex; align-items:center; justify-content:center; flex-direction:column; margin-bottom:20px; box-shadow: 0 10px 40px rgba(0,0,0,0.25);">
+                    <div style="display:flex; justify-content:space-between; width:100%; margin-top:-20px; margin-bottom:20px;">
+                        <span style="font-size:0.75rem; color:var(--text2); background:var(--bg2); padding:4px 10px; border-radius:12px;">{card.get('subject', 'General')}</span>
+                        <span style="font-size:0.75rem; color:{diff_color}; background:var(--bg2); border:1px solid {diff_color}; padding:4px 10px; border-radius:12px; font-weight:700;">{card.get('difficulty', 'Normal')}</span>
+                    </div>
                     <div style="color:var(--text3); font-size:0.8rem; margin-bottom:12px; text-transform:uppercase; letter-spacing:1px; font-weight:700;">Question</div>
                     <div style="font-size:1.6rem; font-weight:800; color:var(--text); line-height:1.2;">{card['q']}</div>
                 </div>
@@ -1586,6 +1581,8 @@ if app_mode == "flashcards":
                     summary = "\n".join([f"Q: {c['q']} | A: {c['a']}" for c in cards])
                     st.session_state.messages.append({"role": "assistant", "content": f"### 🃏 Generated Flashcards ({lang})\n\n{summary}"})
                     st.success("Saved!")
+                if st.button("🔊 Speak", use_container_width=True):
+                    AppController.speak(f"Question: {card['q']}. Answer: {card['a']}")
             with col_c:
                 if st.button("✅ Got it", use_container_width=True):
                     if "card_mastery" not in st.session_state: st.session_state.card_mastery = {}
@@ -1711,30 +1708,13 @@ elif app_mode == "quiz":
     else:
         if st.button(f"🪄 Build {lang} Quiz"):
             with st.spinner("Generating challenges..."):
-                prompt = [
-                    {"role": "system", "content": f"Create 5 challenging MCQs based strictly on the provided text. Return ONLY a strictly valid JSON object. No preamble. Format: {{\"quiz\": [{{'q': '...', 'options': ['A', 'B', 'C', 'D'], 'correct': 'Correct Option Text', 'explanation': 'Brief reason'}}]}}. All content MUST be in {lang}."},
-                    {"role": "user", "content": f"Context Material: {st.session_state.context_text[:12000]}"}
-                ]
-                success_gen = False
-                for _ in range(key_manager.MAX_RETRIES):
-                    try:
-                        res_raw = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
-                        res_content = res_raw.strip()
-                        if not res_content.startswith("{"):
-                            res_content = res_content[res_content.find("{"):]
-                        import json
-                        data = json.loads(res_content)
-                        st.session_state.quiz_data = data.get("quiz") or list(data.values())[0]
-                        st.session_state.quiz_current = 0
-                        st.session_state.quiz_score = 0
-                        st.session_state.quiz_feedback = None
-                        success_gen = True
-                        break
-                    except Exception as e:
-                        import time
-                        time.sleep(1)
-                        continue
-                if not success_gen:
+                q_data = AppController.generate_quiz(st.session_state.context_text, lang, _get_override_key())
+                if q_data:
+                    st.session_state.quiz_data = q_data
+                    st.session_state.quiz_current = 0
+                    st.session_state.quiz_score = 0
+                    st.session_state.quiz_feedback = None
+                else:
                     st.error("⚠️ Quiz generation failed. Try reloading your study material.")
 
         if st.session_state.quiz_data:
@@ -1838,32 +1818,63 @@ elif app_mode == "mindmap":
 elif app_mode == "planner":
     st.header("📅 Study Planner")
     lang = st.session_state.get("selected_language", "English")
+    
+    col_pl1, col_pl2 = st.columns([2, 1])
+    with col_pl1:
+        new_task = st.text_input("New Study Task", placeholder="e.g. read chapter 5", label_visibility="collapsed")
+    with col_pl2:
+        task_deadline = st.date_input("Deadline", label_visibility="collapsed")
+        
+    if st.button("➕ Add Task", use_container_width=True) and new_task:
+        st.session_state.study_tasks.append({
+            "task": new_task,
+            "deadline": task_deadline.isoformat(),
+            "done": False
+        })
+        st.rerun()
+        
     if not st.session_state.context_text:
-        st.warning(f"Upload notes to generate a {lang} timetable.")
+        st.info("Upload notes to auto-generate tasks from topics.")
     else:
-        if st.button("🪄 Create Professional Study Schedule"):
+        if st.button("🪄 Auto-Generate Plan from Notes", use_container_width=True):
             with st.spinner(f"Scheduling in {lang}..."):
                 prompt = [
-                    {"role": "system", "content": f"You are a master of scientific revision planning. Create a detailed, day-by-day revision timetable based on the major topics. "
-                                                  f"Be specific about hours, sub-topics, active recall slots, and breaks. "
-                                                  f"Response MUST be in {lang}. Use Markdown with emojis."},
+                    {"role": "system", "content": f"Extract 5 discrete study tasks from this material. Format strictly as JSON: {{\"tasks\": [\"Task 1\", \"Task 2\"]}}"},
                     {"role": "user", "content": f"Study Context: {st.session_state.context_text[:12000]}"}
                 ]
-                try:
-                    # Using the direct helper for speed
-                    st.session_state.study_plan_content = chat_with_groq(prompt, override_key=_get_override_key())
-                except Exception as e:
-                    st.error(f"Planning Error: {e}")
+                auto_tasks = AppController._fetch_json(prompt, _get_override_key())
+                if auto_tasks:
+                    import datetime as dt
+                    deadline = dt.date.today() + dt.timedelta(days=1)
+                    for t in auto_tasks:
+                        st.session_state.study_tasks.append({
+                            "task": t, "deadline": deadline.isoformat(), "done": False
+                        })
+                    st.rerun()
 
-        if st.session_state.get("study_plan_content"):
-            st.markdown(st.session_state.study_plan_content)
-            col_pl, col_dl = st.columns([1,1])
-            with col_pl:
-                if st.button("💾 Save Plan to Chat", use_container_width=True):
-                    st.session_state.messages.append({"role": "assistant", "content": f"### 📅 {lang} Revision Plan\n{st.session_state.study_plan_content}"})
-                    st.success("Plan saved to history!")
-            with col_dl:
-                 st.download_button("📥 Download as TXT", st.session_state.study_plan_content, "study_plan.txt", use_container_width=True)
+    st.markdown("### 📋 Daily Task List")
+    if not st.session_state.study_tasks:
+        st.caption("No tasks yet. Add one above or auto-generate from notes.")
+    else:
+        sorted_tasks = sorted(st.session_state.study_tasks, key=lambda x: (x['done'], x['deadline']))
+        for idx, task in enumerate(sorted_tasks):
+            cols = st.columns([1, 6, 3, 2])
+            with cols[0]:
+                is_done = st.checkbox("", value=task['done'], key=f"t_done_{idx}_{task['task']}")
+                if is_done != task['done']:
+                    for orig_t in st.session_state.study_tasks:
+                        if orig_t['task'] == task['task'] and orig_t['deadline'] == task['deadline']:
+                            orig_t['done'] = is_done
+                    st.rerun()
+            with cols[1]:
+                if not task['done']: st.markdown(f"**{task['task']}**")
+                else: st.markdown(f"~~{task['task']}~~")
+            with cols[2]:
+                st.caption(f"📅 {task['deadline']}")
+            with cols[3]:
+                if st.button("🗑️", key=f"t_del_{idx}_{task['task']}"):
+                    st.session_state.study_tasks.remove(task)
+                    st.rerun()
     st.stop()
 
 
@@ -1972,9 +1983,18 @@ if user_input:
         st.error("No API key available. Please enter a Groq API key in the sidebar.", icon="🔑")
         st.stop()
 
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user", avatar="👤"):
-        st.markdown(user_input)
+    search_match = re.search(r"search for (.*)", user_input.lower())
+    if search_match:
+        with st.spinner("Searching the web..."):
+            search_res = AppController.web_search(search_match.group(1), max_results=3)
+            user_input_augmented = f"{user_input}\n\n[Web Context:\n{search_res}\n]"
+            st.session_state.messages.append({"role": "user", "content": user_input_augmented})
+            with st.chat_message("user", avatar="👤"):
+                st.markdown(user_input)
+    else:
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user", avatar="👤"):
+            st.markdown(user_input)
 
     # Determine assistant avatar
     assistant_avatar = "🎓"
@@ -2049,3 +2069,5 @@ if user_input:
             placeholder.warning(full_response)
 
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+    if st.session_state.get("voice_mode") and full_response:
+        AppController.speak(full_response)
