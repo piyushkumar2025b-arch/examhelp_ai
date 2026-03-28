@@ -7,6 +7,7 @@ import re
 import time
 from typing import List, Dict, Optional
 from datetime import datetime
+from utils.secret_manager import get_service_key
 
 NEWS_SOURCES = [
     # Free RSS/JSON feeds
@@ -22,7 +23,8 @@ NEWS_SOURCES = [
     {"name": "Hugging Face", "url": "https://huggingface.co/blog/feed.xml", "type": "rss"},
 ]
 
-GNEWS_API_KEY = "pub_81eabdf5c5644e3fa2c7c0bc5e91c1b4"
+# SECURITY: Key loaded from .env / st.secrets — NEVER hardcoded
+GNEWS_API_KEY = get_service_key("GNEWS_API_KEY")
 
 def fetch_gnews(query: str = "artificial intelligence", max_results: int = 20) -> List[Dict]:
     """Fetch news from GNews API (free tier)"""
@@ -58,7 +60,7 @@ def fetch_newsapi(query: str = "artificial intelligence", max_results: int = 20)
         # Using newsdata.io free tier as backup
         url = "https://newsdata.io/api/1/news"
         params = {
-            "apikey": "pub_81eabdf5c5644e3fa2c7c0bc5e91c1b4",
+            "apikey": get_service_key("NEWSDATA_API_KEY") or get_service_key("GNEWS_API_KEY"),
             "q": query,
             "language": "en",
             "category": "technology",
@@ -148,7 +150,7 @@ def fetch_all_ai_news(query: str = "AI artificial intelligence", max_per_source:
 
 def get_ai_tool_recommendations(use_case: str) -> str:
     """Get AI recommendations for the best tool for a given use case."""
-    from utils.groq_client import chat_with_groq
+    from utils.ai_engine import generate
     
     prompt = f"""A user wants the best AI tool for: "{use_case}"
 
@@ -174,18 +176,14 @@ Provide a comprehensive, current recommendation covering:
 Be specific, current, and genuinely helpful. Include GPT-4, Claude, Gemini, and specialized tools as appropriate. Today's date context: {datetime.now().strftime("%B %Y")}."""
 
     try:
-        result = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-4-scout-17b-16e-instruct",
-        )
-        if isinstance(result, tuple): result = result[0]
+        result = generate(prompt=prompt, provider="auto")
         return result or "Could not generate recommendations."
     except Exception as e:
         return f"Error: {e}"
 
 def summarize_article_with_ai(article: Dict) -> str:
     """Get AI summary and analysis of a news article."""
-    from utils.groq_client import chat_with_groq
+    from utils.ai_engine import generate
     
     title = article.get("title", "")
     desc = article.get("description", "")
@@ -203,18 +201,14 @@ Provide a 3-sentence expert analysis:
 Keep it sharp, informative, expert-level."""
 
     try:
-        result = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.1-8b-instant",
-        )
-        if isinstance(result, tuple): result = result[0]
+        result = generate(prompt=prompt, provider="auto", temperature=0.4)
         return result or desc
     except Exception:
         return desc
 
 def get_ai_trend_analysis() -> str:
     """Get current AI trends analysis."""
-    from utils.groq_client import chat_with_groq
+    from utils.ai_engine import generate
     
     prompt = f"""As of {datetime.now().strftime("%B %Y")}, provide a comprehensive AI trends analysis:
 
@@ -246,11 +240,7 @@ def get_ai_trend_analysis() -> str:
 Be specific and accurate for {datetime.now().strftime("%B %Y")}."""
 
     try:
-        result = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-4-scout-17b-16e-instruct",
-        )
-        if isinstance(result, tuple): result = result[0]
+        result = generate(prompt=prompt, provider="auto")
         return result or "Could not fetch trend analysis."
     except Exception as e:
         return f"Error: {e}"

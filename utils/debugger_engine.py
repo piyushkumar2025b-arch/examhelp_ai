@@ -26,21 +26,9 @@ _load_env()
 
 # ── Dedicated debug key pool ─────────────────────────────────────────
 def _load_debug_keys() -> list[str]:
-    keys = []
-    try:
-        import streamlit as st
-        for i in range(1, 6):
-            k = (st.secrets.get(f"GEMINI_DEBUG_KEY_{i}", "") or "").strip()
-            if k and k not in keys:
-                keys.append(k)
-    except Exception:
-        pass
-    # Also check env vars
-    for i in range(1, 6):
-        k = os.environ.get(f"GEMINI_DEBUG_KEY_{i}", "").strip()
-        if k and k not in keys:
-            keys.append(k)
-    return keys
+    """Load debug keys via centralized secret_manager."""
+    from utils.secret_manager import get_gemini_debug_keys
+    return get_gemini_debug_keys()
 
 # ── Language definitions ──────────────────────────────────────────────
 SUPPORTED_LANGUAGES = {
@@ -65,8 +53,10 @@ SUPPORTED_LANGUAGES = {
     "Lua":          {"ext": "lua",  "icon": "🌙", "runner": "lua",      "comment": "--"},
 }
 
-DEBUG_MODEL   = "gemini-2.5-flash-preview-04-17"  # Most capable for code
-FALLBACK_MODEL = "gemini-1.5-flash"
+# Best available models — use highest-grade for debugging
+from utils.secret_manager import GEMINI_BEST_MODEL, GEMINI_FLASH_MODEL
+DEBUG_MODEL    = GEMINI_BEST_MODEL    # Highest capability
+FALLBACK_MODEL = GEMINI_FLASH_MODEL   # Fast fallback
 _BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 DEBUG_SYSTEM_PROMPT = """\
@@ -159,11 +149,10 @@ def _call_gemini_debug(
     except Exception:
         pass
     
-    # Final fallback: Groq
+    # Final fallback: unified AI engine (routes to any available key)
     try:
-        from utils.groq_client import chat_with_groq
-        msgs = [{"role": "user", "content": f"{system}\n\n{prompt}"}]
-        return chat_with_groq(msgs, "", model="llama-4-scout-17b-16e-instruct")
+        from utils.ai_engine import generate
+        return generate(prompt=prompt, system_prompt=system, provider="auto")
     except Exception as e:
         raise RuntimeError(f"All debug engines exhausted: {e}")
 

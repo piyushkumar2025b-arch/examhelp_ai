@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
 
 from utils.file_engine import FileEngine
-from utils.groq_client import chat_with_groq
+from utils.ai_engine import generate as ai_generate
 
 
 class UnifiedAPIManager:
@@ -76,7 +76,7 @@ class UnifiedAPIManager:
 
         # LLM via Groq (fast, default)
         elif api_name == "llm":
-            return chat_with_groq(kwargs.get("messages", []),
+            return ai_generate(messages=kwargs.get("messages", []),
                                   json_mode=kwargs.get("json_mode", False))
 
         # LLM via Gemini (vision-capable, large context)
@@ -100,12 +100,8 @@ class UnifiedAPIManager:
 
         # Status check for all keys
         elif api_name == "key_status":
-            from utils import key_manager as km
-            from utils import gemini_key_manager as gkm
-            return {
-                "groq": km.status_table(),
-                "gemini": gkm.status_table(),
-            }
+            from utils.ai_engine import get_pool_status
+            return get_pool_status()
 
         return f"Unknown API: {api_name}"
 

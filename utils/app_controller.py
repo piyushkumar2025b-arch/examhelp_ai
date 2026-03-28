@@ -23,7 +23,7 @@ try:
 except ImportError:
     sympify = None
 
-from utils.groq_client import chat_with_groq
+from utils.ai_engine import generate as ai_generate
 
 
 class AppController:
@@ -122,7 +122,7 @@ class AppController:
         # chat_with_groq already handles key rotation internally.
         for _ in range(3):
             try:
-                res_raw = chat_with_groq(prompt, json_mode=True, override_key=api_key).strip()
+                res_raw = ai_generate(messages=prompt, json_mode=True).strip()
                 if not res_raw.startswith("{"):
                     idx = res_raw.find("{")
                     if idx != -1:
@@ -222,7 +222,7 @@ class AppController:
             {"role": "user", "content": task}
         ]
         try:
-            result = chat_with_groq(prompt, override_key=api_key).strip()
+            result = ai_generate(messages=prompt).strip()
             m = re.search(r'\d+', result)
             return int(m.group()) if m else 30
         except Exception:

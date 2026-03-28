@@ -47,42 +47,45 @@ Generate exactly 25 items. Make URLs realistic and domain-appropriate.
 
 def _gemini_analyze_image(image_bytes: bytes, mime: str = "image/jpeg") -> Optional[dict]:
     """Uses Gemini Vision to analyze the image and extract search queries."""
-    import os
     import requests as req
+    from utils.secret_manager import get_gemini_keys_list, GEMINI_BEST_MODEL, GEMINI_FLASH_MODEL
     
-    gemini_keys = [v for k, v in os.environ.items() if k.startswith("GEMINI_API_KEY_") and v]
+    gemini_keys = get_gemini_keys_list()
     if not gemini_keys:
         return None
     
     b64 = base64.b64encode(image_bytes).decode()
+    _BASE = "https://generativelanguage.googleapis.com/v1beta/models"
     
-    for key in gemini_keys[:3]:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
-            payload = {
-                "contents": [{
-                    "parts": [
-                        {"text": VISION_SYSTEM + "\n\nAnalyze this image and respond with JSON only:"},
-                        {"inline_data": {"mime_type": mime, "data": b64}}
-                    ]
-                }],
-                "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}
-            }
-            resp = req.post(url, json=payload, timeout=20)
-            if resp.status_code == 200:
-                data = resp.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"]
-                # Extract JSON
-                match = re.search(r'\{.*\}', text, re.DOTALL)
-                if match:
-                    return json.loads(match.group(0))
-        except Exception:
-            continue
+    for key in gemini_keys[:5]:
+        for model_name in [GEMINI_BEST_MODEL, GEMINI_FLASH_MODEL]:
+            try:
+                url = f"{_BASE}/{model_name}:generateContent?key={key}"
+                payload = {
+                    "contents": [{
+                        "parts": [
+                            {"text": VISION_SYSTEM + "\n\nAnalyze this image and respond with JSON only:"},
+                            {"inline_data": {"mime_type": mime, "data": b64}}
+                        ]
+                    }],
+                    "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1024}
+                }
+                resp = req.post(url, json=payload, timeout=20)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    match = re.search(r'\{.*\}', text, re.DOTALL)
+                    if match:
+                        return json.loads(match.group(0))
+                elif resp.status_code == 429:
+                    break  # Rate limited — try next key
+            except Exception:
+                continue
     return None
 
 def _groq_generate_links(analysis: dict) -> list[dict]:
-    """Uses Groq LLaMA to generate 25 relevant links based on image analysis."""
-    from utils.groq_client import chat_with_groq
+    """Uses AI to generate 25 relevant links based on image analysis."""
+    from utils.ai_engine import generate
     
     prompt = f"""Image Analysis Data:
 {json.dumps(analysis, indent=2)}
@@ -95,12 +98,8 @@ Search queries that work for this: {', '.join(analysis.get('search_queries', [])
 Return ONLY a JSON array of 25 link objects with fields: url, title, reason, domain, type."""
 
     try:
-        result, success = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
-            system_prompt=SEARCH_SYSTEM,
-            model="llama-4-scout-17b-16e-instruct",
-        )
-        if success and result:
+        result = generate(prompt=prompt, system_prompt=SEARCH_SYSTEM, provider="auto", temperature=0.3)
+        if result:
             match = re.search(r'\[.*\]', result, re.DOTALL)
             if match:
                 return json.loads(match.group(0))

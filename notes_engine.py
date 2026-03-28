@@ -7,9 +7,8 @@ try:
     from utils.debugger_engine import _call_gemini_debug
 except ImportError:
     def _call_gemini_debug(prompt, system=""):
-        from utils.groq_client import chat_with_groq
-        result = chat_with_groq(messages=[{"role":"user","content":prompt}], system_prompt=system, model="llama-4-scout-17b-16e-instruct")
-        return result[0] if isinstance(result, tuple) else result
+        from utils.ai_engine import generate
+        return generate(prompt=prompt, system_prompt=system, provider="auto")
 
 NOTES_SYSTEM = """\
 You are a MASTER Note-Taker and Study Coach who creates the most effective, exam-winning study materials.

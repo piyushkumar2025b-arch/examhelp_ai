@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 # Free Pixabay key (public demo key — works for low-volume usage)
-PIXABAY_KEY = os.getenv("PIXABAY_API_KEY", "43431649-6a8f15858c7042597793d5f30")
+PIXABAY_KEY = os.getenv("PIXABAY_API_KEY", "")
 
 HEADERS = {
     "User-Agent": (

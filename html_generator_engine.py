@@ -82,7 +82,6 @@ def generate_html_page(
     include_animations: bool = True,
     include_dark_mode: bool = False,
 ) -> str:
-    from utils.groq_client import chat_with_groq
 
     type_desc = PAGE_TYPES.get(page_type, page_type)
     bg_color = COLOR_THEMES.get(color_theme, "#080810")
@@ -123,12 +122,14 @@ Include all sections appropriate for {page_type}.
 Output ONLY the HTML, starting with <!DOCTYPE html>."""
 
     try:
-        result = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
+        from utils.ai_engine import generate
+        result = generate(
+            prompt=prompt,
             system_prompt=HTML_SYSTEM,
-            model="llama-4-scout-17b-16e-instruct",
+            provider="auto",
+            max_tokens=8192,
+            temperature=0.7,
         )
-        if isinstance(result, tuple): result = result[0]
         if not result: return _fallback_html(page_title, content[:2000])
         
         # Clean up any markdown fences
@@ -150,7 +151,6 @@ Output ONLY the HTML, starting with <!DOCTYPE html>."""
 
 def generate_html_from_file(content: str, file_type: str, filename: str, page_type: str) -> str:
     """Generate HTML from an uploaded file's content."""
-    from utils.groq_client import chat_with_groq
 
     file_hints = {
         "pdf": "Convert this PDF content into a beautifully formatted web document.",
@@ -183,10 +183,13 @@ Generate a complete, production-ready HTML file with:
 Output ONLY the HTML starting with <!DOCTYPE html>."""
 
     try:
-        result = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
+        from utils.ai_engine import generate
+        result = generate(
+            prompt=prompt,
             system_prompt=HTML_SYSTEM,
-            model="llama-4-scout-17b-16e-instruct",
+            provider="auto",
+            max_tokens=8192,
+            temperature=0.7,
         )
         if isinstance(result, tuple): result = result[0]
         result = result.strip() if result else ""

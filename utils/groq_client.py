@@ -544,9 +544,15 @@ def chat_with_groq(
     json_mode: bool = False,
     override_key: Optional[str] = None,
     model: Optional[str] = None,
+    system_prompt: Optional[str] = None,
 ) -> str:
-    """Synchronous (non-streaming) call. Used for structured tasks, summaries, etc."""
+    """Synchronous (non-streaming) call. Used for structured tasks, summaries, etc.
+    
+    Args:
+        system_prompt: Custom system prompt. If None, uses default SYSTEM_PROMPT.
+    """
     chosen_model = model or MODEL_PRIMARY
+    sys_prompt = system_prompt if system_prompt is not None else SYSTEM_PROMPT
     tried: set[str] = set()
     last_err = None
 
@@ -567,7 +573,7 @@ def chat_with_groq(
         client = Groq(api_key=key)
         try:
             text, tokens = _try_call(
-                client, chosen_model, SYSTEM_PROMPT, messages,
+                client, chosen_model, sys_prompt, messages,
                 json_mode=json_mode, stream=False,
                 max_tokens=MAX_TOKENS_SYNC,
                 temperature=0.2 if json_mode else 0.7,

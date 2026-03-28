@@ -87,7 +87,7 @@ def ai_detection_score(text: str) -> Dict:
 
 def humanise_text(text: str, tone: str = "Casual / Friendly", preserve_structure: bool = True,
                   strength: str = "Standard", extra_instructions: str = "", target_audience: str = "") -> str:
-    from utils.groq_client import chat_with_groq
+    from utils.ai_engine import generate
     tone_hint = ADVANCED_TONES.get(tone, "Natural and human-sounding.")
     struct_hint = ("Preserve all headings, bullet points, and paragraph structure — only rewrite prose." if preserve_structure
                    else "Completely reformat for best flow — merge, split, restructure freely.")
@@ -99,8 +99,7 @@ def humanise_text(text: str, tone: str = "Casual / Friendly", preserve_structure
     }
     prompt = f"""Humanise strength: {strength}\n{strength_hints.get(strength, '')}\n\nTone: {tone}\n{tone_hint}\n\n{struct_hint}\n{f"Extra: {extra_instructions}" if extra_instructions else ""}{f"\nAudience: {target_audience}" if target_audience else ""}\n\nTEXT TO HUMANISE:\n---\n{text}\n---\n\nOutput ONLY the rewritten text. No preamble."""
     try:
-        result = chat_with_groq(messages=[{"role": "user", "content": prompt}], system_prompt=HUMANISE_SYSTEM, model="llama-4-scout-17b-16e-instruct")
-        if isinstance(result, tuple): result = result[0]
+        result = generate(prompt=prompt, system_prompt=HUMANISE_SYSTEM, provider="auto", temperature=0.8)
         if result:
             stripped = result.strip()
             for prefix in ["Here is", "Here's", "Below is", "The humanised", "Rewritten:", "Output:"]:

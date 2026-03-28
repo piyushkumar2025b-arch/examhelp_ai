@@ -4,8 +4,10 @@ Real maps integration with Google Maps Embed API + Places API.
 """
 from __future__ import annotations
 from typing import Dict, List, Optional
+from utils.secret_manager import get_service_key
 
-GOOGLE_MAPS_EMBED_KEY = "AIzaSyDC6rwwzMleiNs4H2Ds3YwUq9is57gBIP8"
+# SECURITY: Key loaded from .env / st.secrets — NEVER hardcoded
+GOOGLE_MAPS_EMBED_KEY = get_service_key("GOOGLE_MAPS_EMBED_KEY")
 
 VIT_CHENNAI_LOCATIONS = {
     "🏫 Academic Buildings": [
@@ -169,7 +171,7 @@ def get_directions_url(from_place: str, to_name: str, to_lat: float, to_lng: flo
 
 def get_india_trip_plan(origin: str, destination: str, days: int, budget: str, interests: List[str]) -> str:
     """AI-generated India trip plan."""
-    from utils.groq_client import chat_with_groq
+    from utils.ai_engine import generate
     
     interests_str = ", ".join(interests) if interests else "general tourism"
     
@@ -227,11 +229,7 @@ Generate a comprehensive itinerary with:
 Be specific with Indian prices in INR, real restaurant/hotel names, and local transport options."""
 
     try:
-        result = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-4-scout-17b-16e-instruct",
-        )
-        if isinstance(result, tuple): result = result[0]
+        result = generate(prompt=prompt, provider="auto")
         return result or "Could not generate trip plan."
     except Exception as e:
         return f"Error: {e}"
@@ -239,7 +237,7 @@ Be specific with Indian prices in INR, real restaurant/hotel names, and local tr
 
 def answer_travel_question(question: str, context: str = "") -> str:
     """Answer travel-related questions with AI."""
-    from utils.groq_client import chat_with_groq
+    from utils.ai_engine import generate
     
     ctx = f"\nContext: {context}" if context else ""
     
@@ -255,11 +253,7 @@ Provide a helpful, accurate, and specific answer with:
 - Safety and local tips"""
 
     try:
-        result = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-4-scout-17b-16e-instruct",
-        )
-        if isinstance(result, tuple): result = result[0]
+        result = generate(prompt=prompt, provider="auto")
         return result or "Could not answer."
     except Exception as e:
         return f"Error: {e}"
