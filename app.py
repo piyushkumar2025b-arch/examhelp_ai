@@ -591,99 +591,12 @@ def get_theme_css():
     align-items: center;
     gap: 6px;
     padding: 5px 10px;
-    border  /* ── ABSOLUTE ZERO-GAP OVERRIDE ── */
-  [data-testid="stVerticalBlock"] {{
-    gap: 0 !important;
-  }}
-  [data-testid="stVerticalBlock"] > div {{
-    padding-bottom: 0 !important;
-    margin-bottom: 0 !important;
-    gap: 0 !important;
-  }}
-
-  /* Toolbox Cards - Precision Layout */
-  .tool-card {{
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px;
-    transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    height: 72px;
-    box-sizing: border-box;
-    position: relative;
-    z-index: 10;
-    pointer-events: none;
-    margin-top: 5px;
-  }}
-  .tool-card:hover {{
-    border-color: var(--accent);
-    background: var(--accent-bg);
-    transform: scale(1.02);
-    box-shadow: 0 4px 25px rgba(0,0,0,0.4);
-  }}
-  .tool-icon {{
-    width: 40px; height: 40px;
-    background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.25rem;
-    flex-shrink: 0;
-  }}
-  .tool-info {{ flex: 1; overflow: hidden; }}
-  .tool-name {{ font-size: 0.88rem; font-weight: 800; color: var(--text); display: block; white-space: nowrap; text-overflow: ellipsis; }}
-  .tool-desc {{ font-size: 0.72rem; color: var(--text3); line_height: 1.2; margin-top: 1px; white-space: nowrap; text-overflow: ellipsis; }}
-
-  /* Hidden Button Overlay with High Priority */
-  [data-testid="stSidebar"] div.stButton {{
-    height: 72px !important;
-    margin-bottom: -72px !important;
-    position: relative;
-    z-index: 50 !important;
-  }}
-  [data-testid="stSidebar"] div.stButton button {{
-    position: absolute;
-    width: 100% !important;
-    height: 72px !important;
-    margin-top: 5px !important;
-    opacity: 0 !important;
-    z-index: 100;
-    border: none !important;
-    background: transparent !important;
-  }}
-</style>
-er: 1px solid var(--border);
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.4rem;
-    flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  }}
-  .tool-info {{ flex: 1; }}
-  .tool-name {{ font-size: 0.95rem; font-weight: 800; color: var(--text); display: block; letter-spacing: -0.2px; }}
-  .tool-desc {{ font-size: 0.74rem; color: var(--text3); line-height: 1.3; margin-top: 2px; }}
-
-  /* The actual button overlap logic */
-  div[data-testid="stSidebar"] .stButton {{
-    height: 78px;
-    padding: 0 !important;
-    margin: 0 !important;
-  }}
-  div[data-testid="stSidebar"] .stButton > button {{
-    position: absolute;
-    width: 100% !important;
-    height: 78px !important;
-    margin-top: 6px !important;
-    opacity: 0 !important;
-    z-index: 100;
-    cursor: pointer;
-    border: none !important;
   }}
 </style>
 """
+
 
 st.markdown(get_theme_css(), unsafe_allow_html=True)
 
@@ -1497,13 +1410,6 @@ elif app_mode == "planner":
                  st.download_button("📥 Download as TXT", st.session_state.study_plan_content, "study_plan.txt", use_container_width=True)
     st.stop()
 
-                    elif "map" in txt_low: st.session_state.app_mode = "mindmap"
-                    elif "plan" in txt_low: st.session_state.app_mode = "planner"
-                    else: st.session_state.queued_prompt = txt
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Voice Recognition Error: {e}")
-    st.stop()
 
 # ── Empty state (Chat Mode Only) ───────────────────────
 if not st.session_state.messages and app_mode == "chat":
