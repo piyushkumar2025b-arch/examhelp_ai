@@ -2315,33 +2315,38 @@ if user_input:
             full_response = "⚠️ **All API keys are rate-limited.** Please wait ~60 seconds and try again."
             placeholder.warning(full_response)
 
-    # --- VISUAL MANIFEST RENDERING (NO PLACEHOLDERS) ---
+    # --- VISUAL MANIFEST RENDERING (FIXED PIPELINE) ---
     if "VISUAL_MANIFEST:" in full_response:
-        parts = full_response.split("VISUAL_MANIFEST:")
-        main_text = parts[0].strip()
-        manifest_raw = parts[1].strip().split("\n")[0]
+        import re
+        import json
         
-        try:
-            import json
-            manifest = json.loads(manifest_raw)
-            img_query = manifest.get("query")
-            caption = manifest.get("caption", "Educational Reference")
-            
-            if img_query:
-                from ai.api_manager import UnifiedAPIManager
-                images = UnifiedAPIManager().call("image", img_query, limit=3)
-                if images:
-                    st.divider()
-                    cols = st.columns(len(images))
-                    for i, img in enumerate(images):
-                        with cols[i]:
-                            st.image(img, use_container_width=True)
-                    st.caption(f"🖼️ {caption}")
-            
-            # Clean response to hide manifest
-            full_response = main_text
-        except:
-            pass
+        # 1. Clean the text (Separate AI narrative from metadata)
+        main_text = re.sub(r'VISUAL_MANIFEST:.*', '', full_response, flags=re.DOTALL).strip()
+        manifest_raw = re.search(r'VISUAL_MANIFEST:\s*(\{.*\})', full_response)
+        
+        if manifest_raw:
+            try:
+                manifest = json.loads(manifest_raw.group(1))
+                img_query = manifest.get("query")
+                caption = manifest.get("caption", "Educational Reference")
+                
+                # Update visual display for the user before storing clean text
+                if img_query:
+                    from ai.api_manager import UnifiedAPIManager
+                    images = UnifiedAPIManager().call("image", img_query, limit=3)
+                    if images:
+                        st.divider()
+                        cols = st.columns(len(images))
+                        for i, img in enumerate(images):
+                            with cols[i]:
+                                st.image(img, use_container_width=True)
+                        st.caption(f"🖼️ {caption}")
+                
+                # Ensure session history stores only the clean narrative
+                full_response = main_text
+            except Exception as e:
+                # Fallback to display the original response if parsing fails
+                pass
             
     st.session_state.messages.append({"role": "assistant", "content": full_response})
     if st.session_state.get("voice_mode") and full_response:
