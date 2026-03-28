@@ -26,7 +26,8 @@ class StudyGenerator:
         clean_text = content.replace("##", "").replace("#", "").replace("**", "")
         pdf.multi_cell(0, 7, clean_text)
         
-        return pdf.output(dest='S').encode('latin-1')
+        # FPDF2 output(dest='S') returns a bytearray/bytes object already
+        return bytes(pdf.output(dest='S'))
 
     @staticmethod
     def generate_docx(title: str, content: str) -> bytes:
