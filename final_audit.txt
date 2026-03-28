@@ -1,0 +1,150 @@
+﻿
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+d-----        27-03-2026     21:42                .streamlit                                                                 
+d-----        28-03-2026     12:32                ai                                                                         
+d-----        28-03-2026     10:17                chat                                                                       
+d-----        28-03-2026     12:35                features                                                                   
+d-----        28-03-2026     12:35                generation                                                                 
+d-----        28-03-2026     12:31                memory                                                                     
+d-----        28-03-2026     12:31                ui                                                                         
+d-----        28-03-2026     12:37                utils                                                                      
+d-----        28-03-2026     10:00                voice                                                                      
+d-----        28-03-2026     00:11                __pycache__                                                                
+-a----        28-03-2026     10:30            974 .env                                                                       
+-a----        28-03-2026     07:47            335 .env.example                                                               
+-a----        27-03-2026     21:41             39 .gitattributes                                                             
+-a----        27-03-2026     21:41             64 .gitignore                                                                 
+-a----        28-03-2026     11:46           4846 api_diagnostic.py                                                          
+-a----        28-03-2026     11:56         109428 app.py                                                                     
+-a----        28-03-2026     09:28         104474 app.zip                                                                    
+-a----        28-03-2026     12:34          22564 audit.txt                                                                  
+-a----        28-03-2026     12:34          11411 audit_utf8.txt                                                             
+-a----        28-03-2026     12:40              0 final_audit.txt                                                            
+-a----        28-03-2026     07:46           3713 README.md                                                                  
+-a----        28-03-2026     12:23           1648 requirements.txt                                                           
+-a----        28-03-2026     12:37          13328 structure.txt                                                              
+-a----        28-03-2026     10:16           1149 test_script.py                                                             
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\.streamlit
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+-a----        28-03-2026     07:30             51 config.toml                                                                
+-a----        27-03-2026     21:41            738 secrets.toml                                                               
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\ai
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+d-----        28-03-2026     11:46                __pycache__                                                                
+-a----        28-03-2026     09:59            614 api_helper.py                                                              
+-a----        28-03-2026     11:37           4569 api_manager.py                                                             
+-a----        27-03-2026     22:02           4271 knowledge_engine.py                                                        
+-a----        28-03-2026     11:37           1723 plugin_registry.py                                                         
+-a----        28-03-2026     11:43           2856 reasoning_engine.py                                                        
+-a----        28-03-2026     10:52          10070 router.py                                                                  
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\ai\__pycache__
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+-a----        28-03-2026     11:46           5481 api_manager.cpython-312.pyc                                                
+-a----        28-03-2026     11:46           6633 image_engine.cpython-312.pyc                                               
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\chat
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+d-----        28-03-2026     10:17                __pycache__                                                                
+-a----        28-03-2026     10:00            625 feedback.py                                                                
+-a----        28-03-2026     09:59            614 share.py                                                                   
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\chat\__pycache__
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+-a----        28-03-2026     10:17           1534 share.cpython-312.pyc                                                      
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\features
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+-a----        28-03-2026     12:35             59 contest_engine.py                                                          
+-a----        28-03-2026     12:35             67 graph_engine.py                                                            
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\utils
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+d-----        28-03-2026     11:54                __pycache__                                                                
+-a----        28-03-2026     07:44           3440 analytics.py                                                               
+-a----        28-03-2026     09:39           5687 app_controller.py                                                          
+-a----        28-03-2026     12:35             59 contest_engine.py                                                          
+-a----        28-03-2026     10:49           4554 file_engine.py                                                             
+-a----        28-03-2026     12:35             67 graph_engine.py                                                            
+-a----        28-03-2026     11:23          10950 groq_client.py                                                             
+-a----        28-03-2026     10:30           7160 key_manager.py                                                             
+-a----        28-03-2026     07:44           2148 ocr_handler.py                                                             
+-a----        27-03-2026     22:02           3004 pdf_handler.py                                                             
+-a----        28-03-2026     10:31          23640 personas.py                                                                
+-a----        28-03-2026     10:52          10070 query_engine.py                                                            
+-a----        27-03-2026     22:02           4271 web_handler.py                                                             
+-a----        27-03-2026     22:02           4301 youtube_handler.py                                                         
+-a----        27-03-2026     21:41             16 __init__.py                                                                
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\utils\__pycache__
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+-a----        28-03-2026     10:17           8751 app_controller.cpython-312.pyc                                             
+-a----        28-03-2026     11:53           3043 contest_engine.cpython-312.pyc                                             
+-a----        28-03-2026     11:46           5939 file_engine.cpython-312.pyc                                                
+-a----        28-03-2026     11:46          11764 groq_client.cpython-312.pyc                                                
+-a----        28-03-2026     10:36           8612 key_manager.cpython-312.pyc                                                
+-a----        28-03-2026     11:46           2834 ocr_handler.cpython-312.pyc                                                
+-a----        27-03-2026     22:36           4266 pdf_handler.cpython-312.pyc                                                
+-a----        28-03-2026     00:11          17336 personas.cpython-312.pyc                                                   
+-a----        28-03-2026     11:46          15658 query_engine.cpython-312.pyc                                               
+-a----        28-03-2026     11:54           5688 study_generator.cpython-312.pyc                                            
+-a----        27-03-2026     22:36           5449 web_handler.cpython-312.pyc                                                
+-a----        27-03-2026     22:36           5472 youtube_handler.cpython-312.pyc                                            
+-a----        27-03-2026     22:28            167 __init__.cpython-312.pyc                                                   
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\voice
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+-a----        28-03-2026     10:00            159 input.py                                                                   
+
+
+    Directory: C:\Users\Piyush Kumar\Downloads\examhelp\examhelp_ai\__pycache__
+
+
+Mode                 LastWriteTime         Length Name                                                                       
+----                 -------------         ------ ----                                                                       
+-a----        28-03-2026     00:11          70389 app.cpython-312.pyc                                                        
+
+
