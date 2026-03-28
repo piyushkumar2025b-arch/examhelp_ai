@@ -87,6 +87,22 @@ def init_state():
         "last_context_summary": "",
         "card_mastery": {},
         "key_health_expanded": False,
+        # ── Code Debugger ──────────────────────────────────────────
+        "debug_language": "Python",
+        "debug_mode": "Full Debug",
+        "debug_code_input": "",
+        "debug_error_input": "",
+        "debug_expected_input": "",
+        "debug_result": None,
+        "debug_history": [],
+        # ── Learn Coding ───────────────────────────────────────────
+        "learn_language": "Python",
+        "learn_level": "Beginner",
+        "learn_topic": "",
+        "learn_question": "",
+        "learn_result": None,
+        "learn_history": [],
+        "learn_chat_messages": [],
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -1789,6 +1805,8 @@ with st.sidebar:
         ("📅", "Study Planner", "Revision timetable",      "planner"),
         ("📈", "Graph Plotter", "Plot equations",           "graph"),
         ("✍️", "Story Builder", "AI creative writing",     "story"),
+        ("🐛", "Code Debugger", "Fix code in any language", "debugger"),
+        ("🎓", "Learn Coding",  "Interactive coding tutor", "learn_coding"),
         ("💬", "Chat",         "Standard AI study chat",   "chat"),
     ]
     for icon, name, desc, mode in _tools:
@@ -2226,6 +2244,483 @@ elif app_mode == "story":
     render_story_builder()
 
 # ─────────────────────────────────────────────
+# CODE DEBUGGER MODE
+# ─────────────────────────────────────────────
+elif app_mode == "debugger":
+    from utils.debugger_engine import (
+        debug_code, auto_detect_language, SUPPORTED_LANGUAGES,
+    )
+
+    c = {
+        "bg": "#080810", "bg2": "#0e0e1a", "bg3": "#13131f",
+        "accent": "#7c6af7", "accent2": "#a78bfa",
+        "green": "#34d399", "red": "#f87171", "blue": "#60a5fa",
+        "text": "#f0f0ff", "text2": "#9090b8", "border": "#1e1e30",
+    }
+
+    st.markdown(f"""
+<style>
+.debug-header {{
+    background: linear-gradient(135deg, #1a0a2e 0%, #0d0d1a 100%);
+    border: 1px solid #3d2a6b;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+}}
+.debug-header::before {{
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(124,106,247,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+}}
+.debug-title {{ font-size: 1.9rem; font-weight: 800; color: #a78bfa; margin: 0 0 4px; }}
+.debug-subtitle {{ font-size: 0.9rem; color: #9090b8; }}
+.lang-badge {{
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(124,106,247,0.12); border: 1px solid rgba(124,106,247,0.3);
+    border-radius: 20px; padding: 4px 14px;
+    font-size: 0.78rem; font-weight: 600; color: #a78bfa;
+    margin: 4px 3px;
+}}
+.debug-result-box {{
+    background: rgba(14,14,26,0.95);
+    border: 1px solid rgba(124,106,247,0.25);
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 20px;
+}}
+.debug-stat {{
+    background: rgba(124,106,247,0.08);
+    border: 1px solid rgba(124,106,247,0.2);
+    border-radius: 10px;
+    padding: 10px 16px;
+    text-align: center;
+}}
+.debug-stat-val {{ font-size: 1.3rem; font-weight: 700; color: #a78bfa; }}
+.debug-stat-lbl {{ font-size: 0.7rem; color: #9090b8; margin-top: 2px; }}
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="debug-header">
+  <div class="debug-title">🐛 Elite Code Debugger</div>
+  <div class="debug-subtitle">Multi-language AI-powered debugging · Dedicated Gemini engine · Instant fixes</div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── Language grid display ────────────────────────────────────
+    lang_names = list(SUPPORTED_LANGUAGES.keys())
+    badges = " ".join([
+        f'<span class="lang-badge">{SUPPORTED_LANGUAGES[l]["icon"]} {l}</span>'
+        for l in lang_names
+    ])
+    st.markdown(f'<div style="margin-bottom:20px;">{badges}</div>', unsafe_allow_html=True)
+
+    # ── Controls row ─────────────────────────────────────────────
+    col_lang, col_mode = st.columns([1, 1])
+    with col_lang:
+        sel_lang = st.selectbox(
+            "🌐 Language",
+            lang_names,
+            index=lang_names.index(st.session_state.get("debug_language", "Python")),
+            key="debug_lang_sel",
+        )
+        st.session_state.debug_language = sel_lang
+    with col_mode:
+        debug_mode = st.selectbox(
+            "🔧 Debug Mode",
+            ["Quick Fix", "Full Debug", "Code Review", "Explain Code", "Optimize"],
+            index=["Quick Fix", "Full Debug", "Code Review", "Explain Code", "Optimize"].index(
+                st.session_state.get("debug_mode", "Full Debug")
+            ),
+            key="debug_mode_sel",
+        )
+        st.session_state.debug_mode = debug_mode
+
+    # ── Code input ───────────────────────────────────────────────
+    lang_icon = SUPPORTED_LANGUAGES.get(sel_lang, {}).get("icon", "💻")
+    code_input = st.text_area(
+        f"{lang_icon} Paste your {sel_lang} code here",
+        value=st.session_state.get("debug_code_input", ""),
+        height=280,
+        placeholder=f"# Paste your {sel_lang} code here...",
+        key="debug_code_area",
+    )
+    st.session_state.debug_code_input = code_input
+
+    # Auto-detect
+    if code_input.strip():
+        detected = auto_detect_language(code_input)
+        if detected != sel_lang:
+            st.caption(f"💡 Auto-detected: **{detected}** — change Language above if needed")
+
+    col_err, col_exp = st.columns(2)
+    with col_err:
+        error_input = st.text_area(
+            "⚠️ Error / Exception (optional)",
+            value=st.session_state.get("debug_error_input", ""),
+            height=100,
+            placeholder="Paste the error message or traceback...",
+            key="debug_error_area",
+        )
+        st.session_state.debug_error_input = error_input
+    with col_exp:
+        expected_input = st.text_area(
+            "🎯 Expected Behavior (optional)",
+            value=st.session_state.get("debug_expected_input", ""),
+            height=100,
+            placeholder="What should the code do?",
+            key="debug_expected_area",
+        )
+        st.session_state.debug_expected_input = expected_input
+
+    # ── Debug button ─────────────────────────────────────────────
+    col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 1])
+    with col_btn1:
+        run_debug = st.button(
+            f"🚀 {debug_mode} — Analyze Code",
+            use_container_width=True,
+            type="primary",
+            disabled=not code_input.strip(),
+        )
+    with col_btn2:
+        clear_btn = st.button("🗑️ Clear", use_container_width=True)
+    with col_btn3:
+        if st.button("💬 Back to Chat", use_container_width=True):
+            st.session_state.app_mode = "chat"
+            st.rerun()
+
+    if clear_btn:
+        st.session_state.debug_code_input = ""
+        st.session_state.debug_error_input = ""
+        st.session_state.debug_expected_input = ""
+        st.session_state.debug_result = None
+        st.rerun()
+
+    if run_debug and code_input.strip():
+        with st.spinner(f"🔍 {debug_mode} in progress — Gemini debug engine activated…"):
+            t0 = time.time()
+            try:
+                result = debug_code(
+                    code=code_input,
+                    language=sel_lang,
+                    error_message=error_input,
+                    expected_behavior=expected_input,
+                    debug_mode=debug_mode,
+                )
+                elapsed = time.time() - t0
+                st.session_state.debug_result = result
+                # Add to history
+                st.session_state.debug_history.append({
+                    "language": sel_lang,
+                    "mode": debug_mode,
+                    "code_preview": code_input[:120] + ("…" if len(code_input) > 120 else ""),
+                    "result": result,
+                    "time": elapsed,
+                    "timestamp": time.strftime("%H:%M"),
+                })
+            except Exception as e:
+                st.error(f"❌ Debug engine error: {e}")
+                st.session_state.debug_result = None
+
+    # ── Result display ───────────────────────────────────────────
+    if st.session_state.get("debug_result"):
+        result = st.session_state.debug_result
+        history = st.session_state.debug_history
+        elapsed = history[-1]["time"] if history else 0
+
+        # Stats row
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.markdown(f'<div class="debug-stat"><div class="debug-stat-val">{elapsed:.1f}s</div><div class="debug-stat-lbl">Analysis Time</div></div>', unsafe_allow_html=True)
+        with c2:
+            bug_count = len(re.findall(r'(?i)\b(bug|error|issue|problem|mistake|wrong|fix)\b', result))
+            st.markdown(f'<div class="debug-stat"><div class="debug-stat-val">{bug_count}</div><div class="debug-stat-lbl">Issues Found</div></div>', unsafe_allow_html=True)
+        with c3:
+            lines = code_input.count('\n') + 1
+            st.markdown(f'<div class="debug-stat"><div class="debug-stat-val">{lines}</div><div class="debug-stat-lbl">Lines Analyzed</div></div>', unsafe_allow_html=True)
+        with c4:
+            st.markdown(f'<div class="debug-stat"><div class="debug-stat-val">{sel_lang}</div><div class="debug-stat-lbl">Language</div></div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="debug-result-box">', unsafe_allow_html=True)
+        st.markdown(result)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Export
+        col_copy, col_dl = st.columns(2)
+        with col_dl:
+            st.download_button(
+                "📥 Download Debug Report",
+                data=f"# Debug Report — {sel_lang} — {debug_mode}\n\n{result}",
+                file_name=f"debug_report_{sel_lang.lower().replace('/', '_')}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+
+    # ── Debug history ────────────────────────────────────────────
+    if st.session_state.debug_history:
+        with st.expander(f"📜 Debug History ({len(st.session_state.debug_history)} sessions)", expanded=False):
+            for i, h in enumerate(reversed(st.session_state.debug_history[-10:])):
+                st.markdown(
+                    f'**{h["timestamp"]}** · `{h["language"]}` · {h["mode"]} · {h["time"]:.1f}s\n\n'
+                    f'```\n{h["code_preview"]}\n```'
+                )
+                if st.button(f"Load result #{len(st.session_state.debug_history)-i}", key=f"load_debug_{i}"):
+                    st.session_state.debug_result = h["result"]
+                    st.rerun()
+                st.divider()
+
+
+# ─────────────────────────────────────────────
+# LEARN CODING MODE
+# ─────────────────────────────────────────────
+elif app_mode == "learn_coding":
+    from utils.debugger_engine import (
+        teach_concept, SUPPORTED_LANGUAGES, CURRICULUM,
+        _call_gemini_debug, LEARN_SYSTEM_PROMPT,
+    )
+
+    st.markdown("""
+<style>
+.learn-header {
+    background: linear-gradient(135deg, #0a1a2e 0%, #0d1a0d 100%);
+    border: 1px solid #1a4a2a;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+}
+.learn-header::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(52,211,153,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+}
+.learn-title { font-size: 1.9rem; font-weight: 800; color: #34d399; margin: 0 0 4px; }
+.learn-subtitle { font-size: 0.9rem; color: #9090b8; }
+.topic-chip {
+    display: inline-block;
+    background: rgba(52,211,153,0.08);
+    border: 1px solid rgba(52,211,153,0.25);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    color: #34d399;
+    margin: 3px;
+    cursor: pointer;
+}
+.learn-result-box {
+    background: rgba(14,26,14,0.95);
+    border: 1px solid rgba(52,211,153,0.2);
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 20px;
+}
+.chat-bubble-user {
+    background: rgba(124,106,247,0.1);
+    border: 1px solid rgba(124,106,247,0.25);
+    border-radius: 14px 14px 4px 14px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    font-size: 0.9rem;
+}
+.chat-bubble-ai {
+    background: rgba(52,211,153,0.06);
+    border: 1px solid rgba(52,211,153,0.18);
+    border-radius: 14px 14px 14px 4px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    font-size: 0.9rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="learn-header">
+  <div class="learn-title">🎓 Learn Coding</div>
+  <div class="learn-subtitle">Interactive AI programming tutor · Step-by-step lessons · Practice exercises · Any language</div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── Tabs: Structured Lessons vs Free Chat ──────────────────
+    tab_lessons, tab_chat, tab_progress = st.tabs(["📚 Structured Lessons", "💬 Ask Anything", "📊 Progress"])
+
+    with tab_lessons:
+        col_ll, col_lv = st.columns([1, 1])
+        with col_ll:
+            lang_names = list(SUPPORTED_LANGUAGES.keys())
+            learn_lang = st.selectbox(
+                "🌐 Language to Learn",
+                lang_names,
+                index=lang_names.index(st.session_state.get("learn_language", "Python")),
+                key="learn_lang_sel",
+            )
+            st.session_state.learn_language = learn_lang
+        with col_lv:
+            learn_level = st.selectbox(
+                "📶 Your Level",
+                ["Complete Beginner", "Beginner", "Intermediate", "Advanced", "Expert"],
+                index=["Complete Beginner", "Beginner", "Intermediate", "Advanced", "Expert"].index(
+                    st.session_state.get("learn_level", "Beginner")
+                ),
+                key="learn_level_sel",
+            )
+            st.session_state.learn_level = learn_level
+
+        # Topic picker — from curriculum or custom
+        topics = CURRICULUM.get(learn_lang, [])
+        if topics:
+            st.markdown("**📋 Curriculum Topics — Click to Learn:**")
+            # Show as clickable buttons in a grid
+            cols_per_row = 3
+            rows = [topics[i:i+cols_per_row] for i in range(0, len(topics), cols_per_row)]
+            for row in rows:
+                btncols = st.columns(cols_per_row)
+                for ci, topic in enumerate(row):
+                    with btncols[ci]:
+                        if st.button(topic, key=f"topic_{learn_lang}_{topic}", use_container_width=True):
+                            st.session_state.learn_topic = topic
+                            st.session_state.learn_result = None
+
+        st.divider()
+
+        custom_topic = st.text_input(
+            "✏️ Or type a custom topic",
+            value=st.session_state.get("learn_topic", ""),
+            placeholder="e.g. Recursion, Binary Trees, REST APIs…",
+            key="learn_topic_input",
+        )
+        if custom_topic:
+            st.session_state.learn_topic = custom_topic
+
+        specific_q = st.text_input(
+            "❓ Specific question (optional)",
+            value=st.session_state.get("learn_question", ""),
+            placeholder="e.g. Why does Python pass objects by reference?",
+            key="learn_q_input",
+        )
+        st.session_state.learn_question = specific_q
+
+        col_lb1, col_lb2 = st.columns([2, 1])
+        with col_lb1:
+            learn_topic_val = st.session_state.get("learn_topic", "")
+            start_lesson = st.button(
+                f"🚀 Start Lesson: {learn_topic_val or 'Select a topic above'}",
+                use_container_width=True,
+                type="primary",
+                disabled=not learn_topic_val.strip(),
+            )
+        with col_lb2:
+            if st.button("💬 Back to Chat", use_container_width=True):
+                st.session_state.app_mode = "chat"
+                st.rerun()
+
+        if start_lesson and st.session_state.get("learn_topic", "").strip():
+            with st.spinner(f"📖 Generating lesson on {st.session_state.learn_topic}…"):
+                try:
+                    result = teach_concept(
+                        topic=st.session_state.learn_topic,
+                        language=learn_lang,
+                        level=learn_level,
+                        specific_question=st.session_state.get("learn_question", ""),
+                    )
+                    st.session_state.learn_result = result
+                    st.session_state.learn_history.append({
+                        "topic": st.session_state.learn_topic,
+                        "language": learn_lang,
+                        "level": learn_level,
+                        "result": result,
+                        "timestamp": time.strftime("%H:%M"),
+                    })
+                except Exception as e:
+                    st.error(f"❌ Lesson engine error: {e}")
+
+        if st.session_state.get("learn_result"):
+            st.markdown('<div class="learn-result-box">', unsafe_allow_html=True)
+            st.markdown(st.session_state.learn_result)
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.download_button(
+                "📥 Save Lesson Notes",
+                data=f"# {st.session_state.learn_topic} — {learn_lang}\nLevel: {learn_level}\n\n{st.session_state.learn_result}",
+                file_name=f"lesson_{st.session_state.learn_topic.replace(' ', '_')}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+
+    with tab_chat:
+        st.markdown("**💬 Ask Any Coding Question — Your AI Tutor Answers Instantly**")
+
+        # Chat history
+        for msg in st.session_state.learn_chat_messages:
+            css_cls = "chat-bubble-user" if msg["role"] == "user" else "chat-bubble-ai"
+            icon = "🧑‍💻" if msg["role"] == "user" else "🎓"
+            st.markdown(
+                f'<div class="{css_cls}">{icon} {msg["content"]}</div>',
+                unsafe_allow_html=True,
+            )
+
+        user_q = st.text_input(
+            "Ask your question",
+            placeholder="e.g. What is a pointer? How do I sort a list in Python? Explain Big O notation…",
+            key="learn_chat_input",
+            label_visibility="collapsed",
+        )
+        col_ca, col_cb = st.columns([3, 1])
+        with col_ca:
+            send_chat = st.button("📤 Ask Tutor", use_container_width=True, type="primary")
+        with col_cb:
+            if st.button("🗑️ Clear Chat", use_container_width=True):
+                st.session_state.learn_chat_messages = []
+                st.rerun()
+
+        if send_chat and user_q.strip():
+            st.session_state.learn_chat_messages.append({"role": "user", "content": user_q})
+            learn_lang_chat = st.session_state.get("learn_language", "Python")
+            learn_level_chat = st.session_state.get("learn_level", "Beginner")
+
+            history_text = "\n".join([
+                f"{'Student' if m['role'] == 'user' else 'Tutor'}: {m['content']}"
+                for m in st.session_state.learn_chat_messages[-10:]
+            ])
+
+            prompt = f"""STUDENT LEVEL: {learn_level_chat}
+PREFERRED LANGUAGE: {learn_lang_chat}
+
+CONVERSATION:
+{history_text}
+
+Answer the student's latest question thoroughly, with code examples in {learn_lang_chat}.
+"""
+            with st.spinner("🎓 Tutor is thinking…"):
+                try:
+                    answer = _call_gemini_debug(prompt, LEARN_SYSTEM_PROMPT)
+                    st.session_state.learn_chat_messages.append({"role": "assistant", "content": answer})
+                except Exception as e:
+                    st.error(f"Tutor unavailable: {e}")
+            st.rerun()
+
+    with tab_progress:
+        history = st.session_state.get("learn_history", [])
+        if not history:
+            st.info("📭 No lessons completed yet. Start a lesson to track progress!")
+        else:
+            st.markdown(f"**🏆 Lessons Completed: {len(history)}**")
+            for h in reversed(history[-15:]):
+                with st.expander(f"📖 {h['timestamp']} · {h['language']} · {h['topic']} ({h['level']})"):
+                    st.markdown(h["result"])
+            if st.button("🗑️ Clear Progress History"):
+                st.session_state.learn_history = []
+                st.rerun()
+
+
+# ─────────────────────────────────────────────
 # CHAT MODE (default)
 # ─────────────────────────────────────────────
 else:
@@ -2347,6 +2842,18 @@ else:
         st.session_state.app_mode = "mindmap"
         st.session_state.messages.append({"role":"user","content":user_input})
         st.session_state.messages.append({"role":"assistant","content":"📊 **Mind Map Generator Activated.**"})
+        st.rerun()
+
+    elif user_input and any(kw in txt_low for kw in ["debug", "fix my code", "my code has", "code debugger", "open debugger"]):
+        st.session_state.app_mode = "debugger"
+        st.session_state.messages.append({"role":"user","content":user_input})
+        st.session_state.messages.append({"role":"assistant","content":"🐛 **Code Debugger Activated** — paste your code in the debug workspace."})
+        st.rerun()
+
+    elif user_input and any(kw in txt_low for kw in ["learn coding", "teach me", "learn python", "learn javascript", "learn c++", "coding tutor", "open learn"]):
+        st.session_state.app_mode = "learn_coding"
+        st.session_state.messages.append({"role":"user","content":user_input})
+        st.session_state.messages.append({"role":"assistant","content":"🎓 **Learn Coding Mode Activated** — choose a language and topic to begin your lesson."})
         st.rerun()
 
     # ── Main query processing ──────────────────────
