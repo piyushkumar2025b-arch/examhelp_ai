@@ -20,6 +20,38 @@ import os, time, threading, datetime, math
 from collections import deque
 from typing import Optional, Dict, Any
 
+# CRITICAL: Load .env BEFORE key loading (module-level)
+def _force_load_env():
+    """Bulletproof .env loader — works even without python-dotenv."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        return
+    except ImportError:
+        pass
+    # Manual fallback: parse .env ourselves
+    import pathlib
+    for env_path in [
+        pathlib.Path(__file__).resolve().parent.parent / ".env",
+        pathlib.Path.cwd() / ".env",
+    ]:
+        if env_path.is_file():
+            try:
+                for line in env_path.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, value = line.partition("=")
+                    key = key.strip()
+                    value = value.strip().strip("'\"")
+                    if key and value and key not in os.environ:
+                        os.environ[key] = value
+            except Exception:
+                pass
+            break
+
+_force_load_env()
+
 try:
     import streamlit as st
     _ST = True

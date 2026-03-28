@@ -158,7 +158,7 @@ def chat_with_gemini(
         try:
             resp = _call_gemini(key, chosen_model, contents, SYSTEM_PROMPT,
                                 json_mode=json_mode, stream=False,
-                                max_tokens=2048 if json_mode else 4096,
+                                max_tokens=2048 if json_mode else 8192,
                                 temperature=0.3 if json_mode else 0.65)
 
             if resp.status_code == 200:
@@ -188,9 +188,10 @@ def chat_with_gemini(
             last_err = e
             continue
 
-    # Fallback to Groq
-    from utils.groq_client import chat_with_groq
-    return chat_with_groq(messages, json_mode=json_mode)
+    # All Gemini keys failed — raise so app.py's tiered fallback handles it
+    if last_err:
+        raise last_err
+    raise ValueError("All Gemini API keys exhausted.")
 
 
 # ── Public: streaming ─────────────────────────────────────────────────────────
@@ -222,7 +223,7 @@ def stream_chat_with_gemini(
         try:
             resp = _call_gemini(key, chosen_model, contents, sys_prompt,
                                 json_mode=False, stream=True,
-                                max_tokens=4096, temperature=0.65)
+                                max_tokens=8192, temperature=0.65)
 
             if resp.status_code == 429:
                 retry_after = _parse_retry_after(resp)
@@ -266,10 +267,10 @@ def stream_chat_with_gemini(
             last_err = e
             continue
 
-    # All Gemini keys failed — fall back to Groq streaming
-    from utils.groq_client import stream_chat_with_groq
-    yield from stream_chat_with_groq(history, context_text=context_text,
-                                     persona_prompt=persona_prompt)
+    # All Gemini keys failed — raise so app.py's tiered fallback handles it
+    if last_err:
+        raise last_err
+    raise ValueError("All Gemini streaming keys exhausted.")
 
 
 # ── Vision ────────────────────────────────────────────────────────────────────

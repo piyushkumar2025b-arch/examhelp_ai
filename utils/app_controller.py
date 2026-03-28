@@ -118,7 +118,9 @@ class AppController:
     @staticmethod
     def _fetch_json(prompt: list, api_key: str):
         from utils import key_manager
-        for _ in range(key_manager.MAX_RETRIES):
+        # Only retry 3 times for JSON parse failures.
+        # chat_with_groq already handles key rotation internally.
+        for _ in range(3):
             try:
                 res_raw = chat_with_groq(prompt, json_mode=True, override_key=api_key).strip()
                 if not res_raw.startswith("{"):
@@ -127,8 +129,11 @@ class AppController:
                         res_raw = res_raw[idx:]
                 data = json.loads(res_raw)
                 return list(data.values())[0] if data else None
-            except Exception:
+            except json.JSONDecodeError:
                 time.sleep(1)
+                continue
+            except Exception:
+                return None
         return None
 
     @staticmethod

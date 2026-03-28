@@ -39,8 +39,8 @@ MODEL_SCOUT     = "llama-4-scout-17b-16e-instruct"  # 30 RPM, 500K TPD — high 
 
 # Token budget per call
 MAX_CONTEXT_CHARS = 28_000
-MAX_TOKENS_STREAM  = 4_096
-MAX_TOKENS_SYNC    = 2_048
+MAX_TOKENS_STREAM  = 32_768   # Max for llama-3.3-70b-versatile
+MAX_TOKENS_SYNC    = 8_192    # Higher limit for structured tasks
 
 SYSTEM_PROMPT = """\
 You are ExamHelp AI — a GOD-LEVEL Study Architect and Academic Reasoning Engine.
@@ -247,10 +247,16 @@ def stream_chat_with_groq(
 
                 delta = chunk.choices[0].delta.content if chunk.choices else None
                 if delta:
-                    # Accumulate word-based token estimate as fallback
+                    # Track word count as fallback token estimate
                     if total_tokens == 0:
-                        total_tokens += int(len(delta.split()) * 1.4)
+                        word_estimate = getattr(stream_obj, '_word_est', 0)
+                        word_estimate += len(delta.split())
+                        stream_obj._word_est = word_estimate
                     yield delta
+
+            # Use word estimate as fallback if API didn't return usage
+            if total_tokens == 0:
+                total_tokens = int(getattr(stream_obj, '_word_est', 0) * 1.4)
 
             key_manager.mark_used(
                 key,
