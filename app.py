@@ -1709,7 +1709,37 @@ if app_mode == "flashcards":
         if st.session_state.flashcards:
             cards = st.session_state.flashcards
             idx = st.session_state.current_card
+
+            # ── Mastery summary screen ────────────────────────────────────
+            if idx >= len(cards):
+                mastery = st.session_state.get("card_mastery", {})
+                passes = sum(1 for v in mastery.values() if v == "pass")
+                fails = len(mastery) - passes
+                st.success(f"### 🎉 Deck Complete! You got **{passes}/{len(cards)}** correct.")
+                try:
+                    import plotly.express as px_fc
+                    fig_fc = px_fc.pie(
+                        names=["✅ Got it", "❌ Need more"],
+                        values=[passes, fails],
+                        color_discrete_sequence=["#22c55e", "#ef4444"],
+                        title="Session Mastery"
+                    )
+                    st.plotly_chart(fig_fc, use_container_width=True)
+                except Exception:
+                    st.metric("Correct", passes)
+                    st.metric("Need more review", fails)
+                if st.button("🔄 Restart Deck"):
+                    import random as _random_fc
+                    _random_fc.shuffle(st.session_state.flashcards)
+                    st.session_state.current_card = 0
+                    st.session_state.card_mastery = {}
+                    st.rerun()
+                st.stop()
+
             card = cards[idx]
+
+            # Progress bar
+            st.progress((idx) / len(cards), text=f"Card {idx + 1} of {len(cards)}")
             
             st.markdown(f"### {lang} Flashcard {idx + 1} / {len(cards)}")
             
@@ -1735,39 +1765,32 @@ if app_mode == "flashcards":
                     """, unsafe_allow_html=True)
             
             is_last = idx == len(cards) - 1
-            if not is_last:
-                col_a, col_b, col_c = st.columns([1,1,1])
-            else:
-                col_a, col_b, col_c, col_d = st.columns([1,1,1,1])
+            col_a, col_b, col_c = st.columns([1, 1, 1])
             
             with col_a:
                 if st.button("❌ Need more", use_container_width=True):
                     if "card_mastery" not in st.session_state: st.session_state.card_mastery = {}
                     st.session_state.card_mastery[idx] = "fail"
-                    if not is_last:
-                        st.session_state.current_card += 1
-                        st.rerun()
+                    st.session_state.current_card += 1
+                    st.rerun()
             with col_b:
                 if st.button("💾 Save Deck", use_container_width=True):
                     summary = "\n".join([f"Q: {c['q']} | A: {c['a']}" for c in cards])
                     st.session_state.messages.append({"role": "assistant", "content": f"### 🃏 Generated Flashcards ({lang})\n\n{summary}"})
                     st.success("Saved!")
-                if st.button("🔊 Speak", use_container_width=True):
-                    AppController.speak(f"Question: {card['q']}. Answer: {card['a']}")
+                # Shuffle button
+                if st.button("🔀 Shuffle", use_container_width=True):
+                    import random as _random_fc
+                    _random_fc.shuffle(st.session_state.flashcards)
+                    st.session_state.current_card = 0
+                    st.session_state.card_mastery = {}
+                    st.rerun()
             with col_c:
                 if st.button("✅ Got it", use_container_width=True):
                     if "card_mastery" not in st.session_state: st.session_state.card_mastery = {}
                     st.session_state.card_mastery[idx] = "pass"
-                    if not is_last:
-                        st.session_state.current_card += 1
-                        st.rerun()
-            if is_last:
-                with col_d:
-                    if st.button("🏁 Finish", use_container_width=True):
-                        st.session_state.flashcards = []
-                        st.session_state.card_mastery = {}
-                        st.session_state.current_card = 0
-                        st.rerun()
+                    st.session_state.current_card += 1
+                    st.rerun()
 
             # Progress Bar
             mastery_count = sum(1 for v in st.session_state.get("card_mastery", {}).values() if v == "pass")
@@ -1945,22 +1968,40 @@ elif app_mode == "quiz":
     if not st.session_state.context_text:
         st.warning(f"Please upload context to start a {lang} quiz.")
     else:
-        if st.button(f"🪄 Build {lang} Quiz"):
+        # Question count selector
+        qz_count = st.radio("Number of questions:", ["5 questions", "10 questions"], horizontal=True, key="qz_count_sel")
+        num_qs = 10 if "10" in qz_count else 5
+
+        if st.button(f"🪄 Build {lang} Quiz ({num_qs}Q)"):
             with st.spinner("Generating challenges..."):
-                q_data = AppController.generate_quiz(st.session_state.context_text, lang, _get_override_key())
+                # Override generate_quiz count via direct prompt if 10
+                if num_qs == 10:
+                    prompt_qz = [
+                        {"role": "system", "content": f"Create 10 challenging MCQs based strictly on the provided text. Return ONLY strict JSON. No preamble. Format: {{\"quiz\": [{{'q': '...', 'options': ['A','B','C','D'], 'correct': 'Correct Option Text', 'explanation': 'Brief reason'}}]}}. All content MUST be in {lang}."},
+                        {"role": "user", "content": f"Context Material: {st.session_state.context_text[:12000]}"}
+                    ]
+                    q_data = AppController._fetch_json(prompt_qz, _get_override_key())
+                else:
+                    q_data = AppController.generate_quiz(st.session_state.context_text, lang, _get_override_key())
                 if q_data:
                     st.session_state.quiz_data = q_data
                     st.session_state.quiz_current = 0
                     st.session_state.quiz_score = 0
                     st.session_state.quiz_feedback = None
+                    st.session_state.quiz_times = []
+                    st.session_state.quiz_results = []
+                    import time as _time_qz
+                    st.session_state.question_start_time = _time_qz.time()
                 else:
                     st.error("⚠️ Quiz generation failed. Try reloading your study material.")
 
         if st.session_state.quiz_data:
             quiz = st.session_state.quiz_data
             idx = st.session_state.quiz_current
-            
+
             if idx < len(quiz):
+                # Score badge
+                st.metric("Score", f"{st.session_state.quiz_score}/{len(quiz)}", delta=None)
                 q = quiz[idx]
                 st.markdown(f"### Assessment: Question {idx + 1} of {len(quiz)}")
                 st.info(f"**{q['q']}**")
@@ -1970,11 +2011,16 @@ elif app_mode == "quiz":
                 col_s, col_n = st.columns([1,1])
                 with col_s:
                     if st.button("✅ Submit Result", use_container_width=True) and not st.session_state.quiz_feedback:
-                        if choice == q['correct']:
+                        import time as _time_qz2
+                        elapsed = round(_time_qz2.time() - st.session_state.get("question_start_time", _time_qz2.time()), 1)
+                        st.session_state.quiz_times.append(elapsed)
+                        is_correct = choice == q['correct']
+                        if is_correct:
                             st.session_state.quiz_score += 1
-                            st.session_state.quiz_feedback = ("success", f"⚡ **Correct!** {q['explanation']}")
+                            st.session_state.quiz_feedback = ("success", f"⚡ **Correct!** _(answered in {elapsed}s)_ {q['explanation']}")
                         else:
-                            st.session_state.quiz_feedback = ("error", f"❌ **Not quite.** Correct was: {q['correct']}. {q['explanation']}")
+                            st.session_state.quiz_feedback = ("error", f"❌ **Not quite.** _(answered in {elapsed}s)_ Correct was: **{q['correct']}**. {q['explanation']}")
+                        st.session_state.quiz_results.append({"q": q['q'], "correct": is_correct, "time": elapsed})
                         st.rerun()
 
                 if st.session_state.quiz_feedback:
@@ -1982,22 +2028,71 @@ elif app_mode == "quiz":
                     if type_f == "success": st.success(msg_f)
                     else: st.error(msg_f)
                     
-                    col_expl, col_cont = st.columns([1,1])
-                    with col_expl:
-                        if st.button("💡 Explain more", use_container_width=True):
-                            st.session_state.queued_prompt = f"Explain the concept behind this question more deeply: {q['q']}. The correct answer was {q['correct']}. Context: {q['explanation']}"
-                            st.session_state.app_mode = "chat"
-                            st.rerun()
+                    # Inline deep explanation (no mode switch)
+                    with st.expander("📖 Deep Explanation"):
+                        with st.spinner("Expanding concept..."):
+                            deep_msgs = [
+                                {"role": "system", "content": "You are a helpful tutor. Explain the concept clearly and concisely."},
+                                {"role": "user", "content": f"Explain the concept behind this question more deeply: {q['q']}. The correct answer was {q['correct']}. Context: {q['explanation']}"}
+                            ]
+                            try:
+                                deep_exp = chat_with_groq(deep_msgs, override_key=_get_override_key())
+                                st.markdown(deep_exp)
+                            except Exception as e:
+                                st.error(f"Could not load explanation: {e}")
+                    
+                    col_cont, _ = st.columns([1,1])
                     with col_cont:
                         if st.button("Continue ➡️", use_container_width=True):
+                            import time as _time_qz3
                             st.session_state.quiz_current += 1
                             st.session_state.quiz_feedback = None
+                            st.session_state.question_start_time = _time_qz3.time()
                             st.rerun()
             else:
+                # Results screen
                 st.balloons()
-                st.success(f"### 🎉 Quiz Finished!\n**Final Performance:** {st.session_state.quiz_score} / {len(quiz)}")
+                score = st.session_state.quiz_score
+                total = len(quiz)
+                times = st.session_state.get("quiz_times", [])
+                results = st.session_state.get("quiz_results", [])
+                avg_time = round(sum(times) / len(times), 1) if times else 0
+
+                st.success(f"### 🎉 Quiz Complete!")
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Final Score", f"{score}/{total}")
+                c2.metric("Accuracy", f"{int(score/total*100)}%")
+                c3.metric("Avg Time/Q", f"{avg_time}s")
+
+                # Bar chart per question
+                if results:
+                    try:
+                        import plotly.graph_objects as go_qz
+                        bar_colors = ["#22c55e" if r["correct"] else "#ef4444" for r in results]
+                        fig_qz = go_qz.Figure(go_qz.Bar(
+                            x=[f"Q{i+1}" for i in range(len(results))],
+                            y=[r["time"] for r in results],
+                            marker_color=bar_colors,
+                            text=["✅" if r["correct"] else "❌" for r in results],
+                            textposition="outside"
+                        ))
+                        fig_qz.update_layout(title="Time per Question (green=correct, red=wrong)",
+                                             xaxis_title="Question", yaxis_title="Seconds", height=350)
+                        st.plotly_chart(fig_qz, use_container_width=True)
+                    except Exception:
+                        pass
+
+                # Download results as markdown
+                md_lines = [f"# Quiz Results\n**Score: {score}/{total} | Avg time: {avg_time}s**\n"]
+                for i, r in enumerate(results):
+                    status = "✅" if r["correct"] else "❌"
+                    md_lines.append(f"### Q{i+1} {status} ({r['time']}s)\n{r['q']}\n")
+                st.download_button("📥 Download Results", "\n".join(md_lines), "quiz_results.md", use_container_width=True)
+
                 if st.button("🔄 Try Again", use_container_width=True):
-                    st.session_state.quiz_data = []; st.rerun()
+                    st.session_state.quiz_data = []
+                    st.session_state.quiz_results = []
+                    st.rerun()
     st.stop()
 
 elif app_mode == "mindmap":
@@ -2034,23 +2129,62 @@ elif app_mode == "mindmap":
                     st.error(f"Visualization Error: {e}")
 
         if st.session_state.get("mindmap_code"):
-            # Mermaid Renderer
+            mm_code_display = st.session_state.mindmap_code
+
+            # Edit panel
+            with st.expander("📝 Edit Map"):
+                edited_code = st.text_area("Mermaid code", value=mm_code_display, height=200, key="mm_edit_area")
+                if st.button("🔄 Re-render"):
+                    st.session_state.mindmap_code = edited_code
+                    st.rerun()
+                mm_code_display = edited_code
+
+            # Zoom control
+            zoom = st.slider("🔍 Zoom", 0.5, 2.0, 1.0, 0.1, key="mm_zoom")
+
+            # Fixed async Mermaid renderer
+            import html as _html_mod
+            safe_mm = _html_mod.escape(mm_code_display)
             html_code = f"""
-            <div id="mermaid-root" style="background:var(--bg3); padding:20px; border-radius:12px; border:1px solid var(--border);">
-                <pre class="mermaid">{st.session_state.mindmap_code}</pre>
+            <div style="overflow:auto; background:#1e1e2e; padding:20px; border-radius:12px; border:1px solid #444;">
+              <div style="transform: scale({zoom}); transform-origin: top left; transition: transform 0.2s;">
+                <div class="mermaid">{safe_mm}</div>
+              </div>
             </div>
-            <script type="module">
-                import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-                mermaid.initialize({{ startOnLoad: true, theme: 'dark', securityLevel: 'loose' }});
+            <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+            <script>
+              mermaid.initialize({{startOnLoad: false, theme: 'dark', securityLevel: 'loose'}});
+              function renderMM() {{
+                try {{
+                  mermaid.run({{querySelector: '.mermaid'}});
+                }} catch(e) {{
+                  document.querySelector('.mermaid').innerHTML = '<p style="color:red">Syntax error in mind map. Try editing the code.</p>';
+                }}
+              }}
+              if (document.readyState === 'loading') {{
+                document.addEventListener('DOMContentLoaded', renderMM);
+              }} else {{
+                renderMM();
+              }}
+              setTimeout(renderMM, 600);
             </script>
             """
             import streamlit.components.v1 as components
-            components.html(html_code, height=600, scrolling=True)
+            components.html(html_code, height=int(600 * zoom) + 60, scrolling=True)
             
+            # PNG export via mermaid.ink
+            import base64 as _b64
+            try:
+                mm_b64 = _b64.urlsafe_b64encode(mm_code_display.encode()).decode()
+                png_url = f"https://mermaid.ink/img/{mm_b64}"
+                st.markdown(f"[🖼️ Open as PNG (mermaid.ink)]({png_url})", unsafe_allow_html=False)
+            except Exception:
+                pass
+
             with st.expander("🛠️ Mind Map Options"):
-                st.code(st.session_state.mindmap_code, language="mermaid")
+                st.code(mm_code_display, language="mermaid")
                 if st.button("💾 Keep Map in History"):
-                    st.session_state.messages.append({"role": "assistant", "content": f"### 📊 Concept Map ({lang})\n```mermaid\n{st.session_state.mindmap_code}\n```"})
+                    st.session_state.messages.append({"role": "assistant", "content": f"### 📊 Concept Map ({lang})\n```mermaid\n{mm_code_display}\n```"})
                     st.success("Map saved!")
     st.stop()
 
@@ -2065,31 +2199,39 @@ elif app_mode == "planner":
         task_deadline = st.date_input("Deadline", label_visibility="collapsed")
         
     if st.button("➕ Add Task", use_container_width=True) and new_task:
+        with st.spinner("Estimating time..."):
+            est_mins = AppController.estimate_task_time(new_task, _get_override_key())
         st.session_state.study_tasks.append({
             "task": new_task,
+            "topic": "",
+            "estimated_minutes": est_mins,
+            "priority": "medium",
             "deadline": task_deadline.isoformat(),
             "done": False
         })
+        st.toast(f"Added! Estimated: {est_mins} min", icon="⏱️")
         st.rerun()
         
     if not st.session_state.context_text:
         st.info("Upload notes to auto-generate tasks from topics.")
     else:
-        if st.button("🪄 Auto-Generate Plan from Notes", use_container_width=True):
+        col_ag1, col_ag2 = st.columns([3, 1])
+        with col_ag1:
+            num_plan_days = st.number_input("Plan over N days", min_value=1, max_value=14, value=3, step=1, key="plan_days")
+        with col_ag2:
+            st.write("")
+            st.write("")
+            gen_plan_btn = st.button("🪄 Auto-Generate Plan", use_container_width=True)
+        if gen_plan_btn:
             with st.spinner(f"Scheduling in {lang}..."):
-                prompt = [
-                    {"role": "system", "content": f"Extract 5 discrete study tasks from this material. Format strictly as JSON: {{\"tasks\": [\"Task 1\", \"Task 2\"]}}"},
-                    {"role": "user", "content": f"Study Context: {st.session_state.context_text[:12000]}"}
-                ]
-                auto_tasks = AppController._fetch_json(prompt, _get_override_key())
-                if auto_tasks:
-                    import datetime as dt
-                    deadline = dt.date.today() + dt.timedelta(days=1)
-                    for t in auto_tasks:
-                        st.session_state.study_tasks.append({
-                            "task": t, "deadline": deadline.isoformat(), "done": False
-                        })
+                rich_tasks = AppController.generate_study_schedule(
+                    st.session_state.context_text, int(num_plan_days), lang, _get_override_key()
+                )
+                if rich_tasks:
+                    st.session_state.study_tasks.extend(rich_tasks)
                     st.rerun()
+                else:
+                    st.error("Auto-generate failed — try again or check your API keys.")
 
     st.markdown("### 📋 Daily Task List")
     if not st.session_state.study_tasks:
@@ -2097,23 +2239,87 @@ elif app_mode == "planner":
     else:
         sorted_tasks = sorted(st.session_state.study_tasks, key=lambda x: (x['done'], x['deadline']))
         for idx, task in enumerate(sorted_tasks):
-            cols = st.columns([1, 6, 3, 2])
+            cols = st.columns([1, 5, 2, 2, 2])
             with cols[0]:
-                is_done = st.checkbox("", value=task['done'], key=f"t_done_{idx}_{task['task']}")
+                is_done = st.checkbox("", value=task['done'], key=f"t_done_{idx}_{task['task'][:20]}")
                 if is_done != task['done']:
                     for orig_t in st.session_state.study_tasks:
                         if orig_t['task'] == task['task'] and orig_t['deadline'] == task['deadline']:
                             orig_t['done'] = is_done
                     st.rerun()
             with cols[1]:
-                if not task['done']: st.markdown(f"**{task['task']}**")
-                else: st.markdown(f"~~{task['task']}~~")
+                pri_colors = {"high": "🔴", "medium": "🟡", "low": "🟢"}
+                pri_icon = pri_colors.get(task.get('priority', 'medium'), "🟡")
+                if not task['done']:
+                    st.markdown(f"{pri_icon} **{task['task']}**")
+                else:
+                    st.markdown(f"~~{task['task']}~~")
             with cols[2]:
                 st.caption(f"📅 {task['deadline']}")
             with cols[3]:
-                if st.button("🗑️", key=f"t_del_{idx}_{task['task']}"):
+                mins = task.get('estimated_minutes', 0)
+                if mins:
+                    st.caption(f"⏱️ {mins}m")
+            with cols[4]:
+                if st.button("🗑️", key=f"t_del_{idx}_{task['task'][:15]}"):
                     st.session_state.study_tasks.remove(task)
                     st.rerun()
+
+        # ── Gantt chart ──────────────────────────────────────────────────
+        st.markdown("### 📊 Schedule Timeline")
+        try:
+            import plotly.figure_factory as ff_pl
+            import datetime as dt_pl
+            today_pl = dt_pl.date.today()
+            gantt_data = []
+            for t in sorted_tasks:
+                try:
+                    dl = dt_pl.date.fromisoformat(t['deadline'])
+                    start_d = today_pl if not t['done'] else dl
+                    gantt_data.append(dict(
+                        Task=t['task'][:40],
+                        Start=start_d.isoformat(),
+                        Finish=dl.isoformat(),
+                        Resource=t.get('priority', 'medium')
+                    ))
+                except Exception:
+                    pass
+            if gantt_data:
+                colors = {"high": "#ef4444", "medium": "#f59e0b", "low": "#22c55e"}
+                fig_gantt = ff_pl.create_gantt(gantt_data, colors=colors, index_col="Resource",
+                                               show_colorbar=True, group_tasks=True, height=max(300, len(gantt_data)*35+100))
+                fig_gantt.update_layout(title="Study Timeline", xaxis_title="Date")
+                st.plotly_chart(fig_gantt, use_container_width=True)
+        except Exception as eg:
+            st.caption(f"Timeline unavailable: {eg}")
+
+        # ── Analytics ────────────────────────────────────────────────────
+        st.markdown("### 📈 Planner Analytics")
+        total_tasks = len(sorted_tasks)
+        done_tasks = sum(1 for t in sorted_tasks if t['done'])
+        total_mins_remaining = sum(t.get('estimated_minutes', 0) for t in sorted_tasks if not t['done'])
+        
+        ac1, ac2, ac3 = st.columns(3)
+        ac1.metric("Total Tasks", total_tasks)
+        ac2.metric("Completed", f"{int(done_tasks/total_tasks*100) if total_tasks else 0}%")
+        ac3.metric("Hours Remaining", f"{round(total_mins_remaining/60, 1)}h")
+
+        try:
+            import plotly.express as px_pl
+            pri_counts = {}
+            for t in sorted_tasks:
+                p = t.get('priority', 'medium')
+                pri_counts[p] = pri_counts.get(p, 0) + 1
+            fig_pri = px_pl.pie(
+                names=list(pri_counts.keys()),
+                values=list(pri_counts.values()),
+                title="Priority Breakdown",
+                color_discrete_map={"high": "#ef4444", "medium": "#f59e0b", "low": "#22c55e"},
+                hole=0.4
+            )
+            st.plotly_chart(fig_pri, use_container_width=True)
+        except Exception:
+            pass
     st.stop()
 
 
@@ -2129,6 +2335,33 @@ if not st.session_state.messages and app_mode == "chat":
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Starter chips
+    starter_chips = [
+        "Explain this topic simply",
+        "Create practice questions",
+        "Summarize my notes",
+        "What are the key concepts?",
+        "Give me a study plan",
+        "Quiz me on this material"
+    ]
+    st.markdown("#### ✨ Quick Start")
+    chip_cols = st.columns(3)
+    for i, chip in enumerate(starter_chips):
+        with chip_cols[i % 3]:
+            if st.button(chip, use_container_width=True, key=f"chip_{i}"):
+                st.session_state.queued_prompt = chip
+                st.rerun()
+
+# Context preview above chat
+if app_mode == "chat":
+    with st.expander("📎 Context Preview"):
+        ctx = st.session_state.get("context_text", "")
+        if ctx:
+            st.caption(f"**{len(ctx):,} chars loaded** — first 500 chars:")
+            st.text(ctx[:500] + ("..." if len(ctx) > 500 else ""))
+        else:
+            st.caption("No context loaded. Upload a PDF, YouTube link, or URL to get started.")
 
 # ── Chat history ──────────────────────────────
 for i_msg, msg in enumerate(st.session_state.messages):
@@ -2160,12 +2393,10 @@ for i_msg, msg in enumerate(st.session_state.messages):
                     ChatFeedback.save_feedback(f"msg_{i_msg}", False)
             with c3:
                 if st.button("📋", key=f"copy_{i_msg}", help="Copy response", use_container_width=True):
-                    try:
-                        import pyperclip
-                        pyperclip.copy(msg["content"])
-                        st.toast("Copied to clipboard!", icon="📋")
-                    except Exception:
-                        st.toast("Clipboard API unavailable. Select and copy manually.", icon="⚠️")
+                    escaped = msg["content"].replace("`", "\\`").replace("\\", "\\\\").replace("$", "\\$")
+                    import streamlit.components.v1 as _cmp
+                    _cmp.html(f"<script>navigator.clipboard.writeText(`{escaped}`).catch(()=>{{}});</script>", height=0)
+                    st.toast("Copied to clipboard!", icon="📋")
             with c4:
                 if st.button("🔄", key=f"regen_{i_msg}", help="Regenerate this response", use_container_width=True):
                     if i_msg == len(st.session_state.messages) - 1:

@@ -10,9 +10,12 @@ try:
 except ImportError:
     sr = None
 try:
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
 except ImportError:
-    DDGS = None
+    try:
+        from duckduckgo_search import DDGS
+    except ImportError:
+        DDGS = None
 try:
     from sympy import sympify
 except ImportError:
@@ -148,3 +151,52 @@ class AppController:
             return res_str.rstrip('0').rstrip('.')
         except Exception:
             return "Error"
+
+    @staticmethod
+    def generate_study_schedule(text: str, num_days: int, lang: str, api_key: str):
+        """Generate richer task schedule with time estimates and priority levels."""
+        import datetime as dt
+        prompt = [
+            {"role": "system", "content": (
+                f"You are a study coach. Extract {num_days * 2} discrete study tasks from the material. "
+                f"Return ONLY strict JSON: "
+                f'{{\"tasks\": [{{"task": "...", "topic": "...", "estimated_minutes": 30, "priority": "high", "deadline_offset_days": 1}}]}}. '
+                f"Space deadline_offset_days from 1 to {num_days}. Priority: high/medium/low. Language: {lang}."
+            )},
+            {"role": "user", "content": f"Study Material: {text[:12000]}"}
+        ]
+        raw = AppController._fetch_json(prompt, api_key)
+        if not raw:
+            return []
+        today = dt.date.today()
+        result = []
+        for item in raw:
+            if isinstance(item, str):
+                result.append({"task": item, "topic": "", "estimated_minutes": 30,
+                                "priority": "medium", "deadline": (today + dt.timedelta(days=1)).isoformat(), "done": False})
+            elif isinstance(item, dict):
+                offset = int(item.get("deadline_offset_days", 1))
+                result.append({
+                    "task": item.get("task", ""),
+                    "topic": item.get("topic", ""),
+                    "estimated_minutes": int(item.get("estimated_minutes", 30)),
+                    "priority": item.get("priority", "medium"),
+                    "deadline": (today + dt.timedelta(days=offset)).isoformat(),
+                    "done": False
+                })
+        return result
+
+    @staticmethod
+    def estimate_task_time(task: str, api_key: str) -> int:
+        """Return estimated study minutes for a task as an integer."""
+        prompt = [
+            {"role": "system", "content": "Estimate study time in minutes for the following task. Reply with ONLY a single integer number, nothing else."},
+            {"role": "user", "content": task}
+        ]
+        try:
+            result = chat_with_groq(prompt, override_key=api_key).strip()
+            import re
+            m = re.search(r'\d+', result)
+            return int(m.group()) if m else 30
+        except Exception:
+            return 30
