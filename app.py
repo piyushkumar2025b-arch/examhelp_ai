@@ -2343,8 +2343,8 @@ if user_input:
             st.divider()
             
         st.markdown("#### 🔗 References & Research")
-        if query_sources:
-             for s in query_sources[:4]:
+        if matched_sources:
+             for s in matched_sources[:4]:
                  st.markdown(f"- [{s.split('//')[-1][:30]}...]({s})")
         else:
             st.info("Direct AI Knowledge Engine used (No external links required).")
