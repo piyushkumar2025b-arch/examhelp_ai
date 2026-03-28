@@ -2315,13 +2315,34 @@ if user_input:
             full_response = "⚠️ **All API keys are rate-limited.** Please wait ~60 seconds and try again."
             placeholder.warning(full_response)
 
-    # --- IMAGE RECOGNITION & RENDERING ---
-    pattern = r"\[SYSTEM_VIEW: IMAGE_FOUND\] .*?\(URL: (.*?)\)"
-    match = re.search(pattern, full_response)
-    if match:
-        img_url = match.group(1)
-        st.image(img_url, caption=f"🔍 Visual Context for: {user_input[:40]}...", use_container_width=True)
-
+    # --- VISUAL MANIFEST RENDERING (NO PLACEHOLDERS) ---
+    if "VISUAL_MANIFEST:" in full_response:
+        parts = full_response.split("VISUAL_MANIFEST:")
+        main_text = parts[0].strip()
+        manifest_raw = parts[1].strip().split("\n")[0]
+        
+        try:
+            import json
+            manifest = json.loads(manifest_raw)
+            img_query = manifest.get("query")
+            caption = manifest.get("caption", "Educational Reference")
+            
+            if img_query:
+                from ai.api_manager import UnifiedAPIManager
+                images = UnifiedAPIManager().call("image", img_query, limit=3)
+                if images:
+                    st.divider()
+                    cols = st.columns(len(images))
+                    for i, img in enumerate(images):
+                        with cols[i]:
+                            st.image(img, use_container_width=True)
+                    st.caption(f"🖼️ {caption}")
+            
+            # Clean response to hide manifest
+            full_response = main_text
+        except:
+            pass
+            
     st.session_state.messages.append({"role": "assistant", "content": full_response})
     if st.session_state.get("voice_mode") and full_response:
         AppController.speak(full_response)

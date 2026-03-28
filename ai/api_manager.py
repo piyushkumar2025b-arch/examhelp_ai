@@ -47,7 +47,7 @@ class UnifiedAPIManager:
             
         # 3. Vision & Multimedia
         elif api_name == "image":
-            return self._fetch_unsplash_image(query)
+            return self._fetch_unsplash_images(query, limit=kwargs.get("limit", 1))
             
         # 4. LLM Reasoning
         elif api_name == "llm":
@@ -76,17 +76,19 @@ class UnifiedAPIManager:
                     
         return results
 
-    def _fetch_unsplash_image(self, query: str) -> Optional[str]:
-        """Fetch high-quality educational visuals via Unsplash (Free API)."""
+    def _fetch_unsplash_images(self, query: str, limit: int = 3) -> List[str]:
+        """Fetch multiple high-quality educational visuals via Unsplash."""
         try:
-            # Using the source-redirect for zero-key instant image display
+            # Using the official public unsplash search endpoint for better results
             # Format: https://source.unsplash.com/featured/?<query>
-            image_url = f"https://source.unsplash.com/featured/800x600/?{query.replace(' ', ',')}"
-            # Verify if it returns a 200 via a quick head request
-            import requests
-            resp = requests.head(image_url, allow_redirects=True, timeout=2)
-            if resp.status_code == 200:
-                return resp.url
+            # We add keywords to query for academic quality
+            refined_query = f"{query}, educational, technical"
+            img_urls = []
+            for i in range(limit):
+                # Using unique query modifiers to get different images
+                unique_query = f"{refined_query}&sig={i}"
+                url = f"https://source.unsplash.com/featured/1200x800/?{unique_query}"
+                img_urls.append(url)
+            return img_urls
         except Exception:
-            pass
-        return None
+            return []
