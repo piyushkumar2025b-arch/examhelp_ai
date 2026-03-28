@@ -1,137 +1,132 @@
 """
-humaniser_engine.py — AI Text Humaniser
-Converts AI-generated / robotic text into natural, human-sounding writing.
-Uses Groq LLaMA via the existing key_manager pipeline.
+humaniser_engine.py — AI Text Humaniser v2.0 ULTRA
+Next-level AI detection bypass + multiple humanisation strategies.
 """
 from __future__ import annotations
-from typing import Optional
+import re
+from typing import Dict, List, Tuple
 
 HUMANISE_SYSTEM = """\
-You are an elite text humaniser and editor. Your sole job is to rewrite text so it reads as authentically human — warm, natural, conversational, and free of AI-isms. Never summarise or shorten: rewrite the FULL content with the same information, just humanised.
+You are the world's most skilled text humaniser and ghostwriter. Transform AI-generated text into writing indistinguishable from human writing — passing GPTZero, Turnitin, Winston AI, and all detectors.
 
-Rules:
-1. Remove all AI filler: "Certainly!", "Great question!", "Of course!", "Absolutely!", "It's worth noting that", "It is important to note", "In conclusion", "To summarise"
-2. Vary sentence length: mix short punchy sentences with longer flowing ones
-3. Use contractions naturally: "I'm", "don't", "it's", "you'll", "can't"
-4. Use casual connectors: "So,", "But honestly,", "The thing is,", "And yeah,", "Look,"
-5. Add personality: mild hedges ("I think", "honestly", "pretty much"), occasional rhetorical questions
-6. Kill passive voice — make it active and direct
-7. Remove robotic enumeration unless it's truly needed (no "Firstly... Secondly... Thirdly...")
-8. Keep technical accuracy 100% intact — only the tone changes
-9. Match the user's requested tone (formal/casual/academic/professional)
-10. Output ONLY the rewritten text — no preamble, no commentary, no "Here is the humanised version:"
+TRANSFORMATION RULES:
+1. REMOVE all AI filler: "Certainly!", "Great question!", "Of course!", "Absolutely!", "It's worth noting", "In conclusion", "To summarize", "Furthermore", "Moreover", "Additionally", "In essence", "Notably", "Undoubtedly"
+2. VARY sentence structure — short punchy sentences next to longer flowing ones
+3. USE contractions naturally: I'm, don't, it's, you'll, can't, won't, that's
+4. ADD personality: "Look,", "The thing is,", "Honestly,", "Here's the deal —"
+5. KILL passive voice — make everything active and direct
+6. INJECT natural imperfections: conversational asides, mild hedging ("roughly", "about")
+7. USE varied vocabulary — never repeat same word twice in a paragraph
+8. ADD rhetorical questions where natural: "Why does this matter?"
+9. VARY paragraph length — mix one-sentence and multi-sentence paragraphs
+10. REMOVE robotic enumeration (no "Firstly..., Secondly..., Thirdly...")
+11. PRESERVE all technical accuracy — only tone/style changes
+12. Output ONLY the rewritten text — zero preamble, no "Here is the humanised version:"
 """
 
-TONE_HINTS = {
-    "Casual / Friendly":     "Conversational, warm, approachable — like texting a smart friend.",
-    "Academic / Formal":     "Scholarly but natural — like a well-written research paper by a real human, not a robot.",
-    "Professional / Business": "Polished, confident, direct — like a sharp email from a senior professional.",
-    "Creative / Storytelling": "Narrative, vivid, engaging — like a magazine article or blog post.",
-    "Gen Z / Youth":         "Chill, contemporary slang okay, short punchy lines, some lowercase for effect.",
+ADVANCED_TONES = {
+    "Casual / Friendly": "Warm, conversational — like explaining to a smart friend over coffee.",
+    "Academic / Scholarly": "Scholarly but authentic — passionate researcher, not a robot.",
+    "Professional / Business": "Confident, direct, polished — sharp memo from a senior exec.",
+    "Creative / Narrative": "Vivid, engaging with personality — reads like a magazine feature.",
+    "Gen Z / Youth": "Contemporary, punchy, some slang where natural. Energy.",
+    "Technical / Expert": "Precise but human — engineer who cares about clarity. Concrete examples.",
+    "Journalistic": "News-style: punchy lede, direct, factual but engaging.",
+    "Social Media": "Punchy, hook-first, scannable. Emoji-friendly structure.",
+    "Teacher / Educator": "Patient, clear, builds understanding step by step.",
+    "Sales / Marketing": "Benefit-focused, persuasive, creates desire through specifics.",
 }
 
-def humanise_text(
-    text: str,
-    tone: str = "Casual / Friendly",
-    preserve_structure: bool = True,
-    extra_instructions: str = "",
-) -> str:
-    """
-    Humanises the given text using Groq LLaMA.
-    Returns the humanised text string.
-    """
+AI_PATTERNS = [
+    (r'\bCertainly[!,]?\b', 'FILLER'), (r'\bGreat question[!,]?\b', 'FILLER'),
+    (r'\bOf course[!,]?\b', 'FILLER'), (r'\bAbsolutely[!,]?\b', 'FILLER'),
+    (r"\bIt'?s worth noting\b", 'FILLER'), (r'\bIt is important to note\b', 'FILLER'),
+    (r'\bIn conclusion\b', 'FILLER'), (r'\bTo summarize\b', 'FILLER'),
+    (r'\bFurthermore\b', 'TRANSITION'), (r'\bMoreover\b', 'TRANSITION'),
+    (r'\bAdditionally\b', 'TRANSITION'), (r'\bIn essence\b', 'FILLER'),
+    (r'\bNotably\b', 'FILLER'), (r'\bUndoubtedly\b', 'FILLER'),
+    (r'\bFirstly\b', 'ENUM'), (r'\bSecondly\b', 'ENUM'), (r'\bThirdly\b', 'ENUM'),
+    (r'\bDelve into\b', 'AI_WORD'), (r'\bComprehensive\b', 'AI_WORD'),
+    (r'\bFacilitate\b', 'AI_WORD'), (r'\bLeverage\b', 'AI_WORD'),
+    (r'\bRobust\b', 'AI_WORD'), (r'\bUtilize\b', 'AI_WORD'),
+    (r'\bSeamlessly\b', 'AI_WORD'), (r'\bMultifaceted\b', 'AI_WORD'),
+]
+
+def ai_detection_score(text: str) -> Dict:
+    score = 0; flags = []
+    for pattern, category in AI_PATTERNS:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        if matches:
+            if category == 'FILLER': flags.append(f"🚨 AI filler: '{matches[0]}'"); score += 8
+            elif category == 'AI_WORD': flags.append(f"⚠️ AI buzzword: '{matches[0]}'"); score += 5
+            elif category == 'ENUM': flags.append(f"⚠️ Robotic enum: '{matches[0]}'"); score += 6
+            elif category == 'TRANSITION': score += 3
+    sentences = [s.strip() for s in re.split(r'[.!?]+', text) if len(s.strip()) > 10]
+    if len(sentences) > 3:
+        lengths = [len(s.split()) for s in sentences]
+        avg = sum(lengths) / len(lengths)
+        variance = sum((l - avg)**2 for l in lengths) / len(lengths)
+        if variance < 20: score += 15; flags.append("⚠️ Uniform sentence lengths (AI pattern)")
+        elif variance < 50: score += 8
+    passive_count = len(re.findall(r'\b(is|are|was|were|be|been|being)\s+\w+ed\b', text, re.IGNORECASE))
+    if passive_count > 3: score += min(passive_count * 3, 15); flags.append(f"⚠️ Heavy passive voice ({passive_count} instances)")
+    word_count = len(text.split())
+    contraction_count = len(re.findall(r"\b\w+'\w+\b", text))
+    if word_count > 50 and contraction_count < word_count * 0.02:
+        score += 12; flags.append("⚠️ Very few contractions")
+    hedge_count = len(re.findall(r'\b(maybe|perhaps|might|could|probably|roughly|I think|I believe)\b', text, re.IGNORECASE))
+    if word_count > 100 and hedge_count == 0:
+        score += 8; flags.append("⚠️ No natural hedging")
+    score = min(score, 100)
+    if score >= 75: label = "🔴 Very High AI Risk"
+    elif score >= 50: label = "🟠 High AI Risk"
+    elif score >= 30: label = "🟡 Moderate Risk"
+    elif score >= 15: label = "🟢 Low Risk"
+    else: label = "✅ Very Low Risk — reads as human"
+    return {"score": score, "label": label, "flags": flags[:8], "word_count": word_count, "passive_instances": passive_count, "contraction_count": contraction_count}
+
+def humanise_text(text: str, tone: str = "Casual / Friendly", preserve_structure: bool = True,
+                  strength: str = "Standard", extra_instructions: str = "", target_audience: str = "") -> str:
     from utils.groq_client import chat_with_groq
-
-    tone_hint = TONE_HINTS.get(tone, "Natural and human-sounding.")
-    struct_hint = (
-        "Preserve all headings, bullet points, and paragraph structure — only rewrite the prose."
-        if preserve_structure else
-        "You may reformat freely for better flow."
-    )
-
-    prompt = f"""\
-Tone: {tone}
-Tone description: {tone_hint}
-Structure rule: {struct_hint}
-{f"Extra instructions: {extra_instructions}" if extra_instructions else ""}
-
-Text to humanise:
----
-{text}
----
-
-Rewrite the text above following all rules. Output ONLY the rewritten text."""
-
+    tone_hint = ADVANCED_TONES.get(tone, "Natural and human-sounding.")
+    struct_hint = ("Preserve all headings, bullet points, and paragraph structure — only rewrite prose." if preserve_structure
+                   else "Completely reformat for best flow — merge, split, restructure freely.")
+    strength_hints = {
+        "Light Touch": "Minimal changes — remove obvious AI phrases, keep 80% of phrasing.",
+        "Standard": "Full humanisation — transform style completely while preserving meaning.",
+        "Maximum": "Deep transformation — rewrite every sentence. Maximum personality. Unmistakably human.",
+        "Academic Safe": "Humanise while keeping academic register — eliminate robotic patterns, inject scholarly personality.",
+    }
+    prompt = f"""Humanise strength: {strength}\n{strength_hints.get(strength, '')}\n\nTone: {tone}\n{tone_hint}\n\n{struct_hint}\n{f"Extra: {extra_instructions}" if extra_instructions else ""}{f"\nAudience: {target_audience}" if target_audience else ""}\n\nTEXT TO HUMANISE:\n---\n{text}\n---\n\nOutput ONLY the rewritten text. No preamble."""
     try:
-        result, success = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
-            system_prompt=HUMANISE_SYSTEM,
-            model="llama-4-scout-17b-16e-instruct",
-        )
-        if success and result:
-            # Strip any accidental preamble the model might add
+        result = chat_with_groq(messages=[{"role": "user", "content": prompt}], system_prompt=HUMANISE_SYSTEM, model="llama-4-scout-17b-16e-instruct")
+        if isinstance(result, tuple): result = result[0]
+        if result:
             stripped = result.strip()
-            for prefix in ["Here is", "Here's", "Below is", "The humanised", "The rewritten", "Rewritten:"]:
+            for prefix in ["Here is", "Here's", "Below is", "The humanised", "Rewritten:", "Output:"]:
                 if stripped.lower().startswith(prefix.lower()):
-                    # Remove first line
                     lines = stripped.split("\n", 1)
                     stripped = lines[1].strip() if len(lines) > 1 else stripped
                     break
             return stripped
-        return "[Humaniser: AI response was empty. Please try again.]"
+        return text
     except Exception as e:
-        return f"[Humaniser error: {e}]"
+        return f"Humanisation error: {e}"
 
-def ai_detection_score(text: str) -> dict:
-    """
-    Heuristic AI-detection scoring (no API call needed).
-    Returns a dict with score 0-100 and flags.
-    """
-    import re
-    flags = []
-    score = 0
+def compare_versions(original: str, humanised: str) -> Dict:
+    orig_score = ai_detection_score(original)
+    human_score = ai_detection_score(humanised)
+    orig_words = original.split(); human_words = humanised.split()
+    orig_ttr = len(set(w.lower() for w in orig_words)) / max(1, len(orig_words))
+    human_ttr = len(set(w.lower() for w in human_words)) / max(1, len(human_words))
+    return {
+        "original_score": orig_score["score"], "humanised_score": human_score["score"],
+        "score_reduction": orig_score["score"] - human_score["score"],
+        "original_words": len(orig_words), "humanised_words": len(human_words),
+        "original_vocab_richness": round(orig_ttr * 100, 1),
+        "humanised_vocab_richness": round(human_ttr * 100, 1),
+        "original_label": orig_score["label"], "humanised_label": human_score["label"],
+    }
 
-    ai_phrases = [
-        "certainly!", "great question", "of course!", "absolutely!", "it's worth noting",
-        "it is worth noting", "it is important to note", "it's important to note",
-        "in conclusion", "to summarise", "to summarize", "firstly,", "secondly,", "thirdly,",
-        "furthermore,", "moreover,", "in addition,", "in summary,", "as mentioned",
-        "it should be noted", "needless to say", "without a doubt", "as an ai",
-        "i cannot", "i am unable to", "i must emphasize", "delve into", "unleash",
-        "revolutionize", "game-changer", "leverage", "synergy", "holistic approach",
-        "in today's world", "in today's fast-paced", "tapestry", "realm of", "the world of",
-    ]
-    lower = text.lower()
-    for phrase in ai_phrases:
-        if phrase in lower:
-            flags.append(f'AI phrase: "{phrase}"')
-            score += 8
-
-    # Passive voice check
-    passive = len(re.findall(r'\b(is|are|was|were|been|be)\b\s+\w+ed\b', text))
-    if passive > 3:
-        flags.append(f"High passive voice ({passive} instances)")
-        score += min(passive * 3, 20)
-
-    # Uniform sentence length (AI tends to write same-length sentences)
-    sentences = re.split(r'[.!?]+', text)
-    sentences = [s.strip() for s in sentences if len(s.strip()) > 10]
-    if sentences:
-        lengths = [len(s.split()) for s in sentences]
-        avg = sum(lengths) / len(lengths)
-        variance = sum((l - avg) ** 2 for l in lengths) / len(lengths)
-        if variance < 20:
-            flags.append("Very uniform sentence length (low variance)")
-            score += 15
-
-    # Lack of contractions
-    contractions = re.findall(r"\b\w+n't\b|\b\w+'s\b|\b\w+'re\b|\b\w+'ll\b|\bI'm\b|\bI'd\b", text)
-    words = len(text.split())
-    if words > 100 and len(contractions) == 0:
-        flags.append("No contractions found")
-        score += 12
-
-    score = min(score, 100)
-
-    label = "✅ Likely Human" if score < 30 else ("⚠️ Mixed" if score < 60 else "🤖 Likely AI")
-    return {"score": score, "label": label, "flags": flags[:6]}
+# Legacy export
+TONE_HINTS = ADVANCED_TONES

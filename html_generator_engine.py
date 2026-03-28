@@ -1,48 +1,75 @@
 """
-html_generator_engine.py — Powerful AI-Powered HTML File Creator
-Generates beautiful, production-ready HTML pages from any content/data.
+html_generator_engine.py — AI HTML Page Generator v2.0
+Creates real, production-ready websites from any content.
 """
 from __future__ import annotations
-from typing import Optional
 
 HTML_SYSTEM = """\
-You are an elite frontend engineer and designer who generates stunning, complete, production-ready single-file HTML pages. Every page you generate must:
+You are an elite frontend engineer and designer who creates stunning, complete, production-ready single-file HTML pages. Every page you generate must be a REAL website anyone can use immediately.
 
-1. Be a COMPLETE, self-contained HTML file (no external CSS/JS files needed — all inline)
-2. Use a beautiful, modern design with gradient backgrounds, clean typography, responsive layout
-3. Include semantic HTML5 with proper meta tags, og tags, and accessibility
-4. Use Google Fonts (loaded via @import in <style>) — pick fonts appropriate for the content
-5. Have smooth CSS animations and micro-interactions where appropriate
-6. Be mobile-responsive with proper viewport settings
-7. Include navigation if multi-section
-8. Use CSS custom properties (variables) for theming
-9. Include a tasteful color scheme matching the content's purpose
-10. NO placeholder content — generate REAL, complete content from what the user provides
+ABSOLUTE REQUIREMENTS:
+1. Complete self-contained HTML (all CSS/JS inline — no external files except CDN links)
+2. Beautiful modern design: gradient backgrounds, clean typography, responsive layout
+3. Semantic HTML5 with proper meta tags, Open Graph tags, and full accessibility
+4. Google Fonts via @import in <style> — pick fonts that match the content
+5. Smooth CSS animations and micro-interactions
+6. Mobile-responsive with proper viewport settings
+7. Navigation if multi-section content
+8. CSS custom properties for theming
+9. Content-matched color scheme
+10. ZERO placeholder content — generate REAL, complete content from what the user provides
+11. Include interactive elements where appropriate (tabs, accordions, modals)
+12. Proper footer with relevant info
+13. Working contact forms styled beautifully (even if non-functional JS stub)
 
-Output ONLY the raw HTML starting with <!DOCTYPE html> — no markdown, no code blocks, no explanation.
+DESIGN QUALITY:
+- Think Stripe, Linear, Vercel landing page quality
+- Glass morphism, subtle gradients, clean whitespace
+- Professional typography hierarchy
+- Hover states on all interactive elements
+- Loading animations where appropriate
+- Dark/light mode toggle if applicable
+
+TECHNICAL:
+- Chart.js for data visualizations (load from CDN if charts needed)
+- Highlight.js for code blocks (load from CDN if code content)
+- Intersection Observer for scroll animations
+- CSS Grid + Flexbox for layouts
+
+Output ONLY raw HTML starting with <!DOCTYPE html> — no markdown, no code fences, no explanation.
 """
 
 PAGE_TYPES = {
-    "Portfolio / Resume":     "Professional portfolio or resume page with sections for bio, skills, projects, contact",
-    "Landing Page":           "Marketing landing page with hero, features, testimonials, CTA sections",
-    "Blog / Article":         "Clean, readable article or blog post page with great typography",
-    "Report / Document":      "Formal report with table of contents, sections, data tables",
-    "Dashboard":              "Data dashboard with cards, stats, charts (use Chart.js CDN)",
-    "Presentation / Slides":  "Slide-show style presentation page with navigation between sections",
-    "Product Page":           "E-commerce style product showcase page",
-    "Event Page":             "Event announcement/registration page with countdown",
-    "Notes / Study Guide":    "Clean notes or study guide with collapsible sections",
-    "Custom (AI decides)":    "Let the AI choose the best layout and design for the content",
+    "Portfolio / Resume": "Professional portfolio with bio, skills, projects, experience, contact",
+    "Landing Page": "Marketing landing with hero, features, social proof, CTA, footer",
+    "Blog / Article": "Clean, highly readable article page with great typography and TOC",
+    "Report / Document": "Formal report with table of contents, sections, data tables, appendix",
+    "Dashboard": "Data dashboard with stats cards, charts (Chart.js), tables, sidebar",
+    "Presentation / Slides": "Slide-show style with JS navigation between sections",
+    "Product Page": "E-commerce product showcase with gallery, specs, reviews, CTA",
+    "Event Page": "Event announcement with countdown timer, agenda, speakers, registration",
+    "Notes / Study Guide": "Clean notes with collapsible sections, progress tracker, search",
+    "SaaS Landing Page": "Modern SaaS page: hero, features grid, pricing table, testimonials, FAQ",
+    "Restaurant / Menu": "Beautiful restaurant page with menu sections, gallery, reservations",
+    "Personal Website": "Personal brand site with about, work, writing, contact",
+    "Documentation": "Docs site with sidebar navigation, code blocks, search",
+    "Company / Organization": "Corporate about page with team, mission, values, contact",
+    "Custom (AI decides)": "AI picks best layout and design for the content provided",
 }
 
 COLOR_THEMES = {
-    "Dark Cosmic (default)":   "#080810",
-    "Ocean Blue":              "#0a1628",
-    "Forest Green":            "#0a1a0f",
-    "Warm Sunset":             "#1a0a05",
-    "Clean White":             "#ffffff",
-    "Slate Grey":              "#1c1c2e",
-    "Rose Gold":               "#1a0810",
+    "Dark Cosmic (default)": "#080810",
+    "Ocean Blue": "#0a1628",
+    "Forest Green": "#0a1a0f",
+    "Warm Sunset": "#1a0a05",
+    "Clean White / Minimal": "#ffffff",
+    "Slate Grey": "#1c1c2e",
+    "Rose Gold": "#1a0810",
+    "Purple Dreams": "#0d0720",
+    "Terminal Green": "#001100",
+    "Arctic Ice": "#f0f8ff",
+    "Warm Paper": "#fdf6e3",
+    "Deep Navy": "#0a0e1a",
 }
 
 def generate_html_page(
@@ -52,96 +79,127 @@ def generate_html_page(
     color_theme: str = "Dark Cosmic (default)",
     include_charts: bool = False,
     extra_instructions: str = "",
+    include_animations: bool = True,
+    include_dark_mode: bool = False,
 ) -> str:
-    """
-    Generates a complete HTML page from content using AI.
-    Returns the HTML string.
-    """
     from utils.groq_client import chat_with_groq
 
     type_desc = PAGE_TYPES.get(page_type, page_type)
     bg_color = COLOR_THEMES.get(color_theme, "#080810")
+    is_dark = bg_color not in ["#ffffff", "#fdf6e3", "#f0f8ff"]
 
     chart_hint = ""
     if include_charts:
-        chart_hint = "Include interactive charts using Chart.js (load from CDN: https://cdn.jsdelivr.net/npm/chart.js). Create appropriate visualizations for any data in the content."
+        chart_hint = """
+CHARTS: Include interactive Chart.js visualizations. Load: <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+Create appropriate chart types (bar, line, pie, doughnut, radar) for any data in the content.
+Make charts beautiful with gradients, custom colors, smooth animations."""
 
-    prompt = f"""\
-Generate a complete, stunning HTML page.
+    anim_hint = """
+ANIMATIONS: Use Intersection Observer for scroll-reveal animations. Add CSS @keyframes for entrance effects.
+Animate cards, stats, and sections as they enter the viewport.""" if include_animations else ""
+
+    dark_hint = """
+DARK MODE: Include a toggle button (☀️/🌙) that switches between dark/light mode using a CSS class on <html>.
+Use CSS variables so the toggle works instantly.""" if include_dark_mode else ""
+
+    prompt = f"""Create a stunning, complete, production-ready HTML page.
 
 Page Title: {page_title}
 Page Type: {page_type} — {type_desc}
-Base Background Color: {bg_color}
-{f"Charts: {chart_hint}" if include_charts else ""}
-{f"Extra instructions: {extra_instructions}" if extra_instructions else ""}
+Base Background: {bg_color} ({"dark" if is_dark else "light"} theme)
+{chart_hint}
+{anim_hint}
+{dark_hint}
+{f"Additional requirements: {extra_instructions}" if extra_instructions else ""}
 
-Content to include:
+Content to build the page from:
+---
+{content[:9000]}
+---
+
+Generate a COMPLETE, stunning HTML file. Make it look like it was built by a top design studio.
+Include all sections appropriate for {page_type}.
+Output ONLY the HTML, starting with <!DOCTYPE html>."""
+
+    try:
+        result = chat_with_groq(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=HTML_SYSTEM,
+            model="llama-4-scout-17b-16e-instruct",
+        )
+        if isinstance(result, tuple): result = result[0]
+        if not result: return _fallback_html(page_title, content[:2000])
+        
+        # Clean up any markdown fences
+        result = result.strip()
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+            if result.endswith("```"):
+                result = result[:-3]
+        result = result.strip()
+        if not result.startswith("<!DOCTYPE"):
+            # Find the DOCTYPE
+            idx = result.lower().find("<!doctype")
+            if idx >= 0:
+                result = result[idx:]
+        return result
+    except Exception as e:
+        return _fallback_html(page_title, f"Generation error: {e}\n\n{content[:1000]}")
+
+
+def generate_html_from_file(content: str, file_type: str, filename: str, page_type: str) -> str:
+    """Generate HTML from an uploaded file's content."""
+    from utils.groq_client import chat_with_groq
+
+    file_hints = {
+        "pdf": "Convert this PDF content into a beautifully formatted web document.",
+        "docx": "Transform this Word document content into a polished web page.",
+        "csv": "Create a beautiful data visualization page from this CSV data. Include sortable tables and charts.",
+        "json": "Create a beautiful data presentation from this JSON data.",
+        "md": "Convert this Markdown content into a beautifully styled web article.",
+        "txt": "Format this plain text into a beautifully designed web page.",
+        "xlsx": "Create a beautiful data visualization page from this spreadsheet data.",
+    }
+    type_desc = PAGE_TYPES.get(page_type, page_type)
+    hint = file_hints.get(file_type, "Convert this content into a beautiful web page.")
+
+    prompt = f"""Create a stunning HTML page from this {file_type.upper()} file: "{filename}"
+
+{hint}
+Page layout: {page_type} — {type_desc}
+
+File content:
 ---
 {content[:8000]}
 ---
 
-Generate a COMPLETE single-file HTML page using the content above. Make it visually exceptional — this should look like a professionally designed website, not a basic HTML document. Use the content provided to fill ALL sections with real information.
+Generate a complete, production-ready HTML file with:
+- Beautiful design matching the content type
+- Proper data presentation (tables, charts if data)
+- Responsive layout
+- Professional styling
 
-Output ONLY the raw HTML starting with <!DOCTYPE html>."""
+Output ONLY the HTML starting with <!DOCTYPE html>."""
 
     try:
-        result, success = chat_with_groq(
+        result = chat_with_groq(
             messages=[{"role": "user", "content": prompt}],
             system_prompt=HTML_SYSTEM,
             model="llama-4-scout-17b-16e-instruct",
         )
-        if success and result:
-            # Extract HTML if wrapped in code blocks
-            import re
-            match = re.search(r'<!DOCTYPE html>.*', result, re.DOTALL | re.IGNORECASE)
-            if match:
-                return match.group(0).strip()
-            return result.strip()
-        return _fallback_html(page_title, content)
+        if isinstance(result, tuple): result = result[0]
+        result = result.strip() if result else ""
+        if result.startswith("```"):
+            result = result.split("\n", 1)[1] if "\n" in result else result[3:]
+            if result.endswith("```"): result = result[:-3]
+        return result.strip() if result.strip().startswith("<!DOCTYPE") else _fallback_html(filename, content[:2000])
     except Exception as e:
-        return _fallback_html(page_title, f"Error generating page: {e}\n\n{content[:2000]}")
+        return _fallback_html(filename, f"Error: {e}")
 
-def generate_html_from_file(
-    file_content: str,
-    file_type: str,
-    filename: str,
-    page_type: str = "Report / Document",
-    **kwargs,
-) -> str:
-    """Generates HTML specifically from an uploaded file's content."""
-    from utils.groq_client import chat_with_groq
-
-    prompt = f"""\
-Convert the following {file_type.upper()} file content into a beautiful, complete HTML page.
-Original filename: {filename}
-Page type requested: {page_type}
-
-File content:
----
-{file_content[:8000]}
----
-
-Generate a complete, visually stunning single-file HTML page that presents this content beautifully.
-Use appropriate layout for {file_type} content (e.g., tables for CSV/spreadsheet data, article layout for text, etc.).
-Output ONLY raw HTML starting with <!DOCTYPE html>."""
-
-    try:
-        result, success = chat_with_groq(
-            messages=[{"role": "user", "content": prompt}],
-            system_prompt=HTML_SYSTEM,
-            model="llama-4-scout-17b-16e-instruct",
-        )
-        if success and result:
-            import re
-            match = re.search(r'<!DOCTYPE html>.*', result, re.DOTALL | re.IGNORECASE)
-            if match:
-                return match.group(0).strip()
-            return result.strip()
-    except Exception as e:
-        pass
-    return _fallback_html(filename, file_content[:3000])
 
 def _fallback_html(title: str, content: str) -> str:
+    """Simple fallback HTML when AI generation fails."""
     safe = content.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -150,12 +208,9 @@ def _fallback_html(title: str, content: str) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{title}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-  :root {{ --bg:#080810; --text:#f0f0ff; --accent:#7c6af7; }}
-  * {{ box-sizing:border-box; margin:0; padding:0; }}
-  body {{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; padding:48px 24px; line-height:1.7; }}
-  h1 {{ font-size:2rem; color:var(--accent); margin-bottom:24px; }}
-  pre {{ white-space:pre-wrap; word-wrap:break-word; background:#13131f; padding:24px; border-radius:12px; border:1px solid #1e1e30; }}
+body{{font-family:'Segoe UI',system-ui,sans-serif;max-width:900px;margin:60px auto;padding:0 24px;background:#080810;color:#f0f0ff;line-height:1.7;}}
+h1{{font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#7c6af7,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}}
+pre{{background:#13131f;border:1px solid #1e1e30;border-radius:12px;padding:20px;overflow-x:auto;white-space:pre-wrap;}}
 </style>
 </head>
 <body>

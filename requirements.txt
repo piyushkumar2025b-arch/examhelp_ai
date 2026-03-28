@@ -97,3 +97,4 @@ streamlit-quill==0.0.3
 
 # ── Engines ──
 qrcode[pil]>=7.4.2
+PyYAML>=6.0.1

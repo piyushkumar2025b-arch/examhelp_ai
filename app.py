@@ -1850,6 +1850,8 @@ with st.sidebar:
         ("🤖", "AI Text Humaniser",   "Bypass AI detectors & sound human", "ai_humaniser"),
         ("🎨", "HTML Generator",      "AI to beautiful single-page website", "html_generator"),
         ("🕵️", "Reverse Image Search", "AI vision lookup & deep analysis", "image_searcher"),
+        ("📰", "AI News Hub",         "Live AI news & tool recommendations", "news_hub"),
+        ("🗺️", "Campus & India Map",  "VIT Campus Guide & Trip Planner", "map_planner"),
     ]
     for icon, name, desc, mode in _power_tools:
         col_icon, col_info, col_btn = st.columns([1, 4, 2])
@@ -3422,27 +3424,8 @@ elif app_mode == "smart_notes":
 
 # ─── FILE CONVERTER ───────────────────────────────────────────────────────────
 elif app_mode == "file_converter":
-    from converter_engine import get_supported_formats, convert_file
-    st.markdown("## 🔄 Universal File Converter")
-    supported = get_supported_formats()
-    fmt_list = sorted(supported.keys())
-    col1, col2 = st.columns(2)
-    with col1:
-        from_fmt = st.selectbox("From format", fmt_list, key="conv_from")
-    with col2:
-        to_fmts = supported.get(from_fmt, [])
-        to_fmt = st.selectbox("To format", to_fmts, key="conv_to")
-    uploaded = st.file_uploader(f"Upload {from_fmt.upper()} file", type=[from_fmt])
-    if uploaded and st.button("Convert Now ⚡", type="primary"):
-        with st.spinner("Converting..."):
-            data = uploaded.read()
-            result, mime, ext, err = convert_file(data, from_fmt, to_fmt, uploaded.name)
-        if err:
-            st.error(err)
-        else:
-            st.success("Conversion complete!")
-            out_name = uploaded.name.rsplit(".", 1)[0] + "." + ext
-            st.download_button(f"⬇️ Download {out_name}", result, file_name=out_name, mime=mime)
+    from new_features import render_universal_converter
+    render_universal_converter()
 
 # ─── QR CREATOR ───────────────────────────────────────────────────────────────
 elif app_mode == "qr_creator":
@@ -3480,63 +3463,13 @@ elif app_mode == "qr_creator":
 
 # ─── AI HUMANISER ─────────────────────────────────────────────────────────────
 elif app_mode == "ai_humaniser":
-    from humaniser_engine import humanise_text, ai_detection_score, TONE_HINTS
-    st.markdown("## ✨ AI Text Humaniser")
-    text_in = st.text_area("Paste AI-generated text here", height=220)
-    col1, col2 = st.columns(2)
-    with col1:
-        tone = st.selectbox("Target Tone", list(TONE_HINTS.keys()))
-    with col2:
-        preserve = st.checkbox("Preserve structure (headings/bullets)", value=True)
-    if st.button("Detect AI Score", type="secondary") and text_in:
-        det = ai_detection_score(text_in)
-        st.metric("AI Detection Score", f"{det['score']}/100", det["label"])
-        if det["flags"]:
-            for f in det["flags"]: st.markdown(f"- {f}")
-    if st.button("Humanise Now ✨", type="primary") and text_in:
-        with st.spinner("Humanising..."):
-            result = humanise_text(text_in, tone=tone, preserve_structure=preserve)
-        st.markdown("### ✅ Humanised Output")
-        st.text_area("Result", value=result, height=280)
-        st.download_button("⬇️ Download TXT", result.encode(), file_name="humanised.txt", mime="text/plain")
+    from new_features import render_ai_humaniser
+    render_ai_humaniser()
 
 # ─── HTML GENERATOR ───────────────────────────────────────────────────────────
 elif app_mode == "html_generator":
-    from html_generator_engine import generate_html_page, generate_html_from_file, PAGE_TYPES, COLOR_THEMES
-    st.markdown("## 🌐 AI HTML Page Generator")
-    tab_text, tab_file = st.tabs(["From Text/Content", "From Uploaded File"])
-    with tab_text:
-        title = st.text_input("Page Title", value="My Awesome Page")
-        content = st.text_area("Content / Brief / Data", height=200)
-        col1, col2 = st.columns(2)
-        with col1:
-            ptype = st.selectbox("Page Type", list(PAGE_TYPES.keys()))
-        with col2:
-            theme = st.selectbox("Color Theme", list(COLOR_THEMES.keys()))
-        charts = st.checkbox("Include Charts (Chart.js)", value=False)
-        extra = st.text_input("Extra instructions (optional)")
-        if st.button("Generate HTML ⚡", type="primary") and content:
-            with st.spinner("Generating beautiful HTML page..."):
-                html_out = generate_html_page(content, ptype, title, theme, charts, extra)
-            st.success("HTML generated!")
-            st.download_button("⬇️ Download HTML", html_out.encode(), file_name=f"{title.replace(' ','_')}.html", mime="text/html")
-            with st.expander("Preview HTML Source"):
-                st.code(html_out[:3000], language="html")
-    with tab_file:
-        upl = st.file_uploader("Upload any file to convert to HTML", type=["pdf","txt","csv","json","md","docx"])
-        ptype2 = st.selectbox("Layout Style", list(PAGE_TYPES.keys()), key="html_ftype")
-        if upl and st.button("Convert to HTML 🌐", type="primary"):
-            from converter_engine import _pdf_to_text, _docx_to_text, _csv_to_text, _excel_to_text
-            raw = upl.read()
-            ext = upl.name.rsplit(".",1)[-1].lower()
-            if ext == "pdf":   fc = _pdf_to_text(raw)
-            elif ext == "docx": fc = _docx_to_text(raw)
-            elif ext == "csv":  fc = _csv_to_text(raw)
-            else:               fc = raw.decode("utf-8", errors="replace")
-            with st.spinner("Generating HTML from your file..."):
-                html_out = generate_html_from_file(fc, ext, upl.name, ptype2)
-            st.success("Done!")
-            st.download_button("⬇️ Download HTML", html_out.encode(), file_name=upl.name.rsplit(".",1)[0]+".html", mime="text/html")
+    from new_features import render_html_generator
+    render_html_generator()
 
 # ─── IMAGE SEARCHER ───────────────────────────────────────────────────────────
 elif app_mode == "image_searcher":
@@ -3572,6 +3505,21 @@ elif app_mode == "image_searcher":
                     st.markdown(f"**URL:** [{link.get('url','')}]({link.get('url','')})")
                     st.markdown(f"**Why relevant:** {link.get('reason','')}")
                     st.markdown(f"**Domain:** `{link.get('domain','')}`")
+
+# ─── AI NEWS HUB ──────────────────────────────────────────────────────────────
+elif app_mode == "news_hub":
+    from new_features import render_news_hub
+    render_news_hub()
+
+# ─── MAP & TRIP PLANNER ───────────────────────────────────────────────────────
+elif app_mode == "map_planner":
+    from new_features import render_vit_map, render_trip_planner
+    st.markdown("## 🗺️ Maps & Travel Guide")
+    tab_vit, tab_india = st.tabs(["🏫 VIT Chennai Campus", "✈️ India Trip Planner"])
+    with tab_vit:
+        render_vit_map()
+    with tab_india:
+        render_trip_planner()
 
 else:
     # ── Empty state ────────────────────────────────
