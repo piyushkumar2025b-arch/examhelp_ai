@@ -103,6 +103,19 @@ def init_state():
         "learn_result": None,
         "learn_history": [],
         "learn_chat_messages": [],
+        # ── Essay Writer
+        "essay_result": None, "essay_outline": None, "essay_history": [],
+        # ── Interview Coach
+        "interview_questions": None, "interview_messages": [], "interview_role": "",
+        "interview_type": "Behavioural (STAR Method)", "interview_feedback": None,
+        # ── Research Assistant
+        "research_result": None, "research_history": [],
+        # ── Language Tools
+        "lang_result": None, "lang_history": [],
+        # ── Math & Science Solver
+        "solver_result": None, "solver_history": [],
+        # ── Smart Notes
+        "notes_result": None, "notes_history": [],
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -1799,15 +1812,21 @@ with st.sidebar:
     # ── Study Toolbox ──────────────────────────────
     st.markdown('<div class="section-label">🛠️ Study Toolbox</div>', unsafe_allow_html=True)
     _tools = [
-        ("🃏", "Flashcards",    "Generate Q&A deck",       "flashcards"),
-        ("📝", "Quiz Mode",     "MCQ assessment",           "quiz"),
-        ("📊", "Mind Map",      "Visual concept map",       "mindmap"),
-        ("📅", "Study Planner", "Revision timetable",      "planner"),
-        ("📈", "Graph Plotter", "Plot equations",           "graph"),
-        ("✍️", "Story Builder", "AI creative writing",     "story"),
-        ("🐛", "Code Debugger", "Fix code in any language", "debugger"),
-        ("🎓", "Learn Coding",  "Interactive coding tutor", "learn_coding"),
-        ("💬", "Chat",         "Standard AI study chat",   "chat"),
+        ("🃏", "Flashcards",      "Generate Q&A deck",           "flashcards"),
+        ("📝", "Quiz Mode",       "MCQ assessment",               "quiz"),
+        ("📊", "Mind Map",        "Visual concept map",           "mindmap"),
+        ("📅", "Study Planner",   "Revision timetable",          "planner"),
+        ("📈", "Graph Plotter",   "Plot equations",               "graph"),
+        ("✍️", "Story Builder",   "AI creative writing",          "story"),
+        ("🐛", "Code Debugger",   "Fix code in any language",     "debugger"),
+        ("🎓", "Learn Coding",    "Interactive coding tutor",     "learn_coding"),
+        ("📄", "Essay Writer",    "AI academic essay generator",  "essay_writer"),
+        ("🎤", "Interview Coach", "Mock interviews + feedback",   "interview_coach"),
+        ("🔬", "Research Assist", "Paper analysis & summaries",   "research_assistant"),
+        ("🌍", "Language Tools",  "Translate + grammar + learn",  "language_tools"),
+        ("🧮", "Science Solver",  "Math & science step solver",   "science_solver"),
+        ("📓", "Smart Notes",     "AI notes from any content",    "smart_notes"),
+        ("💬", "Chat",            "Standard AI study chat",       "chat"),
     ]
     for icon, name, desc, mode in _tools:
         col_icon, col_info, col_btn = st.columns([1, 4, 2])
@@ -2720,9 +2739,664 @@ Answer the student's latest question thoroughly, with code examples in {learn_la
                 st.rerun()
 
 
-# ─────────────────────────────────────────────
-# CHAT MODE (default)
-# ─────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════
+# ESSAY WRITER MODE
+# ══════════════════════════════════════════════════════
+elif app_mode == "essay_writer":
+    from utils.essay_engine import (
+        generate_essay, improve_essay, generate_outline,
+        ESSAY_TYPES, ACADEMIC_LEVELS, CITATION_STYLES,
+    )
+    st.markdown("""<style>
+.ew-header{background:linear-gradient(135deg,#1a0a3e 0%,#0d0d1a 100%);border:1px solid #4a2a8b;border-radius:16px;padding:28px 32px;margin-bottom:24px;}
+.ew-title{font-size:1.9rem;font-weight:800;color:#c084fc;margin:0 0 4px;}
+.ew-sub{font-size:.9rem;color:#9090b8;}
+.ew-box{background:rgba(20,10,40,.95);border:1px solid rgba(192,132,252,.2);border-radius:14px;padding:20px;margin-top:16px;}
+</style>""", unsafe_allow_html=True)
+    st.markdown('<div class="ew-header"><div class="ew-title">📄 AI Essay Writer</div><div class="ew-sub">Academic essays, research papers, reports — fully structured, citation-ready</div></div>', unsafe_allow_html=True)
+
+    tab_write, tab_outline, tab_improve, tab_hist = st.tabs(["✍️ Write Essay", "📋 Outline First", "🔧 Improve Essay", "📜 History"])
+
+    with tab_write:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            etype = st.selectbox("📝 Essay Type", list(ESSAY_TYPES.keys()), key="ew_type")
+        with c2:
+            elevel = st.selectbox("🎓 Academic Level", ACADEMIC_LEVELS, index=1, key="ew_level")
+        with c3:
+            ecite = st.selectbox("📚 Citation Style", CITATION_STYLES, key="ew_cite")
+        etopic = st.text_input("💡 Essay Topic", placeholder="e.g. The impact of AI on employment in the next decade", key="ew_topic")
+        c4, c5 = st.columns(2)
+        with c4:
+            ewords = st.slider("📏 Word Count", 300, 3000, 800, 100, key="ew_words")
+        with c5:
+            epoints = st.text_area("🔑 Key Points (optional)", height=80, placeholder="Arguments or points to include...", key="ew_points")
+        if st.session_state.get("context_text"):
+            use_ctx = st.checkbox("📎 Use uploaded study material as source", value=True, key="ew_ctx")
+        else:
+            use_ctx = False
+        cb1, cb2 = st.columns([2,1])
+        with cb1:
+            write_btn = st.button("🚀 Generate Essay", type="primary", use_container_width=True, disabled=not etopic.strip(), key="ew_gen")
+        with cb2:
+            if st.button("💬 Back to Chat", use_container_width=True, key="ew_back"):
+                st.session_state.app_mode = "chat"; st.rerun()
+        if write_btn and etopic.strip():
+            with st.spinner("✍️ Writing your essay..."):
+                try:
+                    ctx = st.session_state.context_text if use_ctx else ""
+                    result = generate_essay(etopic, etype, ewords, elevel, ecite, epoints, ctx)
+                    st.session_state.essay_result = result
+                    st.session_state.essay_history.append({"topic": etopic, "type": etype, "level": elevel, "result": result, "ts": time.strftime("%H:%M")})
+                except Exception as e:
+                    st.error(f"❌ Essay engine error: {e}")
+        if st.session_state.get("essay_result"):
+            st.markdown('<div class="ew-box">', unsafe_allow_html=True)
+            st.markdown(st.session_state.essay_result)
+            st.markdown('</div>', unsafe_allow_html=True)
+            wc = len(st.session_state.essay_result.split())
+            st.caption(f"📊 ~{wc} words")
+            st.download_button("📥 Download Essay (.md)", st.session_state.essay_result,
+                file_name="essay.md", mime="text/markdown", use_container_width=True, key="ew_dl")
+
+    with tab_outline:
+        ot = st.text_input("Topic for outline", key="eo_topic", placeholder="Enter topic...")
+        oc1, oc2 = st.columns(2)
+        with oc1: otype = st.selectbox("Type", list(ESSAY_TYPES.keys()), key="eo_type")
+        with oc2: owords = st.slider("Target word count", 300, 3000, 800, 100, key="eo_words")
+        if st.button("📋 Generate Outline", type="primary", use_container_width=True, disabled=not ot.strip(), key="eo_btn"):
+            with st.spinner("Planning essay structure..."):
+                try:
+                    result = generate_outline(ot, otype, owords)
+                    st.session_state.essay_outline = result
+                except Exception as e:
+                    st.error(f"❌ {e}")
+        if st.session_state.get("essay_outline"):
+            st.markdown('<div class="ew-box">', unsafe_allow_html=True)
+            st.markdown(st.session_state.essay_outline)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    with tab_improve:
+        orig = st.text_area("📄 Paste your essay", height=200, key="ei_orig", placeholder="Paste your existing essay here...")
+        instr = st.text_input("🔧 Improvement instruction", key="ei_instr",
+            placeholder="e.g. Make the argument stronger, add more evidence, improve transitions...")
+        if st.button("⚡ Improve Essay", type="primary", use_container_width=True, disabled=not (orig.strip() and instr.strip()), key="ei_btn"):
+            with st.spinner("Improving essay..."):
+                try:
+                    result = improve_essay(orig, instr)
+                    st.session_state.essay_result = result
+                except Exception as e:
+                    st.error(f"❌ {e}")
+        if st.session_state.get("essay_result"):
+            st.markdown('<div class="ew-box">', unsafe_allow_html=True)
+            st.markdown(st.session_state.essay_result)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    with tab_hist:
+        hist = st.session_state.get("essay_history", [])
+        if not hist:
+            st.info("No essays written yet.")
+        for h in reversed(hist[-10:]):
+            with st.expander(f"📄 {h['ts']} · {h['type']} · {h['topic'][:40]}"):
+                st.markdown(h["result"])
+                st.download_button("📥 Download", h["result"], file_name=f"essay_{h['ts']}.md", key=f"edl_{h['ts']}")
+
+
+# ══════════════════════════════════════════════════════
+# INTERVIEW COACH MODE
+# ══════════════════════════════════════════════════════
+elif app_mode == "interview_coach":
+    from utils.interview_engine import (
+        generate_questions, evaluate_answer, mock_interview_response,
+        generate_company_research, INTERVIEW_TYPES, EXPERIENCE_LEVELS,
+    )
+    st.markdown("""<style>
+.ic-header{background:linear-gradient(135deg,#0a1e10 0%,#0d1a14 100%);border:1px solid #1a5a2a;border-radius:16px;padding:28px 32px;margin-bottom:24px;}
+.ic-title{font-size:1.9rem;font-weight:800;color:#4ade80;margin:0 0 4px;}
+.ic-sub{font-size:.9rem;color:#9090b8;}
+.ic-q{background:rgba(10,30,16,.9);border:1px solid rgba(74,222,128,.2);border-radius:12px;padding:16px;margin:8px 0;}
+.ic-a{background:rgba(26,46,26,.8);border:1px solid rgba(74,222,128,.15);border-radius:12px 12px 12px 4px;padding:14px;margin:6px 0;}
+.ic-u{background:rgba(124,106,247,.08);border:1px solid rgba(124,106,247,.2);border-radius:12px 12px 4px 12px;padding:14px;margin:6px 0;}
+</style>""", unsafe_allow_html=True)
+    st.markdown('<div class="ic-header"><div class="ic-title">🎤 AI Interview Coach</div><div class="ic-sub">Mock interviews · STAR method · Real-time feedback · Company research</div></div>', unsafe_allow_html=True)
+
+    tab_mock, tab_bank, tab_eval, tab_company = st.tabs(["🎭 Live Mock Interview", "❓ Question Bank", "🎯 Evaluate Answer", "🏢 Company Research"])
+
+    with tab_mock:
+        mc1, mc2, mc3 = st.columns(3)
+        with mc1: ic_role = st.text_input("Your Target Role", placeholder="e.g. Software Engineer at Google", key="ic_role")
+        with mc2: ic_type = st.selectbox("Interview Type", list(INTERVIEW_TYPES.keys()), key="ic_type_mock")
+        with mc3: ic_exp = st.selectbox("Experience Level", EXPERIENCE_LEVELS, key="ic_exp")
+        st.session_state.interview_role = ic_role
+
+        mb1, mb2, mb3 = st.columns(3)
+        with mb1:
+            if st.button("🚀 Start / Next Question", type="primary", use_container_width=True, disabled=not ic_role.strip(), key="ic_start"):
+                with st.spinner("Interviewer thinking..."):
+                    try:
+                        st.session_state.interview_type = ic_type
+                        resp = mock_interview_response(st.session_state.interview_messages, ic_role, ic_type, "ask")
+                        st.session_state.interview_messages.append({"role": "assistant", "content": resp})
+                    except Exception as e:
+                        st.error(str(e))
+        with mb2:
+            if st.button("📊 Get Feedback", use_container_width=True, disabled=len(st.session_state.interview_messages) < 2, key="ic_fb"):
+                with st.spinner("Generating feedback..."):
+                    try:
+                        fb = mock_interview_response(st.session_state.interview_messages, ic_role, ic_type, "feedback")
+                        st.session_state.interview_feedback = fb
+                    except Exception as e:
+                        st.error(str(e))
+        with mb3:
+            if st.button("🗑️ Reset", use_container_width=True, key="ic_reset"):
+                st.session_state.interview_messages = []
+                st.session_state.interview_feedback = None
+                st.rerun()
+
+        # Chat display
+        for msg in st.session_state.interview_messages:
+            if msg["role"] == "assistant":
+                st.markdown(f'<div class="ic-q">🎤 <b>Interviewer:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="ic-u">🧑 <b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+
+        # Answer input
+        if st.session_state.interview_messages and st.session_state.interview_messages[-1]["role"] == "assistant":
+            user_ans = st.text_area("Your Answer", height=120, key="ic_ans", placeholder="Type your answer here...")
+            if st.button("📤 Submit Answer", type="primary", use_container_width=True, disabled=not user_ans.strip(), key="ic_submit"):
+                st.session_state.interview_messages.append({"role": "user", "content": user_ans})
+                st.rerun()
+
+        if st.session_state.get("interview_feedback"):
+            with st.expander("📊 Interview Feedback", expanded=True):
+                st.markdown(st.session_state.interview_feedback)
+
+    with tab_bank:
+        bc1, bc2 = st.columns(2)
+        with bc1: bq_role = st.text_input("Role", placeholder="Software Engineer", key="bq_role")
+        with bc2: bq_co = st.text_input("Company/Industry", placeholder="Google / Tech", key="bq_co")
+        bc3, bc4, bc5 = st.columns(3)
+        with bc3: bq_type = st.selectbox("Type", list(INTERVIEW_TYPES.keys()), key="bq_type")
+        with bc4: bq_exp = st.selectbox("Level", EXPERIENCE_LEVELS, key="bq_exp")
+        with bc5: bq_n = st.slider("# Questions", 5, 20, 10, key="bq_n")
+        if st.button("🎲 Generate Question Bank", type="primary", use_container_width=True, disabled=not bq_role.strip(), key="bq_btn"):
+            with st.spinner("Generating tailored questions..."):
+                try:
+                    result = generate_questions(bq_role, bq_co, bq_type, bq_exp, bq_n)
+                    st.session_state.interview_questions = result
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("interview_questions"):
+            st.markdown(st.session_state.interview_questions)
+            st.download_button("📥 Save Question Bank", st.session_state.interview_questions, file_name="interview_questions.md", use_container_width=True, key="bq_dl")
+
+    with tab_eval:
+        eq1 = st.text_area("❓ Interview Question", height=80, key="eq_q", placeholder="Paste the interview question...")
+        eq2 = st.text_area("💬 Your Answer", height=150, key="eq_a", placeholder="Type or paste your answer...")
+        ec1, ec2 = st.columns(2)
+        with ec1: eq_role = st.text_input("Role context", key="eq_role", placeholder="e.g. Product Manager")
+        with ec2: eq_type = st.selectbox("Interview type", list(INTERVIEW_TYPES.keys()), key="eq_type")
+        if st.button("🎯 Evaluate My Answer", type="primary", use_container_width=True, disabled=not (eq1.strip() and eq2.strip()), key="eq_btn"):
+            with st.spinner("Evaluating your answer..."):
+                try:
+                    fb = evaluate_answer(eq1, eq2, eq_role, eq_type)
+                    st.session_state.interview_feedback = fb
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("interview_feedback"):
+            st.markdown(st.session_state.interview_feedback)
+
+    with tab_company:
+        cr1, cr2 = st.columns(2)
+        with cr1: cr_co = st.text_input("Company Name", placeholder="e.g. Google", key="cr_co")
+        with cr2: cr_role = st.text_input("Target Role", placeholder="e.g. Software Engineer", key="cr_role")
+        if st.button("🏢 Research Company", type="primary", use_container_width=True, disabled=not (cr_co.strip() and cr_role.strip()), key="cr_btn"):
+            with st.spinner(f"Researching {cr_co}..."):
+                try:
+                    result = generate_company_research(cr_co, cr_role)
+                    st.markdown(result)
+                except Exception as e:
+                    st.error(str(e))
+    if st.button("💬 Back to Chat", use_container_width=True, key="ic_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ══════════════════════════════════════════════════════
+# RESEARCH ASSISTANT MODE
+# ══════════════════════════════════════════════════════
+elif app_mode == "research_assistant":
+    from utils.research_engine import (
+        summarize_paper, extract_concepts, generate_literature_review,
+        critique_methodology, generate_research_proposal, explain_statistics,
+    )
+    st.markdown("""<style>
+.ra-header{background:linear-gradient(135deg,#1a1000 0%,#1a0d00 100%);border:1px solid #5a3a00;border-radius:16px;padding:28px 32px;margin-bottom:24px;}
+.ra-title{font-size:1.9rem;font-weight:800;color:#fbbf24;margin:0 0 4px;}
+.ra-sub{font-size:.9rem;color:#9090b8;}
+.ra-box{background:rgba(26,16,0,.95);border:1px solid rgba(251,191,36,.2);border-radius:14px;padding:20px;margin-top:16px;}
+</style>""", unsafe_allow_html=True)
+    st.markdown('<div class="ra-header"><div class="ra-title">🔬 Research Assistant</div><div class="ra-sub">Paper summarization · Concept extraction · Literature reviews · Proposal writing</div></div>', unsafe_allow_html=True)
+
+    tab_sum, tab_concepts, tab_lit, tab_critique, tab_prop, tab_stats = st.tabs(
+        ["📄 Summarize", "🧠 Extract Concepts", "📚 Lit Review", "🔍 Critique Methods", "📝 Proposal", "📊 Stats Explainer"]
+    )
+
+    def _ra_content_source(key):
+        src = st.radio("Content source", ["Use uploaded material", "Paste text"], horizontal=True, key=f"ra_src_{key}")
+        if src == "Use uploaded material" and st.session_state.get("context_text"):
+            return st.session_state.context_text
+        else:
+            return st.text_area("Paste text", height=200, key=f"ra_txt_{key}", placeholder="Paste paper/article text here...")
+
+    with tab_sum:
+        text = _ra_content_source("sum")
+        detail = st.selectbox("Detail level", ["Quick (3 bullets)", "Standard", "Deep Analysis"], index=1, key="ra_sum_detail")
+        if st.button("📄 Summarize", type="primary", use_container_width=True, disabled=not str(text).strip(), key="ra_sum_btn"):
+            with st.spinner("Analyzing paper..."):
+                try:
+                    r = summarize_paper(str(text), detail)
+                    st.session_state.research_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("research_result"):
+            st.markdown('<div class="ra-box">', unsafe_allow_html=True)
+            st.markdown(st.session_state.research_result)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    with tab_concepts:
+        text2 = _ra_content_source("con")
+        if st.button("🧠 Extract Concepts", type="primary", use_container_width=True, disabled=not str(text2).strip(), key="ra_con_btn"):
+            with st.spinner("Extracting concepts..."):
+                try:
+                    r = extract_concepts(str(text2))
+                    st.session_state.research_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("research_result"):
+            st.markdown(st.session_state.research_result)
+
+    with tab_lit:
+        rc1, rc2 = st.columns(2)
+        with rc1: lit_topic = st.text_input("Research Topic", placeholder="e.g. Deep learning in medical imaging", key="lit_topic")
+        with rc2: lit_field = st.text_input("Field/Discipline", placeholder="e.g. Computer Science / Medicine", key="lit_field")
+        lit_scope = st.text_input("Scope", placeholder="e.g. 2018–2024, English-language studies only", key="lit_scope")
+        if st.button("📚 Generate Literature Review", type="primary", use_container_width=True, disabled=not lit_topic.strip(), key="lit_btn"):
+            with st.spinner("Writing literature review..."):
+                try:
+                    r = generate_literature_review(lit_topic, lit_scope, lit_field)
+                    st.session_state.research_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("research_result"):
+            st.markdown(st.session_state.research_result)
+            st.download_button("📥 Download", st.session_state.research_result, file_name="lit_review.md", use_container_width=True, key="lit_dl")
+
+    with tab_critique:
+        text3 = _ra_content_source("crit")
+        if st.button("🔍 Critique Methodology", type="primary", use_container_width=True, disabled=not str(text3).strip(), key="ra_crit_btn"):
+            with st.spinner("Evaluating methodology..."):
+                try:
+                    r = critique_methodology(str(text3))
+                    st.session_state.research_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("research_result"):
+            st.markdown(st.session_state.research_result)
+
+    with tab_prop:
+        pp1, pp2, pp3 = st.columns(3)
+        with pp1: prop_topic = st.text_input("Research Topic", key="prop_topic", placeholder="Your research question...")
+        with pp2: prop_field = st.text_input("Field", key="prop_field", placeholder="e.g. Machine Learning")
+        with pp3: prop_level = st.selectbox("Level", ["Undergraduate", "Masters", "PhD", "Postdoc", "Industry"], key="prop_level")
+        if st.button("📝 Generate Proposal", type="primary", use_container_width=True, disabled=not prop_topic.strip(), key="prop_btn"):
+            with st.spinner("Writing research proposal..."):
+                try:
+                    r = generate_research_proposal(prop_topic, prop_field, prop_level)
+                    st.session_state.research_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("research_result"):
+            st.markdown(st.session_state.research_result)
+            st.download_button("📥 Download Proposal", st.session_state.research_result, file_name="research_proposal.md", use_container_width=True, key="prop_dl")
+
+    with tab_stats:
+        text4 = _ra_content_source("stats")
+        if st.button("📊 Explain Statistics", type="primary", use_container_width=True, disabled=not str(text4).strip(), key="ra_stats_btn"):
+            with st.spinner("Analysing statistics..."):
+                try:
+                    r = explain_statistics(str(text4))
+                    st.session_state.research_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("research_result"):
+            st.markdown(st.session_state.research_result)
+
+    if st.button("💬 Back to Chat", use_container_width=True, key="ra_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ══════════════════════════════════════════════════════
+# LANGUAGE TOOLS MODE
+# ══════════════════════════════════════════════════════
+elif app_mode == "language_tools":
+    from utils.language_engine import (
+        translate_text, grammar_check, teach_language_basics,
+        explain_idioms, generate_language_quiz, LANGUAGES, TRANSLATION_MODES,
+    )
+    st.markdown("""<style>
+.lt-header{background:linear-gradient(135deg,#001a2e 0%,#000d1a 100%);border:1px solid #005a8b;border-radius:16px;padding:28px 32px;margin-bottom:24px;}
+.lt-title{font-size:1.9rem;font-weight:800;color:#38bdf8;margin:0 0 4px;}
+.lt-sub{font-size:.9rem;color:#9090b8;}
+.lt-box{background:rgba(0,26,46,.95);border:1px solid rgba(56,189,248,.2);border-radius:14px;padding:20px;margin-top:16px;}
+</style>""", unsafe_allow_html=True)
+    st.markdown('<div class="lt-header"><div class="lt-title">🌍 Language Tools</div><div class="lt-sub">Translate · Grammar check · Learn languages · Idiom explainer · Language quizzes</div></div>', unsafe_allow_html=True)
+
+    tab_trans, tab_gram, tab_learn, tab_idiom, tab_quiz = st.tabs(
+        ["🔄 Translate", "✅ Grammar Check", "📖 Learn Language", "🗣️ Idioms & Phrases", "🎯 Language Quiz"]
+    )
+
+    with tab_trans:
+        t_text = st.text_area("Text to translate", height=150, key="lt_text", placeholder="Enter text to translate...")
+        tc1, tc2, tc3 = st.columns(3)
+        with tc1: t_src = st.selectbox("From", LANGUAGES, key="lt_src")
+        with tc2: t_tgt = st.selectbox("To", LANGUAGES, index=1, key="lt_tgt")
+        with tc3: t_mode = st.selectbox("Mode", list(TRANSLATION_MODES.keys()), index=1, key="lt_mode")
+        t_explain = st.checkbox("Include cultural notes & pronunciation", value=True, key="lt_explain")
+        if st.button("🔄 Translate", type="primary", use_container_width=True, disabled=not t_text.strip(), key="lt_trans_btn"):
+            with st.spinner(f"Translating to {t_tgt}..."):
+                try:
+                    r = translate_text(t_text, t_src, t_tgt, t_mode, t_explain)
+                    st.session_state.lang_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("lang_result"):
+            st.markdown('<div class="lt-box">', unsafe_allow_html=True)
+            st.markdown(st.session_state.lang_result)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    with tab_gram:
+        g_text = st.text_area("Text to check", height=180, key="lt_gtext", placeholder="Paste text for grammar checking...")
+        g_lang = st.selectbox("Language", LANGUAGES, key="lt_glang")
+        if st.button("✅ Check Grammar", type="primary", use_container_width=True, disabled=not g_text.strip(), key="lt_gram_btn"):
+            with st.spinner("Checking grammar..."):
+                try:
+                    r = grammar_check(g_text, g_lang)
+                    st.session_state.lang_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("lang_result"):
+            st.markdown(st.session_state.lang_result)
+
+    with tab_learn:
+        ll1, ll2, ll3 = st.columns(3)
+        with ll1: l_lang = st.selectbox("Language to learn", LANGUAGES, key="lt_llang")
+        with ll2: l_native = st.selectbox("Your language", LANGUAGES, key="lt_lnative")
+        with ll3: l_topic = st.text_input("Topic/Grammar area", placeholder="e.g. Present tense verbs", key="lt_ltopic")
+        if st.button("📖 Teach Me", type="primary", use_container_width=True, disabled=not l_topic.strip(), key="lt_learn_btn"):
+            with st.spinner(f"Preparing lesson on {l_topic} in {l_lang}..."):
+                try:
+                    r = teach_language_basics(l_lang, l_topic, l_native)
+                    st.session_state.lang_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("lang_result"):
+            st.markdown(st.session_state.lang_result)
+
+    with tab_idiom:
+        i_text = st.text_area("Text with idioms/phrases", height=150, key="lt_itext", placeholder="Paste text containing idioms, slang or phrases...")
+        i_lang = st.selectbox("Language", LANGUAGES, key="lt_ilang")
+        if st.button("🗣️ Explain Idioms", type="primary", use_container_width=True, disabled=not i_text.strip(), key="lt_idiom_btn"):
+            with st.spinner("Analysing expressions..."):
+                try:
+                    r = explain_idioms(i_text, i_lang)
+                    st.session_state.lang_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("lang_result"):
+            st.markdown(st.session_state.lang_result)
+
+    with tab_quiz:
+        qz1, qz2, qz3 = st.columns(3)
+        with qz1: qz_lang = st.selectbox("Language", LANGUAGES, key="lt_qlang")
+        with qz2: qz_topic = st.text_input("Topic", placeholder="e.g. Numbers, Greetings", key="lt_qtopic")
+        with qz3: qz_level = st.selectbox("Level", ["Beginner","Intermediate","Advanced"], key="lt_qlevel")
+        if st.button("🎯 Generate Quiz", type="primary", use_container_width=True, disabled=not qz_topic.strip(), key="lt_quiz_btn"):
+            with st.spinner("Creating language quiz..."):
+                try:
+                    r = generate_language_quiz(qz_lang, qz_topic, qz_level)
+                    st.session_state.lang_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("lang_result"):
+            st.markdown(st.session_state.lang_result)
+
+    if st.button("💬 Back to Chat", use_container_width=True, key="lt_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ══════════════════════════════════════════════════════
+# SCIENCE / MATH SOLVER MODE
+# ══════════════════════════════════════════════════════
+elif app_mode == "science_solver":
+    from utils.solver_engine import (
+        solve_problem, explain_concept, generate_practice_problems,
+        check_solution, formula_sheet, SUBJECTS,
+    )
+    st.markdown("""<style>
+.ss-header{background:linear-gradient(135deg,#1a0000 0%,#1a0a00 100%);border:1px solid #5a1a00;border-radius:16px;padding:28px 32px;margin-bottom:24px;}
+.ss-title{font-size:1.9rem;font-weight:800;color:#f97316;margin:0 0 4px;}
+.ss-sub{font-size:.9rem;color:#9090b8;}
+.ss-box{background:rgba(26,6,0,.95);border:1px solid rgba(249,115,22,.2);border-radius:14px;padding:20px;margin-top:16px;}
+</style>""", unsafe_allow_html=True)
+    st.markdown('<div class="ss-header"><div class="ss-title">🧮 Science & Math Solver</div><div class="ss-sub">Step-by-step solutions · Concept explainer · Practice problems · Formula sheets</div></div>', unsafe_allow_html=True)
+
+    subject_names = list(SUBJECTS.keys())
+    tab_solve, tab_explain, tab_practice, tab_check, tab_formula = st.tabs(
+        ["⚡ Solve Problem", "📖 Explain Concept", "🏋️ Practice", "✅ Check My Work", "📋 Formula Sheet"]
+    )
+
+    with tab_solve:
+        ss1, ss2 = st.columns(2)
+        with ss1: sv_subj = st.selectbox("Subject", subject_names, key="ss_subj")
+        with ss2: sv_diff = st.selectbox("Difficulty", ["Easy","Standard","Hard","Olympiad/Competition"], index=1, key="ss_diff")
+        sv_prob = st.text_area("Problem", height=160, key="ss_prob", placeholder="Type or paste the problem here. Include all given values, units, and what to find...")
+        sv_alt = st.checkbox("Show alternative solution method", value=True, key="ss_alt")
+        if st.button("⚡ Solve Step-by-Step", type="primary", use_container_width=True, disabled=not sv_prob.strip(), key="ss_solve_btn"):
+            with st.spinner(f"Solving {sv_subj} problem..."):
+                try:
+                    r = solve_problem(sv_prob, sv_subj, sv_alt, sv_diff)
+                    st.session_state.solver_result = r
+                    st.session_state.solver_history.append({"subj": sv_subj, "prob": sv_prob[:80], "r": r, "ts": time.strftime("%H:%M")})
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("solver_result"):
+            st.markdown('<div class="ss-box">', unsafe_allow_html=True)
+            st.markdown(st.session_state.solver_result)
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.download_button("📥 Save Solution", st.session_state.solver_result, file_name="solution.md", use_container_width=True, key="ss_dl")
+
+    with tab_explain:
+        ec1, ec2 = st.columns(2)
+        with ec1:
+            ex_subj = st.selectbox("Subject", subject_names, key="ex_subj")
+            topics = SUBJECTS[ex_subj]["topics"]
+        with ec2:
+            ex_topic = st.selectbox("Topic", topics, key="ex_topic")
+        ex_concept = st.text_input("Specific concept", placeholder="e.g. Rolle's Theorem, Newton's 2nd Law", key="ex_concept")
+        ex_depth = st.selectbox("Depth", ["Quick Overview","Standard","Expert Deep Dive"], index=1, key="ex_depth")
+        if st.button("📖 Explain", type="primary", use_container_width=True, disabled=not ex_concept.strip(), key="ex_btn"):
+            with st.spinner(f"Explaining {ex_concept}..."):
+                try:
+                    r = explain_concept(ex_concept, ex_subj, ex_depth)
+                    st.session_state.solver_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("solver_result"):
+            st.markdown(st.session_state.solver_result)
+
+    with tab_practice:
+        pc1, pc2, pc3, pc4 = st.columns(4)
+        with pc1: pr_subj = st.selectbox("Subject", subject_names, key="pr_subj")
+        with pc2:
+            pr_topics = SUBJECTS[pr_subj]["topics"]
+            pr_topic = st.selectbox("Topic", pr_topics, key="pr_topic")
+        with pc3: pr_diff = st.selectbox("Difficulty", ["Easy","Medium","Hard"], key="pr_diff")
+        with pc4: pr_n = st.slider("# Problems", 3, 10, 5, key="pr_n")
+        if st.button("🏋️ Generate Practice Problems", type="primary", use_container_width=True, key="pr_btn"):
+            with st.spinner("Creating practice problems..."):
+                try:
+                    r = generate_practice_problems(pr_subj, pr_topic, pr_diff, pr_n)
+                    st.session_state.solver_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("solver_result"):
+            st.markdown(st.session_state.solver_result)
+
+    with tab_check:
+        ck1 = st.text_area("Problem statement", height=100, key="ck_prob", placeholder="Paste the original problem...")
+        ck2 = st.text_area("Your solution", height=150, key="ck_sol", placeholder="Paste your solution attempt...")
+        ck_subj = st.selectbox("Subject", subject_names, key="ck_subj")
+        if st.button("✅ Check My Work", type="primary", use_container_width=True, disabled=not (ck1.strip() and ck2.strip()), key="ck_btn"):
+            with st.spinner("Evaluating solution..."):
+                try:
+                    r = check_solution(ck1, ck2, ck_subj)
+                    st.session_state.solver_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("solver_result"):
+            st.markdown(st.session_state.solver_result)
+
+    with tab_formula:
+        fc1, fc2 = st.columns(2)
+        with fc1: fs_subj = st.selectbox("Subject", subject_names, key="fs_subj")
+        with fc2:
+            fs_topics = SUBJECTS[fs_subj]["topics"]
+            fs_topic = st.selectbox("Topic", fs_topics, key="fs_topic")
+        if st.button("📋 Generate Formula Sheet", type="primary", use_container_width=True, key="fs_btn"):
+            with st.spinner(f"Building {fs_topic} formula sheet..."):
+                try:
+                    r = formula_sheet(fs_subj, fs_topic)
+                    st.session_state.solver_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("solver_result"):
+            st.markdown(st.session_state.solver_result)
+            st.download_button("📥 Save Formula Sheet", st.session_state.solver_result, file_name="formula_sheet.md", use_container_width=True, key="fs_dl")
+
+    if st.button("💬 Back to Chat", use_container_width=True, key="ss_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ══════════════════════════════════════════════════════
+# SMART NOTES MODE
+# ══════════════════════════════════════════════════════
+elif app_mode == "smart_notes":
+    from utils.notes_engine import (
+        generate_notes, smart_summarize, extract_exam_questions,
+        build_concept_map, paraphrase_text, NOTE_FORMATS,
+    )
+    st.markdown("""<style>
+.sn-header{background:linear-gradient(135deg,#001a1a 0%,#000d10 100%);border:1px solid #005a5a;border-radius:16px;padding:28px 32px;margin-bottom:24px;}
+.sn-title{font-size:1.9rem;font-weight:800;color:#2dd4bf;margin:0 0 4px;}
+.sn-sub{font-size:.9rem;color:#9090b8;}
+.sn-box{background:rgba(0,26,26,.95);border:1px solid rgba(45,212,191,.2);border-radius:14px;padding:20px;margin-top:16px;}
+</style>""", unsafe_allow_html=True)
+    st.markdown('<div class="sn-header"><div class="sn-title">📓 Smart Notes</div><div class="sn-sub">Cornell notes · Cheat sheets · Exam questions · Concept maps · Paraphrase — from any content</div></div>', unsafe_allow_html=True)
+
+    def _sn_source(key):
+        if st.session_state.get("context_text"):
+            src = st.radio("Source", ["Uploaded material", "Paste text"], horizontal=True, key=f"sn_src_{key}")
+            if src == "Uploaded material":
+                return st.session_state.context_text
+        return st.text_area("Paste content", height=200, key=f"sn_paste_{key}", placeholder="Paste text, notes, or any content to process...")
+
+    tab_notes, tab_sum, tab_exam, tab_map, tab_para = st.tabs(
+        ["📝 Smart Notes", "⚡ Summarize", "🎯 Exam Questions", "🗺️ Concept Map", "🔄 Paraphrase"]
+    )
+
+    with tab_notes:
+        content = _sn_source("notes")
+        nc1, nc2, nc3 = st.columns(3)
+        with nc1: n_fmt = st.selectbox("Format", list(NOTE_FORMATS.keys()), key="sn_fmt")
+        with nc2: n_subj = st.text_input("Subject", placeholder="e.g. Physics", key="sn_subj")
+        with nc3: n_focus = st.text_input("Focus area", placeholder="e.g. Key formulas only", key="sn_focus")
+        if st.button("📝 Generate Notes", type="primary", use_container_width=True, disabled=not str(content).strip(), key="sn_notes_btn"):
+            with st.spinner(f"Creating {n_fmt}..."):
+                try:
+                    r = generate_notes(str(content), n_fmt, n_subj, n_focus)
+                    st.session_state.notes_result = r
+                    st.session_state.notes_history.append({"fmt": n_fmt, "subj": n_subj, "r": r, "ts": time.strftime("%H:%M")})
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("notes_result"):
+            st.markdown('<div class="sn-box">', unsafe_allow_html=True)
+            st.markdown(st.session_state.notes_result)
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.download_button("📥 Download Notes", st.session_state.notes_result, file_name=f"{n_fmt.replace(' ','_')}_notes.md", use_container_width=True, key="sn_dl")
+
+    with tab_sum:
+        content2 = _sn_source("sum")
+        sc1, sc2 = st.columns(2)
+        with sc1: s_len = st.selectbox("Length", ["Tweet (280 chars)","Quick (50 words)","Short (150 words)","Medium (300 words)","Long (600 words)","Executive Summary"], index=3, key="sn_slen")
+        with sc2: s_style = st.selectbox("Style", ["Academic","Casual","Technical","Journalistic","Simple (ELI5)"], key="sn_sstyle")
+        s_preserve = st.text_input("Must include", placeholder="Any specific points that must appear in summary...", key="sn_spreserve")
+        if st.button("⚡ Summarize", type="primary", use_container_width=True, disabled=not str(content2).strip(), key="sn_sum_btn"):
+            with st.spinner("Summarizing..."):
+                try:
+                    r = smart_summarize(str(content2), s_len, s_style, s_preserve)
+                    st.session_state.notes_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("notes_result"):
+            st.markdown('<div class="sn-box">', unsafe_allow_html=True)
+            st.markdown(st.session_state.notes_result)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    with tab_exam:
+        content3 = _sn_source("exam")
+        e_type = st.selectbox("Exam type", ["University Exam","School Final Exam","Competitive Exam (UPSC/JEE/NEET)","Professional Certification","Viva/Oral Exam"], key="sn_etype")
+        if st.button("🎯 Generate Exam Questions", type="primary", use_container_width=True, disabled=not str(content3).strip(), key="sn_exam_btn"):
+            with st.spinner("Predicting exam questions..."):
+                try:
+                    r = extract_exam_questions(str(content3), e_type)
+                    st.session_state.notes_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("notes_result"):
+            st.markdown(st.session_state.notes_result)
+            st.download_button("📥 Download Q&A", st.session_state.notes_result, file_name="exam_questions.md", use_container_width=True, key="sn_exam_dl")
+
+    with tab_map:
+        content4 = _sn_source("map")
+        if st.button("🗺️ Build Concept Map", type="primary", use_container_width=True, disabled=not str(content4).strip(), key="sn_map_btn"):
+            with st.spinner("Mapping concepts..."):
+                try:
+                    r = build_concept_map(str(content4))
+                    st.session_state.notes_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("notes_result"):
+            st.markdown(st.session_state.notes_result)
+
+    with tab_para:
+        p_text = st.text_area("Text to paraphrase", height=180, key="sn_ptext", placeholder="Paste text to reword/paraphrase...")
+        pp1, pp2 = st.columns(2)
+        with pp1: p_style = st.selectbox("Style", ["Academic","Casual","Formal","Simple","Technical"], key="sn_pstyle")
+        with pp2: p_simplify = st.checkbox("Simplify (make easier)", key="sn_psimplify")
+        if st.button("🔄 Paraphrase", type="primary", use_container_width=True, disabled=not p_text.strip(), key="sn_para_btn"):
+            with st.spinner("Paraphrasing..."):
+                try:
+                    r = paraphrase_text(p_text, p_style, p_simplify)
+                    st.session_state.notes_result = r
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("notes_result"):
+            st.markdown(st.session_state.notes_result)
+
+    if st.button("💬 Back to Chat", use_container_width=True, key="sn_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
 else:
     # ── Empty state ────────────────────────────────
     if not st.session_state.messages:
