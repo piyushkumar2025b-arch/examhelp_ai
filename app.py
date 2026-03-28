@@ -169,7 +169,8 @@ def get_theme_css():
     color: var(--text) !important;
   }}
 
-  #MainMenu, footer, header {{ visibility: hidden; }}
+  #MainMenu, footer {{ visibility: hidden; }}
+  .focus-active header {{ display: none !important; }}
 
   /* ── Sidebar ── */
   [data-testid="stSidebar"] {{
@@ -894,79 +895,81 @@ def count_output_stats(text: str):
 # ─────────────────────────────────────────────
 with st.sidebar:
 
-    # ── Logo ──────────────────────────────────
-    st.markdown("""
-    <div class="eh-logo">
-      <div class="eh-logo-icon">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="white" opacity="0.9"/>
-          <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
-          <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
-        </svg>
-      </div>
-      <div class="eh-logo-text">
-        <div class="eh-logo-title">ExamHelp</div>
-        <div class="eh-logo-sub">AI Study Assistant · Groq LLM</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # If Focus Mode is ON, we physically remove distractions from the DOM
+    if not st.session_state.get("focus_mode"):
+        # ── Logo ──────────────────────────────────
+        st.markdown("""
+        <div class="eh-logo">
+          <div class="eh-logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="white" opacity="0.9"/>
+              <path d="M2 17L12 22L22 17" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+              <path d="M2 12L12 17L22 12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+            </svg>
+          </div>
+          <div class="eh-logo-text">
+            <div class="eh-logo-title">ExamHelp</div>
+            <div class="eh-logo-sub">AI Study Assistant · Groq LLM</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # ── Theme Toggle ─────────────────────────
-    theme_icon = "☀️" if st.session_state.theme_mode == "dark" else "🌙"
-    theme_label = "Light Mode" if st.session_state.theme_mode == "dark" else "Dark Mode"
-    if st.button(f"{theme_icon} {theme_label}", use_container_width=True, key="theme_btn"):
-        st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
-        st.rerun()
+        # ── Theme Toggle ─────────────────────────
+        theme_icon = "☀️" if st.session_state.theme_mode == "dark" else "🌙"
+        theme_label = "Light Mode" if st.session_state.theme_mode == "dark" else "Dark Mode"
+        if st.button(f"{theme_icon} {theme_label}", use_container_width=True, key="theme_btn"):
+            st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
+            st.rerun()
 
-    # ── Stats ─────────────────────────────────
-    msg_count = len(st.session_state.messages)
-    src_count = len(st.session_state.context_sources)
-    ctx_kb = round(float(len(st.session_state.context_text)) / 1024.0, 2)
-    st.markdown(f"""
-    <div class="stat-row">
-      <div class="stat-box"><div class="stat-val">{msg_count}</div><div class="stat-lbl">Messages</div></div>
-      <div class="stat-box"><div class="stat-val">{src_count}</div><div class="stat-lbl">Sources</div></div>
-      <div class="stat-box"><div class="stat-val">{ctx_kb}k</div><div class="stat-lbl">Context</div></div>
-    </div>
-    """, unsafe_allow_html=True)
+        # ── Stats ─────────────────────────────────
+        msg_count = len(st.session_state.messages)
+        src_count = len(st.session_state.context_sources)
+        ctx_kb = round(float(len(st.session_state.context_text)) / 1024.0, 2)
+        st.markdown(f"""
+        <div class="stat-row">
+          <div class="stat-box"><div class="stat-val">{msg_count}</div><div class="stat-lbl">Messages</div></div>
+          <div class="stat-box"><div class="stat-val">{src_count}</div><div class="stat-lbl">Sources</div></div>
+          <div class="stat-box"><div class="stat-val">{ctx_kb}k</div><div class="stat-lbl">Context</div></div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.divider()
+        st.divider()
 
-    # ── AI Persona Selector ──────────────────
-    st.markdown('<div class="section-label">🎭 AI Persona</div>', unsafe_allow_html=True)
-    
-    persona_names = get_persona_names()
-    current_persona = st.session_state.get("selected_persona", "Default (ExamHelp)")
-    
-    selected = st.selectbox(
-        "Choose AI Character",
-        options=persona_names,
-        index=persona_names.index(current_persona) if current_persona in persona_names else 0,
-        label_visibility="collapsed",
-        key="persona_select",
-    )
-    
-    if selected != st.session_state.selected_persona:
-        st.session_state.selected_persona = selected
-        st.rerun()
-    
-    persona_data = get_persona_by_name(selected)
-    if persona_data and selected != "Default (ExamHelp)":
-        st.markdown(
-            f'<div class="persona-chip">{persona_data["emoji"]} {persona_data["name"]} · {persona_data["era"]}</div>'
-            f'<div style="font-size:0.75rem;color:var(--text3);margin-bottom:0.5rem;line-height:1.4;">{persona_data["mood"]}</div>',
-            unsafe_allow_html=True,
+        # ── AI Persona Selector ──────────────────
+        st.markdown('<div class="section-label">🎭 AI Persona</div>', unsafe_allow_html=True)
+        
+        persona_names = get_persona_names()
+        current_persona = st.session_state.get("selected_persona", "Default (ExamHelp)")
+        
+        selected = st.selectbox(
+            "Choose AI Character",
+            options=persona_names,
+            index=persona_names.index(current_persona) if current_persona in persona_names else 0,
+            label_visibility="collapsed",
+            key="persona_select",
         )
+        
+        if selected != st.session_state.selected_persona:
+            st.session_state.selected_persona = selected
+            st.rerun()
+        
+        persona_data = get_persona_by_name(selected)
+        if persona_data and selected != "Default (ExamHelp)":
+            st.markdown(
+                f'<div class="persona-chip">{persona_data["emoji"]} {persona_data["name"]} · {persona_data["era"]}</div>'
+                f'<div style="font-size:0.75rem;color:var(--text3);margin-bottom:0.5rem;line-height:1.4;">{persona_data["mood"]}</div>',
+                unsafe_allow_html=True,
+            )
 
-    st.markdown('<div class="section-label">🌍 Language</div>', unsafe_allow_html=True)
-    languages = ["English", "Spanish", "French", "German", "Hindi", "Mandarin", "Japanese", "Arabic"]
-    current_lang = st.session_state.get("selected_language", "English")
-    sel_lang = st.selectbox("Select Language", languages, index=languages.index(current_lang) if current_lang in languages else 0, label_visibility="collapsed")
-    if sel_lang != current_lang:
-        st.session_state.selected_language = sel_lang
-        st.rerun()
+        st.markdown('<div class="section-label">🌍 Language</div>', unsafe_allow_html=True)
+        languages = ["English", "Spanish", "French", "German", "Hindi", "Mandarin", "Japanese", "Arabic"]
+        current_lang = st.session_state.get("selected_language", "English")
+        sel_lang = st.selectbox("Select Language", languages, index=languages.index(current_lang) if current_lang in languages else 0, label_visibility="collapsed")
+        if sel_lang != current_lang:
+            st.session_state.selected_language = sel_lang
+            st.rerun()
 
-    st.divider()
+        st.divider()
 
     # ── Toolbar Row ──────────────────────────
     tb1, tb2, tb3, tb4, tb5 = st.columns(5)
@@ -1022,7 +1025,15 @@ with st.sidebar:
     # ── Calculator Popup ──────────────────────
     if st.session_state.calculator_open:
         import math
-        st.markdown('<div class="section-label">🧮 Scientific Calculator</div>', unsafe_allow_html=True)
+        c_lbl1, c_lbl2 = st.columns([4, 1])
+        with c_lbl1:
+            st.markdown('<div class="section-label">🧮 Scientific Calculator</div>', unsafe_allow_html=True)
+        with c_lbl2:
+            if st.button("⛶", key="calc_fullscreen_btn", help="Expand Full Screen", use_container_width=True):
+                st.session_state.app_mode = "calculator"
+                st.session_state.calculator_open = False
+                st.rerun()
+                
         if "calc_expr" not in st.session_state:
             st.session_state.calc_expr = ""
             st.session_state.calc_result = ""
@@ -1613,6 +1624,85 @@ if app_mode == "flashcards":
                     st.download_button("📊 CSV Export", "\n".join(csv_lines), "deck.csv", use_container_width=True)
     st.stop()
 
+elif app_mode == "calculator":
+    st.markdown("## 🧮 Advanced Scientific Calculator")
+    st.markdown("A massively powerful, full-screen scientific and programmatic computation engine.")
+    
+    import math as _math
+    if "fs_calc_expr" not in st.session_state:
+        st.session_state.fs_calc_expr = ""
+        st.session_state.fs_calc_result = ""
+        st.session_state.fs_calc_history = []
+        
+    calc_col1, calc_col2 = st.columns([3, 1])
+    
+    with calc_col1:
+        fs_input = st.text_input("Mathematical Expression", value=st.session_state.fs_calc_expr, key="fs_calc_input", placeholder="e.g. math.comb(52, 5), sin(pi/4), log(100, 10), 15 % 4")
+        
+        # Massive Grid
+        g1, g2, g3, g4, g5, g6 = st.columns(6)
+        btns_row1 = [("sin", "sin(", g1), ("cos", "cos(", g2), ("tan", "tan(", g3), ("asin", "asin(", g4), ("acos", "acos(", g5), ("atan", "atan(", g6)]
+        g7, g8, g9, g10, g11, g12 = st.columns(6)
+        btns_row2 = [("log", "log10(", g7), ("ln", "log(", g8), ("log2", "log2(", g9), ("e", "e", g10), ("π", "pi", g11), ("√", "sqrt(", g12)]
+        g13, g14, g15, g16, g17, g18 = st.columns(6)
+        
+        # Advanced math bounds
+        btns_row3 = [("n!", "factorial(", g13), ("x²", "**2", g14), ("x³", "**3", g15), ("^", "**", g16), ("|x|", "abs(", g17), ("mod", "%", g18)]
+        g19, g20, g21, g22, g23, g24 = st.columns(6)
+        
+        # Combinatorics & grouping
+        btns_row4 = [("nCr", "comb(", g19), ("nPr", "perm(", g20), ("ceil", "ceil(", g21), ("floor", "floor(", g22), ("(", "(", g23), (")", ")", g24)]
+        
+        for name, val, col in btns_row1 + btns_row2 + btns_row3 + btns_row4:
+            with col:
+                if st.button(name, key=f"fsc_{name}", use_container_width=True):
+                    st.session_state.fs_calc_expr = fs_input + val
+                    st.rerun()
+                    
+        rc1, rc2 = st.columns([4, 1])
+        with rc1:
+            if st.button("🗑️ Clear", key="fsc_clear", use_container_width=True):
+                st.session_state.fs_calc_expr = ""
+                st.session_state.fs_calc_result = ""
+                st.rerun()
+        with rc2:
+            if st.button("= Calculate", key="fsc_go", type="primary", use_container_width=True):
+                try:
+                    safe_expr = fs_input.replace("^", "**")
+                    allowed = {"sin": _math.sin, "cos": _math.cos, "tan": _math.tan,
+                               "sqrt": _math.sqrt, "log": _math.log, "log10": _math.log10,
+                               "log2": _math.log2, "pi": _math.pi, "e": _math.e,
+                               "abs": abs, "pow": pow, "round": round,
+                               "asin": _math.asin, "acos": _math.acos, "atan": _math.atan,
+                               "sinh": _math.sinh, "cosh": _math.cosh, "tanh": _math.tanh,
+                               "factorial": _math.factorial, "ceil": _math.ceil, "floor": _math.floor,
+                               "degrees": _math.degrees, "radians": _math.radians}
+                    if hasattr(_math, 'comb'): allowed['comb'] = _math.comb
+                    if hasattr(_math, 'perm'): allowed['perm'] = _math.perm
+                    
+                    result = eval(safe_expr, {"__builtins__": {}}, allowed)
+                    st.session_state.fs_calc_result = str(result)
+                    st.session_state.fs_calc_expr = str(result)
+                    st.session_state.fs_calc_history.append(f"{fs_input} = {result}")
+                    if len(st.session_state.fs_calc_history) > 10: st.session_state.fs_calc_history.pop(0)
+                except Exception as ex:
+                    st.session_state.fs_calc_result = f"Error: {ex}"
+                st.rerun()
+                
+        if st.session_state.fs_calc_result:
+            bg_col = "var(--green-bg)" if not st.session_state.fs_calc_result.startswith("Error") else "rgba(248,113,113,0.08)"
+            txt_col = "var(--green)" if not st.session_state.fs_calc_result.startswith("Error") else "var(--red)"
+            st.markdown(f'<div style="background:{bg_col};border:1px solid {txt_col};border-radius:15px;padding:25px;font-family:var(--mono);font-size:2.4rem;font-weight:800;color:{txt_col};text-align:right;box-shadow: 0 8px 32px {bg_col};margin-top:20px;">{st.session_state.fs_calc_result}</div>', unsafe_allow_html=True)
+
+    with calc_col2:
+        st.markdown('<div class="section-label" style="font-size:0.8rem;">📜 Ledger History</div>', unsafe_allow_html=True)
+        if st.session_state.fs_calc_history:
+            for item in reversed(st.session_state.fs_calc_history):
+                st.markdown(f'<div style="background:var(--bg3); border-radius:8px; padding:10px; font-family:var(--mono); font-size:0.85rem; color:var(--text); margin-bottom:8px; border:1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.05);">{item}</div>', unsafe_allow_html=True)
+        else:
+            st.caption("No history.")
+    st.stop()
+
 elif app_mode == "quiz":
     st.header("📝 Smart Quiz Mode")
     lang = st.session_state.get("selected_language", "English")
@@ -1622,10 +1712,7 @@ elif app_mode == "quiz":
         if st.button(f"🪄 Build {lang} Quiz"):
             with st.spinner("Generating challenges..."):
                 prompt = [
-                    {"role": "system", "content": f"Create 5 challenging MCQs based strictly on the provided text. "
-                                                  f"Return ONLY a strictly valid JSON object. No preamble. "
-                                                  f"Format: {{\"quiz\": [{{'q': '...', 'options': ['A', 'B', 'C', 'D'], 'correct': 'Correct Option Text', 'explanation': 'Brief reason'}}]}}. "
-                                                  f"All content MUST be in {lang}."},
+                    {"role": "system", "content": f"Create 5 challenging MCQs based strictly on the provided text. Return ONLY a strictly valid JSON object. No preamble. Format: {{\"quiz\": [{{'q': '...', 'options': ['A', 'B', 'C', 'D'], 'correct': 'Correct Option Text', 'explanation': 'Brief reason'}}]}}. All content MUST be in {lang}."},
                     {"role": "user", "content": f"Context Material: {st.session_state.context_text[:12000]}"}
                 ]
                 success_gen = False
@@ -1634,8 +1721,8 @@ elif app_mode == "quiz":
                         res_raw = chat_with_groq(prompt, json_mode=True, override_key=_get_override_key())
                         res_content = res_raw.strip()
                         if not res_content.startswith("{"):
-                            idx = res_content.find("{")
-                            if idx != -1: res_content = res_content[idx:]
+                            res_content = res_content[res_content.find("{"):]
+                        import json
                         data = json.loads(res_content)
                         st.session_state.quiz_data = data.get("quiz") or list(data.values())[0]
                         st.session_state.quiz_current = 0
@@ -1644,6 +1731,7 @@ elif app_mode == "quiz":
                         success_gen = True
                         break
                     except Exception as e:
+                        import time
                         time.sleep(1)
                         continue
                 if not success_gen:
