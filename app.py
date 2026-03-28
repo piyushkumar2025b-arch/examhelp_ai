@@ -2315,23 +2315,23 @@ if user_input:
             full_response = "⚠️ **All API keys are rate-limited.** Please wait ~60 seconds and try again."
             placeholder.warning(full_response)
 
-    # --- BULLETPROOF IMAGE ENGINE (ZERO-FAILURE PIPELINE) ---
+    # --- INFINITY IMAGE ENGINE (ZERO-FAILURE PIPELINE) ---
     if "VISUAL_MANIFEST:" in full_response:
         from ai.image_engine import process_visual_request
         images, caption, cleaned_text = process_visual_request(full_response)
         
-        # 1. Update text to the clean version
+        # 1. Force state to the clean version
         full_response = cleaned_text
         
-        # 2. Render visuals immediately (Zero-placeholder)
+        # 2. Render visuals from the Infinity Aggregator
         if images:
             st.divider()
-            cols = st.columns(len(images))
-            for i, img in enumerate(images):
+            cols = st.columns(3)
+            for i, img in enumerate(images[:3]):
                 with cols[i]:
                     st.image(img, use_container_width=True)
             if caption:
-                st.caption(f"🖼️ {caption}")
+                st.caption(f"📚 {caption}")
 
     st.session_state.messages.append({"role": "assistant", "content": full_response})
     if st.session_state.get("voice_mode") and full_response:
