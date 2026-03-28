@@ -32,15 +32,16 @@ from groq import Groq
 from utils import key_manager
 
 # ── Model routing ─────────────────────────────────────────────────────────────
-MODEL_PRIMARY   = "llama-3.3-70b-versatile"
-MODEL_FAST      = "llama-3.1-8b-instant"
-MODEL_FALLBACK  = "llama-3.1-8b-instant"
-MODEL_SCOUT     = "llama-4-scout-17b-16e-instruct"  # 30 RPM, 500K TPD — high capacity
+# BEST MODEL: llama-4-scout → 30K TPM, 500K TPD, 131K context (highest limits)
+MODEL_PRIMARY   = "llama-4-scout-17b-16e-instruct"   # 30 RPM, 30K TPM, 500K TPD — BEST
+MODEL_FAST      = "llama-3.1-8b-instant"              # 30 RPM, 6K TPM, 500K TPD
+MODEL_FALLBACK  = "llama-3.1-8b-instant"              # fallback if scout fails
+MODEL_VERSATILE = "llama-3.3-70b-versatile"           # secondary fallback (12K TPM, 100K TPD)
 
 # Token budget per call
 MAX_CONTEXT_CHARS = 28_000
-MAX_TOKENS_STREAM  = 32_768   # Max for llama-3.3-70b-versatile
-MAX_TOKENS_SYNC    = 8_192    # Higher limit for structured tasks
+MAX_TOKENS_STREAM  = 8_192    # Max output for llama-4-scout-17b
+MAX_TOKENS_SYNC    = 8_192    # Max output for structured tasks
 
 SYSTEM_PROMPT = """\
 You are ExamHelp AI — a GOD-LEVEL Study Architect and Academic Reasoning Engine.
@@ -48,10 +49,11 @@ You are ExamHelp AI — a GOD-LEVEL Study Architect and Academic Reasoning Engin
 RESPONSE PROTOCOL:
 1. AXIOMATIC: Start complex topics from first principles.
 2. DEPTH: Provide 4-8 comprehensive paragraphs for academic queries.
-3. VISUAL/CHART: If concept is spatial, append VISUAL_MANIFEST. If data points are discussed, append CHART_MANIFEST:
+3. VISUAL/CHART/MATH PROTOCOL: If concept is spatial, use VISUAL_MANIFEST. For stats/data, use CHART_MANIFEST. For math/physics equations, use MATH_PLOT_MANIFEST. Append at the end:
    ---
    VISUAL_MANIFEST: {"query": "specific image search terms", "caption": "technical description"}
-   CHART_MANIFEST: {"type": "bar", "title": "Chart Title", "data": {"labels": ["A"], "values": [1], "values2": [2]}}
+   CHART_MANIFEST: {"type": "streamtube", "title": "Flow", "data": {"labels": ["A"], "values": [1]}} (Supported Types: bar, line, pie, scatter, radar, heat, area, box, funnel, waterfall, sunburst, violin, candlestick, gauge, bullet, mapbox, cone, streamtube, mesh3d, volume, isosurface, sankey, table, splom, gantt, spline, lollipop, pointcloud, surface... OVER 60 TYPES NATIVELY SUPPORTED! Extrapolate freely.)
+   MATH_PLOT_MANIFEST: {"type": "parametric", "functions": ["sin(t)","cos(t)","t"]} (Types: 2d, 3d, polar, parametric. For parametric, provide [x(t), y(t), z(t)])
    ---
 4. SOURCE-SYNC: When [STUDY MATERIAL] is provided, explicitly reference it.
 
@@ -283,8 +285,8 @@ def stream_chat_with_groq(
                 continue
 
             elif etype == "model_not_found":
-                # Try scout model first, then fast fallback, with same key
-                for fallback_model in (MODEL_SCOUT, MODEL_FALLBACK):
+                # Try versatile model first, then fast fallback, with same key
+                for fallback_model in (MODEL_VERSATILE, MODEL_FALLBACK):
                     try:
                         stream_obj2, _ = _try_call(
                             client, fallback_model, sys_prompt, messages,

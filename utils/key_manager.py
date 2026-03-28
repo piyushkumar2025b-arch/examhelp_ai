@@ -5,9 +5,9 @@ key_manager.py — ELITE Groq API Key Rotation Engine v3.0
 EXACT GROQ FREE-TIER LIMITS (verified March 2026)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Model                        RPM   RPD      TPM      TPD
+  llama-4-scout-17b-16e         30  1,000   30,000   500,000  ← PRIMARY (best limits)
   llama-3.3-70b-versatile       30  1,000   12,000   100,000
   llama-3.1-8b-instant          30 14,400    6,000   500,000
-  llama-4-scout-17b             30  1,000   30,000   500,000
   whisper-large-v3              20    200      N/A       N/A
 
 SCORING ALGORITHM v3 — Weighted composite across 4 dimensions:
@@ -60,17 +60,17 @@ try:
 except ImportError:
     _ST = False
 
-# Conservative floor limits (worst model)
+# Floor limits matched to primary model (llama-4-scout-17b)
 _FLOOR_RPM = 30
 _FLOOR_RPD = 1_000
-_FLOOR_TPM = 6_000
-_FLOOR_TPD = 100_000
+_FLOOR_TPM = 30_000
+_FLOOR_TPD = 500_000
 
-# Pre-emptive switch thresholds
+# Pre-emptive switch thresholds (tuned for 30K TPM)
 SWITCH_RPM_BELOW = 5
-SWITCH_TPM_BELOW = 2_500
+SWITCH_TPM_BELOW = 5_000
 SWITCH_RPD_BELOW = 15
-SWITCH_TPD_BELOW = 8_000
+SWITCH_TPD_BELOW = 20_000
 
 # Timing
 HARD_COOLDOWN_BASE = 67.0

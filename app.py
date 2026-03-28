@@ -80,7 +80,7 @@ def init_state():
         "calculator_open": False,
         "chat_history_open": False,
         "vector_store": None,
-        "model_choice": "llama-3.3-70b-versatile",
+        "model_choice": "llama-4-scout-17b-16e-instruct",
         "study_goals": [],
         "exam_date": datetime.date.today() + datetime.timedelta(days=30),
         "last_context_hash": None,
@@ -507,7 +507,16 @@ with st.sidebar:
 
         # ── Language ───────────────────────────────
         st.markdown('<div class="section-label">🌍 Language</div>', unsafe_allow_html=True)
-        _langs = ["English","Hindi","Bengali","Telugu","Marathi","Tamil","Urdu","Gujarati","Kannada","Malayalam","Punjabi","Spanish","French","German","Mandarin","Japanese","Arabic","Portuguese","Russian"]
+        _langs = [
+            "English", "Hindi", "Bengali", "Telugu", "Marathi", "Tamil", "Urdu", "Gujarati", "Kannada", "Malayalam", "Punjabi", 
+            "Spanish", "French", "German", "Mandarin", "Japanese", "Arabic", "Portuguese", "Russian", "Korean", "Italian", "Turkish",
+            "Vietnamese", "Polish", "Ukrainian", "Dutch", "Thai", "Swedish", "Indonesian", "Greek", "Czech", "Romanian", "Hungarian",
+            "Hebrew", "Danish", "Finnish", "Norwegian", "Slovak", "Bulgarian", "Croatian", "Serbian", "Lithuanian", "Slovenian",
+            "Latvian", "Estonian", "Icelandic", "Swahili", "Amharic", "Yoruba", "Igbo", "Zulu", "Afrikaans", "Hausa", "Oromo",
+            "Tagalog", "Malay", "Javanese", "Sundanese", "Kurdish", "Nepali", "Sinhala", "Khmer", "Burmese", "Lao", "Tibetan",
+            "Sanskrit", "Pali", "Assamese", "Odia", "Maithili", "Bhojpuri", "Kashmiri", "Sindhi", "Pashto", "Balochi", "Farsi",
+            "Latin", "Esperanto"
+        ]
         cur_lang = st.session_state.get("selected_language", "English")
         sel_lang = st.selectbox("Lang", _langs,
             index=_langs.index(cur_lang) if cur_lang in _langs else 0,
@@ -519,12 +528,12 @@ with st.sidebar:
         # ── Model selector ─────────────────────────
         st.markdown('<div class="section-label">🧠 Model Speed</div>', unsafe_allow_html=True)
         model_choice = st.select_slider(
-            "Model", options=["Fast (8B)", "Balanced (70B)"],
-            value="Balanced (70B)", label_visibility="collapsed",
+            "Model", options=["Fast (8B)", "Balanced (Scout 17B)"],
+            value="Balanced (Scout 17B)", label_visibility="collapsed",
         )
         st.session_state.model_choice = (
             "llama-3.1-8b-instant" if "Fast" in model_choice
-            else "llama-3.3-70b-versatile"
+            else "llama-4-scout-17b-16e-instruct"
         )
 
         # ── Voice mode ─────────────────────────────
@@ -607,26 +616,89 @@ with st.sidebar:
             else:
                 st.session_state.calc_expr += str(v)
 
-        # Advanced scientific calculator layout
-        rows = [
-            ["sin(", "cos(", "tan(", "log("],
-            ["ln(",  "e",    "π",    "!"],
-            ["√(",   "^",    "(",    ")"],
-            ["7",    "8",    "9",    "÷"],
-            ["4",    "5",    "6",    "×"],
-            ["1",    "2",    "3",    "−"],
-            ["C",    "0",    ".",    "+"],
-            ["%",   "⌫",    "=",    ""]
-        ]
+        # Massive Professional 200+ Button Calculator Engine
+        calc_mode = st.selectbox("🧮 Calculator Engine Base", [
+            "Standard", "Advanced Scientific", "Calculus & Algebra", 
+            "Hyperbolic & Inverse", "Physics & Astro Constants", 
+            "Matrix & Vector Algebra", "Statistics & Probability", 
+            "Programmer & Logic", "Quantum & Chem Constants"
+        ])
+
+        calc_menus = {
+            "Standard": [
+                ["7", "8", "9", "÷"],
+                ["4", "5", "6", "×"],
+                ["1", "2", "3", "−"],
+                ["C", "0", ".", "+"],
+                ["(", ")", "⌫", "="]
+            ],
+            "Advanced Scientific": [
+                ["sin(", "cos(", "tan(", "log("],
+                ["sec(", "csc(", "cot(", "ln("],
+                ["√(",   "x²",   "x³",   "^"],
+                ["e",    "π",    "!",    "|x|"],
+                ["mod",  "1/x",  "⌫",   "="]
+            ],
+            "Calculus & Algebra": [
+                ["diff(", "integrate(", "limit(", "Sum("],
+                ["Product(", "solve(", "factor(", "expand("],
+                ["simplify(", "roots(", "x", "y"],
+                ["z", "t", ",", "oo"],
+                ["C", "(", "⌫", "="]
+            ],
+            "Hyperbolic & Inverse": [
+                ["sinh(", "cosh(", "tanh(", "asinh("],
+                ["acosh(","atanh(","sech(", "csch("],
+                ["coth(", "asech(","acsch(","acoth("],
+                ["asin(", "acos(", "atan(", "deg2rad("],
+                ["rad2deg(","C", "⌫", "="]
+            ],
+            "Physics & Astro Constants": [
+                ["c_LIGHT", "G_GRAV", "h_PLANCK", "hbar"],
+                ["m_e", "m_p", "m_n", "e_CHARGE"],
+                ["mu_0", "eps_0", "Z_0", "k_BOLTZ"],
+                ["M_SUN", "R_SUN", "M_EARTH", "R_EARTH"],
+                ["g_EARTH", "AU_DIST","⌫", "="]
+            ],
+            "Matrix & Vector Algebra": [
+                ["Matrix([", "det(", "inv(", "trace("],
+                ["transpose(","eigenvals(","eigenvects(","nullspace("],
+                ["norm(", "cross(", "dot(", "eye("],
+                ["zeros(", "ones(", "[", "]"],
+                [",", "C", "⌫", "="]
+            ],
+            "Statistics & Probability": [
+                ["mean(", "median(", "variance(", "std("],
+                ["min(", "max(", "cov(", "corr("],
+                ["binomial(","poisson(","normal(", "uniform("],
+                ["factorial(","nCr(","nPr(", "gamma("],
+                [",", "C", "⌫", "="]
+            ],
+            "Programmer & Logic": [
+                ["bin(", "hex(", "oct(", "& (AND)"],
+                ["| (OR)", "~ (NOT)", "^ (XOR)", "<<"],
+                [">>", "True", "False", "Implies("],
+                ["A", "B", "C", "D"],
+                ["E", "F", "⌫", "="]
+            ],
+            "Quantum & Chem Constants": [
+                ["N_AVOGADRO", "R_GAS", "F_FARADAY", "Rydberg"],
+                ["Bohr_rad", "alpha_fs", "atm_press", "eV_J"],
+                ["u_AMU", "sigma_SB", "wien_b", "flux_phi0"],
+                ["G_0_cond", "K_J_jos", "R_K_von", "mu_Bohr"],
+                ["mu_N", "C", "⌫", "="]
+            ]
+        }
+        
+        rows = calc_menus.get(calc_mode, calc_menus["Standard"])
         
         for row in rows:
             rc = st.columns(4)
             for ci, btn in enumerate(row):
                 if btn:
                     with rc[ci]:
-                        # Make "=" prominent
-                        btn_type = "primary" if btn == "=" else "secondary"
-                        if st.button(btn, key=f"calc_{btn}_{row}", use_container_width=True, type=btn_type):
+                        btn_type = "primary" if str(btn) == "=" else "secondary"
+                        if st.button(str(btn), key=f"calc_{btn}_{row}_{calc_mode}", use_container_width=True, type=btn_type):
                             _add_calc(btn); st.rerun()
 
     # ── Bookmarks panel ────────────────────────────
@@ -697,6 +769,7 @@ with st.sidebar:
     yt_url = st.text_input("YouTube URL", placeholder="https://youtube.com/watch?v=…",
                            label_visibility="collapsed", key="yt_input")
     if yt_url:
+        st.session_state.setdefault("yt_transcript_data", None)
         if st.button("🎬 Load Transcript", use_container_width=True):
             with st.spinner("Fetching transcript…"):
                 try:
@@ -705,15 +778,20 @@ with st.sidebar:
                     ctx   = format_transcript_as_context(transcript, vid_id)
                     add_context(ctx, f"YT: {vid_id}", "youtube")
                     mins = stats.get("duration_minutes","?"); words = stats.get("word_count",0)
+                    st.session_state.yt_transcript_data = {"txt": ctx, "json": json.dumps(transcript, indent=2), "vid": vid_id}
                     st.success(f"▶️ {mins} min · {words:,} words loaded!")
                 except ValueError as e:
                     err = str(e).lower()
-                    if "transcript" in err or "disabled" in err:
-                        st.error("❌ No transcript available for this video.")
-                    elif "video id" in err:
-                        st.error("❌ Invalid YouTube URL.")
-                    else:
-                        st.error(f"❌ {e}")
+                    if "transcript" in err or "disabled" in err: st.error("❌ No transcript available for this video.")
+                    elif "video id" in err: st.error("❌ Invalid YouTube URL.")
+                    else: st.error(f"❌ {e}")
+
+        # YouTube Advanced Download Options
+        if st.session_state.get("yt_transcript_data"):
+            dx1, dx2 = st.columns(2)
+            d_data = st.session_state.yt_transcript_data
+            with dx1: st.download_button("📥 .TXT", d_data["txt"], file_name=f"YT_{d_data['vid']}.txt", mime="text/plain", use_container_width=True)
+            with dx2: st.download_button("📥 .JSON", d_data["json"], file_name=f"YT_{d_data['vid']}.json", mime="application/json", use_container_width=True)
 
     st.divider()
 
@@ -1515,7 +1593,7 @@ else:
                 lang = st.session_state.selected_language
                 persona_prompt = f"\n\nCRITICAL: Answer STRICTLY in {lang}. All explanations, headers, bullets in {lang}."
 
-            chosen_model = st.session_state.get("model_choice","llama-3.3-70b-versatile")
+            chosen_model = st.session_state.get("model_choice","llama-4-scout-17b-16e-instruct")
 
             # ── TIER 1: Groq (all keys, internal rotation) ──
             try:
@@ -1635,16 +1713,58 @@ else:
                 import logging
                 logging.error(f"Chart manifest error: {e}")
 
+        math_fig = None
+        if "MATH_PLOT_MANIFEST:" in cleaned_text:
+            try:
+                import json, re
+                match = re.search(r'MATH_PLOT_MANIFEST:\s*(\{.*?\})', cleaned_text, re.DOTALL)
+                if match:
+                    m = json.loads(match.group(1))
+                    from utils.graph_engine import plot_2d_graph, plot_3d_graph, plot_polar_graph, plot_parametric_3d
+                    p_type = m.get("type", "2d")
+                    funcs = m.get("functions", [])
+                    
+                    if p_type == "2d" and funcs:
+                        math_fig, _ = plot_2d_graph(funcs, m.get("x_min",-10), m.get("x_max",10))
+                    elif p_type == "3d" and funcs:
+                        math_fig, _ = plot_3d_graph(funcs[0])
+                    elif p_type == "polar" and funcs:
+                        math_fig, _ = plot_polar_graph(funcs[0], 0, m.get("theta_max", 31.415))
+                    elif p_type == "parametric" and len(funcs) >= 3:
+                        math_fig, _ = plot_parametric_3d(funcs[0], funcs[1], funcs[2])
+                cleaned_text = re.sub(r'---?\s*MATH_PLOT_MANIFEST:.*', '', cleaned_text, flags=re.DOTALL).strip()
+            except Exception as e:
+                import logging
+                logging.error(f"Math plot error: {e}")
+
         tab_exp, tab_res, tab_lab, tab_share = st.tabs(["🎓 Explanation","📚 Resources","🛠️ Study Lab","🔗 Share"])
 
         with tab_exp:
             st.markdown(cleaned_text)
-            if chart_fig:
-                st.plotly_chart(chart_fig, use_container_width=True)
+            if chart_fig: st.plotly_chart(chart_fig, use_container_width=True)
+            if math_fig: st.plotly_chart(math_fig, use_container_width=True)
                 
             # Inline math rendering hint
             if any(sym in cleaned_text for sym in ["$$","\\(","\\["]):
                 st.info("💡 This response contains LaTeX math. It renders automatically in Streamlit.")
+
+            # Browser-Native Text-to-Speech execution (If Voice Mode enabled)
+            if st.session_state.get("voice_mode"):
+                import re
+                speak_text = re.sub(r'[*#\_`~]', '', cleaned_text)
+                speak_text = re.sub(r'\[.+?\]\(.+?\)', '', speak_text)
+                speak_text = speak_text.replace('"', '').replace("'", "").replace('\n', ' ')[:1500] 
+                
+                js_code = f"""
+                <script>
+                    const speech = new SpeechSynthesisUtterance("{speak_text}");
+                    speech.rate = 1.0;
+                    window.speechSynthesis.cancel();
+                    window.speechSynthesis.speak(speech);
+                </script>
+                """
+                import streamlit.components.v1 as components
+                components.html(js_code, height=0)
 
         with tab_res:
             if images:
