@@ -62,9 +62,6 @@ except ImportError: HAS_PANDOC = False
 try: from bs4 import BeautifulSoup; import requests; HAS_BS4 = True
 except ImportError: HAS_BS4 = False
 
-try: import pyttsx3; HAS_TTS = True
-except ImportError: HAS_TTS = False
-
 
 def render_doc_editor():
     # Inject Google Docs UI
@@ -410,22 +407,13 @@ div.stButton > button:hover { background-color: #f8f9fa !important; }
                         if st.button("➕ Append DOM Data"): st.session_state.doc_content += f"<br><code>{st.session_state.bs_t}</code><br>"; st.rerun()
 
             elif "Read Aloud (TTS)" in tool_sel:
-                st.markdown("*Use the pyttsx3 module to generate an audio reading of your document.*")
-                if not HAS_TTS: st.error("pyttsx3 missing or OS audio drivers unavailable.")
-                else:
-                    if st.button("Generate Audio"):
-                        with st.spinner("Generating speech format..."):
-                            try:
-                                engine = pyttsx3.init()
-                                cx = re.sub('<[^<]+?>', '', st.session_state.doc_content)
-                                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t: t_p = t.name
-                                engine.save_to_file(cx[:5000], t_p)
-                                engine.runAndWait()
-                                with open(t_p, "rb") as f: st.session_state.tts_audio = f.read()
-                                os.unlink(t_p); st.success("Audio generated!")
-                            except Exception as e: st.error(f"TTS Error: {e}")
-                    if st.session_state.get("tts_audio"):
-                        st.audio(st.session_state.tts_audio, format="audio/wav")
+                st.markdown("*Use your browser's native speech engine to read your document aloud.*")
+                if st.button("Read Document Aloud"):
+                    cx = re.sub('<[^<]+?>', '', st.session_state.doc_content).replace('"', '').replace("'", "").replace('\\n', ' ')[:5000]
+                    js_code = f"<script>window.parent.speechSynthesis.cancel(); const speech = new window.parent.SpeechSynthesisUtterance(\"{cx}\"); window.parent.speechSynthesis.speak(speech);</script>"
+                    import streamlit.components.v1 as components
+                    components.html(js_code, height=0, width=0)
+                    st.success("Reading in browser...")
 
             st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)

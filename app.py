@@ -1497,19 +1497,12 @@ else:
                         st.toast("Bookmarked!")
                 with ac3:
                     if st.button("🔊", key=f"speak_{i}", help="Read aloud"):
-                        try:
-                            import pyttsx3, tempfile, os, re
-                            engine = pyttsx3.init()
-                            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t: t_path = t.name
-                            clean_text = re.sub('<[^<]+?>', '', msg["content"]).replace("*", "").replace("#", "")[:2000]
-                            engine.save_to_file(clean_text, t_path)
-                            engine.runAndWait()
-                            with open(t_path, "rb") as f:
-                                st.audio(f.read(), format="audio/wav", autoplay=True)
-                            os.unlink(t_path)
-                            st.toast("Playing audio...")
-                        except Exception as e:
-                            st.error(f"TTS Error: {e}")
+                        import re
+                        clean_text = re.sub('<[^<]+?>', '', msg["content"]).replace("*", "").replace("#", "").replace('"', '').replace("'", "").replace('\n', ' ')[:2000]
+                        js_code = f"<script>window.parent.speechSynthesis.cancel(); const speech = new window.parent.SpeechSynthesisUtterance(\"{clean_text}\"); window.parent.speechSynthesis.speak(speech);</script>"
+                        import streamlit.components.v1 as components
+                        components.html(js_code, height=0, width=0)
+                        st.toast("Reading aloud...")
 
     # ── Voice input ────────────────────────────────
     try:
