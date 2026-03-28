@@ -25,7 +25,7 @@ python-pptx==1.0.2
 fpdf2==2.8.7
 html2text==2025.4.15
 requests-cache==1.3.1
-wikipedia-api==0.12.0
+wikipedia-api>=0.12.0
 google-api-python-client==2.193.0
 pexels-api==1.0.1
 
@@ -48,7 +48,7 @@ seaborn==0.13.2
 yt-dlp==2025.1.26
 moviepy==1.0.3
 aiohttp==3.10.5
-httpx==0.27.2
+httpx>=0.27.2
 # uvloop==0.19.0 (Linux-only, skipping for Windows)
 sqlalchemy==2.0.35
 tinydb==4.8.0
@@ -57,13 +57,13 @@ pypandoc==1.13
 openpyxl==3.1.5
 odfpy==1.4.1
 loguru==0.7.2
-tenacity==8.5.0
-rich==13.8.0
+tenacity>=8.5.0
+rich>=13.8.0
 typer==0.12.5
 streamlit-lottie==0.0.5
 streamlit-extras==0.4.0
 streamlit-option-menu==0.3.6
-pydantic==2.9.2
+pydantic>=2.0.0
 validators==0.34.0
 
 # --- ADVANCED OMEGA ARCHITECTURE (+20 MODULES) ---
