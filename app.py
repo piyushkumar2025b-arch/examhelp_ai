@@ -1842,6 +1842,29 @@ with st.sidebar:
                 st.session_state.app_mode = mode
                 st.rerun()
 
+    # ── Exotic Power Tools ──────────────────────
+    st.markdown('<div class="section-label">⚡ Exotic Power Tools</div>', unsafe_allow_html=True)
+    _power_tools = [
+        ("🔄", "Universal Converter", "Convert any file format instantly", "file_converter"),
+        ("🔲", "QR Code Engine",      "Generate pro QR codes & data links", "qr_creator"),
+        ("🤖", "AI Text Humaniser",   "Bypass AI detectors & sound human", "ai_humaniser"),
+        ("🎨", "HTML Generator",      "AI to beautiful single-page website", "html_generator"),
+        ("🕵️", "Reverse Image Search", "AI vision lookup & deep analysis", "image_searcher"),
+    ]
+    for icon, name, desc, mode in _power_tools:
+        col_icon, col_info, col_btn = st.columns([1, 4, 2])
+        with col_icon:
+            st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
+        with col_info:
+            st.markdown(
+                f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
+                f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
+                unsafe_allow_html=True)
+        with col_btn:
+            if st.button("Launch", key=f"ptool_{mode}", use_container_width=True):
+                st.session_state.app_mode = mode
+                st.rerun()
+
     st.markdown('<div class="poweredby">Powered by <span>Groq</span> · <span>Gemini</span> · <span>LLaMA</span></div>',
                 unsafe_allow_html=True)
 
@@ -3396,6 +3419,159 @@ elif app_mode == "smart_notes":
 
     if st.button("💬 Back to Chat", use_container_width=True, key="sn_back"):
         st.session_state.app_mode = "chat"; st.rerun()
+
+# ─── FILE CONVERTER ───────────────────────────────────────────────────────────
+elif app_mode == "file_converter":
+    from converter_engine import get_supported_formats, convert_file
+    st.markdown("## 🔄 Universal File Converter")
+    supported = get_supported_formats()
+    fmt_list = sorted(supported.keys())
+    col1, col2 = st.columns(2)
+    with col1:
+        from_fmt = st.selectbox("From format", fmt_list, key="conv_from")
+    with col2:
+        to_fmts = supported.get(from_fmt, [])
+        to_fmt = st.selectbox("To format", to_fmts, key="conv_to")
+    uploaded = st.file_uploader(f"Upload {from_fmt.upper()} file", type=[from_fmt])
+    if uploaded and st.button("Convert Now ⚡", type="primary"):
+        with st.spinner("Converting..."):
+            data = uploaded.read()
+            result, mime, ext, err = convert_file(data, from_fmt, to_fmt, uploaded.name)
+        if err:
+            st.error(err)
+        else:
+            st.success("Conversion complete!")
+            out_name = uploaded.name.rsplit(".", 1)[0] + "." + ext
+            st.download_button(f"⬇️ Download {out_name}", result, file_name=out_name, mime=mime)
+
+# ─── QR CREATOR ───────────────────────────────────────────────────────────────
+elif app_mode == "qr_creator":
+    from qr_engine import generate_text_qr, generate_url_qr, generate_vcard_qr, generate_wifi_qr, generate_email_qr, generate_phone_qr, generate_sms_qr, qr_to_base64
+    st.markdown("## 📲 QR Code Creator")
+    qr_type = st.selectbox("QR Type", ["Text / URL","vCard","WiFi","Email","Phone","SMS"])
+    qr_bytes = None
+    if qr_type == "Text / URL":
+        val = st.text_input("Enter text or URL")
+        if st.button("Generate QR", type="primary") and val:
+            qr_bytes = generate_url_qr(val) if val.startswith("http") else generate_text_qr(val)
+    elif qr_type == "vCard":
+        n = st.text_input("Full Name"); ph = st.text_input("Phone"); em = st.text_input("Email")
+        if st.button("Generate QR", type="primary") and n:
+            qr_bytes = generate_vcard_qr(n, ph, em)
+    elif qr_type == "WiFi":
+        ssid = st.text_input("SSID"); pwd = st.text_input("Password", type="password")
+        if st.button("Generate QR", type="primary") and ssid:
+            qr_bytes = generate_wifi_qr(ssid, pwd)
+    elif qr_type == "Email":
+        to = st.text_input("To Email"); subj = st.text_input("Subject")
+        if st.button("Generate QR", type="primary") and to:
+            qr_bytes = generate_email_qr(to, subj)
+    elif qr_type == "Phone":
+        ph = st.text_input("Phone Number")
+        if st.button("Generate QR", type="primary") and ph:
+            qr_bytes = generate_phone_qr(ph)
+    elif qr_type == "SMS":
+        ph = st.text_input("Phone"); msg = st.text_area("Message")
+        if st.button("Generate QR", type="primary") and ph:
+            qr_bytes = generate_sms_qr(ph, msg)
+    if qr_bytes:
+        st.image(qr_bytes, caption="Your QR Code", width=300)
+        st.download_button("⬇️ Download QR PNG", qr_bytes, file_name="qr_code.png", mime="image/png")
+
+# ─── AI HUMANISER ─────────────────────────────────────────────────────────────
+elif app_mode == "ai_humaniser":
+    from humaniser_engine import humanise_text, ai_detection_score, TONE_HINTS
+    st.markdown("## ✨ AI Text Humaniser")
+    text_in = st.text_area("Paste AI-generated text here", height=220)
+    col1, col2 = st.columns(2)
+    with col1:
+        tone = st.selectbox("Target Tone", list(TONE_HINTS.keys()))
+    with col2:
+        preserve = st.checkbox("Preserve structure (headings/bullets)", value=True)
+    if st.button("Detect AI Score", type="secondary") and text_in:
+        det = ai_detection_score(text_in)
+        st.metric("AI Detection Score", f"{det['score']}/100", det["label"])
+        if det["flags"]:
+            for f in det["flags"]: st.markdown(f"- {f}")
+    if st.button("Humanise Now ✨", type="primary") and text_in:
+        with st.spinner("Humanising..."):
+            result = humanise_text(text_in, tone=tone, preserve_structure=preserve)
+        st.markdown("### ✅ Humanised Output")
+        st.text_area("Result", value=result, height=280)
+        st.download_button("⬇️ Download TXT", result.encode(), file_name="humanised.txt", mime="text/plain")
+
+# ─── HTML GENERATOR ───────────────────────────────────────────────────────────
+elif app_mode == "html_generator":
+    from html_generator_engine import generate_html_page, generate_html_from_file, PAGE_TYPES, COLOR_THEMES
+    st.markdown("## 🌐 AI HTML Page Generator")
+    tab_text, tab_file = st.tabs(["From Text/Content", "From Uploaded File"])
+    with tab_text:
+        title = st.text_input("Page Title", value="My Awesome Page")
+        content = st.text_area("Content / Brief / Data", height=200)
+        col1, col2 = st.columns(2)
+        with col1:
+            ptype = st.selectbox("Page Type", list(PAGE_TYPES.keys()))
+        with col2:
+            theme = st.selectbox("Color Theme", list(COLOR_THEMES.keys()))
+        charts = st.checkbox("Include Charts (Chart.js)", value=False)
+        extra = st.text_input("Extra instructions (optional)")
+        if st.button("Generate HTML ⚡", type="primary") and content:
+            with st.spinner("Generating beautiful HTML page..."):
+                html_out = generate_html_page(content, ptype, title, theme, charts, extra)
+            st.success("HTML generated!")
+            st.download_button("⬇️ Download HTML", html_out.encode(), file_name=f"{title.replace(' ','_')}.html", mime="text/html")
+            with st.expander("Preview HTML Source"):
+                st.code(html_out[:3000], language="html")
+    with tab_file:
+        upl = st.file_uploader("Upload any file to convert to HTML", type=["pdf","txt","csv","json","md","docx"])
+        ptype2 = st.selectbox("Layout Style", list(PAGE_TYPES.keys()), key="html_ftype")
+        if upl and st.button("Convert to HTML 🌐", type="primary"):
+            from converter_engine import _pdf_to_text, _docx_to_text, _csv_to_text, _excel_to_text
+            raw = upl.read()
+            ext = upl.name.rsplit(".",1)[-1].lower()
+            if ext == "pdf":   fc = _pdf_to_text(raw)
+            elif ext == "docx": fc = _docx_to_text(raw)
+            elif ext == "csv":  fc = _csv_to_text(raw)
+            else:               fc = raw.decode("utf-8", errors="replace")
+            with st.spinner("Generating HTML from your file..."):
+                html_out = generate_html_from_file(fc, ext, upl.name, ptype2)
+            st.success("Done!")
+            st.download_button("⬇️ Download HTML", html_out.encode(), file_name=upl.name.rsplit(".",1)[0]+".html", mime="text/html")
+
+# ─── IMAGE SEARCHER ───────────────────────────────────────────────────────────
+elif app_mode == "image_searcher":
+    from image_search_engine import search_by_image
+    st.markdown("## 🔍 AI Image Search — Find 20+ Related Links")
+    st.caption("Upload any photo and AI will analyze it, identify the subject, and find 20+ links exactly related to it.")
+    img_file = st.file_uploader("Upload Image", type=["jpg","jpeg","png","webp","gif"])
+    if img_file:
+        st.image(img_file, width=320, caption="Uploaded Image")
+        if st.button("🔍 Search the Web for This Image", type="primary"):
+            img_bytes = img_file.read()
+            ext = img_file.name.rsplit(".",1)[-1].lower()
+            mime_map = {"jpg":"image/jpeg","jpeg":"image/jpeg","png":"image/png","webp":"image/webp","gif":"image/gif"}
+            mime = mime_map.get(ext, "image/jpeg")
+            with st.spinner("Analyzing image with Gemini Vision + searching the web..."):
+                results = search_by_image(img_bytes, mime, img_file.name)
+            analysis = results.get("analysis", {})
+            st.markdown("### 🧠 AI Analysis")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Subject", analysis.get("main_subject","—")[:30])
+            col2.metric("Category", analysis.get("category","—"))
+            col3.metric("Links Found", len(results.get("links", [])))
+            st.markdown(f"**Description:** {analysis.get('description','—')}")
+            if analysis.get("visible_text"):
+                st.info(f"📝 Text in image: {analysis['visible_text']}")
+            if results.get("search_queries"):
+                st.markdown("**Search queries used:** " + " · ".join([f"`{q}`" for q in results["search_queries"][:5]]))
+            st.markdown(f"### 🔗 {len(results.get('links',[]))} Related Links Found")
+            type_icons = {"image_host":"🖼️","encyclopedia":"📚","news":"📰","official":"🏛️","social":"💬","stock":"💼","search_result":"🔎","image_search":"🔍","reverse_image":"🔄"}
+            for i, link in enumerate(results.get("links",[]), 1):
+                icon = type_icons.get(link.get("type",""), "🔗")
+                with st.expander(f"{icon} {i}. {link.get('title','Link')[:70]}"):
+                    st.markdown(f"**URL:** [{link.get('url','')}]({link.get('url','')})")
+                    st.markdown(f"**Why relevant:** {link.get('reason','')}")
+                    st.markdown(f"**Domain:** `{link.get('domain','')}`")
 
 else:
     # ── Empty state ────────────────────────────────
