@@ -2315,39 +2315,24 @@ if user_input:
             full_response = "⚠️ **All API keys are rate-limited.** Please wait ~60 seconds and try again."
             placeholder.warning(full_response)
 
-    # --- VISUAL MANIFEST RENDERING (FIXED PIPELINE) ---
+    # --- BULLETPROOF IMAGE ENGINE (ZERO-FAILURE PIPELINE) ---
     if "VISUAL_MANIFEST:" in full_response:
-        import re
-        import json
+        from ai.image_engine import process_visual_request
+        images, caption, cleaned_text = process_visual_request(full_response)
         
-        # 1. Clean the text (Separate AI narrative from metadata)
-        main_text = re.sub(r'VISUAL_MANIFEST:.*', '', full_response, flags=re.DOTALL).strip()
-        manifest_raw = re.search(r'VISUAL_MANIFEST:\s*(\{.*\})', full_response)
+        # 1. Update text to the clean version
+        full_response = cleaned_text
         
-        if manifest_raw:
-            try:
-                manifest = json.loads(manifest_raw.group(1))
-                img_query = manifest.get("query")
-                caption = manifest.get("caption", "Educational Reference")
-                
-                # Update visual display for the user before storing clean text
-                if img_query:
-                    from ai.api_manager import UnifiedAPIManager
-                    images = UnifiedAPIManager().call("image", img_query, limit=3)
-                    if images:
-                        st.divider()
-                        cols = st.columns(len(images))
-                        for i, img in enumerate(images):
-                            with cols[i]:
-                                st.image(img, use_container_width=True)
-                        st.caption(f"🖼️ {caption}")
-                
-                # Ensure session history stores only the clean narrative
-                full_response = main_text
-            except Exception as e:
-                # Fallback to display the original response if parsing fails
-                pass
-            
+        # 2. Render visuals immediately (Zero-placeholder)
+        if images:
+            st.divider()
+            cols = st.columns(len(images))
+            for i, img in enumerate(images):
+                with cols[i]:
+                    st.image(img, use_container_width=True)
+            if caption:
+                st.caption(f"🖼️ {caption}")
+
     st.session_state.messages.append({"role": "assistant", "content": full_response})
     if st.session_state.get("voice_mode") and full_response:
         AppController.speak(full_response)
