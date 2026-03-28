@@ -1500,8 +1500,7 @@ if user_input:
                     history,
                     st.session_state.context_text,
                     override_key=current_key,
-                    persona_prompt=persona_prompt,
-                    language=st.session_state.get("selected_language", "English")
+                    persona_prompt=persona_prompt
                 ):
                     full_response += chunk
                     placeholder.markdown(full_response + "▌")
