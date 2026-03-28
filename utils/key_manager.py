@@ -8,7 +8,7 @@ to ensure uninterrupted output generation.
 How to configure keys:
   Local dev  → .env file:
     GROQ_API_KEY_1=gsk_...
-    GROQ_API_KEY_2=gsk_...   (up to GROQ_API_KEY_8)
+    GROQ_API_KEY_2=gsk_...   (up to GROQ_API_KEY_12)
 
   Streamlit Cloud → Advanced Settings → Secrets:
     GROQ_API_KEY_1 = "gsk_..."
@@ -33,7 +33,7 @@ import streamlit as st
 def _load_keys() -> list[str]:
     keys: list[str] = []
 
-    for i in range(1, 9):
+    for i in range(1, 13):
         var = f"GROQ_API_KEY_{i}"
         # Try Streamlit secrets first
         try:

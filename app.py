@@ -915,14 +915,38 @@ def get_theme_css():
     background: var(--accent-bg);
   }}
 
-  /* ── Focus mode ── */
-  .focus-active .section-label,
+  /* ── Focus mode Hardened ── */
+  .focus-active [data-testid="stSidebar"],
   .focus-active .stat-row,
+  .focus-active .section-label,
+  .focus-active .tool-card,
+  .focus-active .click-container,
   .focus-active .poweredby,
-  .focus-active .roadmap-item,
-  .focus-active .eh-logo-sub {{
+  .focus-active hr,
+  .focus-active .eh-toolbar {{
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }}
+  
+  .focus-active .main .block-container {{
+    max-width: 900px !important;
+    padding-top: 2rem !important;
+  }}
+
+  .focus-banner {{
+    background: linear-gradient(90deg, #f59e0b, var(--accent));
+    color: white;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 30px rgba(245, 158, 11, 0.2);
+    animation: slideDown 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }}
+  @keyframes slideDown {{ from {{ transform: translateY(-30px); opacity: 0; }} to {{ transform: translateY(0); opacity: 1; }} }}
 </style>
 """
 
@@ -1619,6 +1643,9 @@ st.markdown(f"""
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+if st.session_state.focus_mode:
+    st.markdown('<div class="focus-banner">🔒 Focus Mode Active — All distractions are suppressed. Deep work in progress.</div>', unsafe_allow_html=True)
 
 # ── Active sources banner ────────────────────
 if st.session_state.context_sources:
