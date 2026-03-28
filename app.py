@@ -1320,12 +1320,13 @@ with st.sidebar:
         st.divider()
 
     # ── Toolbar icons ──────────────────────────────
-    tb_cols = st.columns(7)
+    tb_cols = st.columns(8)
     _tb_items = [
         ("📅", "tb_cal", "Calendar",    "calendar_open"),
         ("🧮", "tb_calc", "Calculator", None),
         ("📈", "tb_graph", "Graphs",    None),
         ("📝", "tb_editor", "AI Editor", None),
+        ("✍️", "tb_story", "Story Builder", None),
         ("🔕" if st.session_state.focus_mode else "🔔", "tb_focus", "Focus Mode", None),
         ("🔖", "tb_bm",  "Bookmarks",   "bookmarks_open"),
         ("📜", "tb_hist", "History",    None),
@@ -1339,6 +1340,8 @@ with st.sidebar:
                     st.session_state.app_mode = "graph"; st.rerun()
                 elif k == "tb_editor":
                     st.session_state.app_mode = "editor"; st.rerun()
+                elif k == "tb_story":
+                    st.session_state.app_mode = "story"; st.rerun()
                 elif k == "tb_focus":
                     st.session_state.focus_mode = not st.session_state.focus_mode; st.rerun()
                 elif k == "tb_hist":
@@ -1785,6 +1788,7 @@ with st.sidebar:
         ("📊", "Mind Map",      "Visual concept map",       "mindmap"),
         ("📅", "Study Planner", "Revision timetable",      "planner"),
         ("📈", "Graph Plotter", "Plot equations",           "graph"),
+        ("✍️", "Story Builder", "AI creative writing",     "story"),
         ("💬", "Chat",         "Standard AI study chat",   "chat"),
     ]
     for icon, name, desc, mode in _tools:
@@ -2213,6 +2217,13 @@ elif app_mode == "graph":
 elif app_mode == "editor":
     from ui.doc_editor import render_doc_editor
     render_doc_editor()
+
+# ─────────────────────────────────────────────
+# STORY BUILDER MODE
+# ─────────────────────────────────────────────
+elif app_mode == "story":
+    from ui.story_builder import render_story_builder
+    render_story_builder()
 
 # ─────────────────────────────────────────────
 # CHAT MODE (default)
