@@ -95,16 +95,27 @@ def plot_3d_graph(function_str, x_min=-5, x_max=5, y_min=-5, y_max=5, resolution
         cmax, cmin = np.nanmax(Z), np.nanmin(Z)
         c_step = (cmax - cmin) / 10 if cmax != cmin else 1
         
+        colorscales = ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Turbo']
+        selected_cs = np.random.choice(colorscales) if theme == "dark" else 'IceFire'
+
         fig = go.Figure(data=[go.Surface(
             z=Z, x=X, y=Y,
-            contours = {
-                "z": {"show": True, "start": cmin, "end": cmax, "size": c_step, "color":"white"}
-            },
-            colorscale='Viridis' if theme == "dark" else 'Plasma',
-            showscale=False
+            contours_z=dict(show=True, usecolormap=True, highlightcolor="limegreen", project_z=True),
+            colorscale=selected_cs,
+            lighting=dict(ambient=0.6, diffuse=0.8, roughness=0.1, specular=1.5, fresnel=0.2),
+            showscale=True,
+            colorbar=dict(title="Z Value", len=0.8, thickness=15)
         )])
         
         _setup_layout(fig, theme, "", "X Axis", "Y Axis", "Z Axis")
+        
+        # Next-level 3D camera angles
+        fig.update_layout(scene_camera=dict(
+            up=dict(x=0, y=0, z=1),
+            center=dict(x=0, y=0, z=0),
+            eye=dict(x=1.5, y=1.5, z=1.2)
+        ))
+        
         return fig, []
     except Exception as e:
         return None, [f"Error computing 3D function: {str(e)}"]
@@ -144,3 +155,62 @@ def _setup_layout(fig, theme, title, xaxis_title, yaxis_title, zaxis_title=None)
             legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(0,0,0,0.4)"),
             hovermode="x unified"
         )
+
+def generate_advanced_chart(data, chart_type="bar", title="Advanced Data Chart", theme="dark"):
+    """
+    Generates extraordinary data charts: bar, line, pie, donut, scatter, 3d_scatter, radar, heatmap, area, box.
+    Expects data as a dict: {"labels": [...], "values": [...], "values2": [...]} optionally.
+    """
+    import pandas as pd
+    import plotly.express as px
+
+    fig = go.Figure()
+    labels = data.get("labels", [f"Item {i+1}" for i in range(len(data.get("values", [])))])
+    values = data.get("values", [])
+    values2 = data.get("values2", None)
+
+    colors = px.colors.qualitative.Plotly if theme == "dark" else px.colors.qualitative.Pastel
+
+    if chart_type == "bar":
+        fig.add_trace(go.Bar(x=labels, y=values, marker_color=colors[0], name="Value 1", text=values, textposition='auto'))
+        if values2:
+            fig.add_trace(go.Bar(x=labels, y=values2, marker_color=colors[1], name="Value 2", text=values2, textposition='auto'))
+        fig.update_layout(barmode='group')
+
+    elif chart_type == "line" or chart_type == "area":
+        fill_mode = 'tozeroy' if chart_type == "area" else 'none'
+        fig.add_trace(go.Scatter(x=labels, y=values, mode='lines+markers', line=dict(width=3, color=colors[0]), fill=fill_mode, name="Value 1"))
+        if values2:
+            fig.add_trace(go.Scatter(x=labels, y=values2, mode='lines+markers', line=dict(width=3, color=colors[1]), fill=fill_mode, name="Value 2"))
+
+    elif chart_type in ["pie", "donut"]:
+        hole = 0.5 if chart_type == "donut" else 0
+        fig.add_trace(go.Pie(labels=labels, values=values, hole=hole, marker=dict(colors=colors),
+                             textinfo='label+percent', hoverinfo='label+value'))
+
+    elif chart_type == "scatter":
+        fig.add_trace(go.Scatter(x=labels, y=values, mode='markers', marker=dict(size=12, color=colors[2], line=dict(width=2, color='DarkSlateGrey')), name="Data"))
+
+    elif chart_type == "radar":
+        fig.add_trace(go.Scatterpolar(r=values + [values[0]], theta=labels + [labels[0]], fill='toself', name='Data 1', line_color=colors[0]))
+        if values2:
+            fig.add_trace(go.Scatterpolar(r=values2 + [values2[0]], theta=labels + [labels[0]], fill='toself', name='Data 2', line_color=colors[1]))
+        fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, max(max(values), max(values2) if values2 else 0)*1.2])))
+
+    elif chart_type == "3d_scatter":
+        if values2:
+            fig.add_trace(go.Scatter3d(x=labels, y=values, z=values2, mode='markers',
+                                       marker=dict(size=8, color=values, colorscale='Viridis', opacity=0.8)))
+
+    elif chart_type == "heatmap":
+        if values2:
+            z_data = [values, values2]
+            fig.add_trace(go.Heatmap(z=z_data, x=labels, y=["Metric 1", "Metric 2"], colorscale='Viridis'))
+
+    elif chart_type == "box":
+        fig.add_trace(go.Box(y=values, name="Group 1", marker_color=colors[0]))
+        if values2:
+            fig.add_trace(go.Box(y=values2, name="Group 2", marker_color=colors[1]))
+
+    _setup_layout(fig, theme, title, "X Axis / Categories", "Y Axis / Values")
+    return fig, []

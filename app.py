@@ -507,7 +507,7 @@ with st.sidebar:
 
         # ── Language ───────────────────────────────
         st.markdown('<div class="section-label">🌍 Language</div>', unsafe_allow_html=True)
-        _langs = ["English","Spanish","French","German","Hindi","Mandarin","Japanese","Arabic","Portuguese","Russian"]
+        _langs = ["English","Hindi","Bengali","Telugu","Marathi","Tamil","Urdu","Gujarati","Kannada","Malayalam","Punjabi","Spanish","French","German","Mandarin","Japanese","Arabic","Portuguese","Russian"]
         cur_lang = st.session_state.get("selected_language", "English")
         sel_lang = st.selectbox("Lang", _langs,
             index=_langs.index(cur_lang) if cur_lang in _langs else 0,
@@ -603,16 +603,31 @@ with st.sidebar:
             elif v == "=":
                 r = AppController.evaluate_expression(st.session_state.calc_expr)
                 st.session_state.calc_result = r if r != "Error" else "⚠️ Error"
+                if r != "Error": st.session_state.calc_expr = str(r) # auto-ans
             else:
                 st.session_state.calc_expr += str(v)
 
-        rows = [["7","8","9","÷"],["4","5","6","×"],["1","2","3","−"],["C","0","=","+"],[".","(",")","%"],["⌫","^","√(","π"]]
+        # Advanced scientific calculator layout
+        rows = [
+            ["sin(", "cos(", "tan(", "log("],
+            ["ln(",  "e",    "π",    "!"],
+            ["√(",   "^",    "(",    ")"],
+            ["7",    "8",    "9",    "÷"],
+            ["4",    "5",    "6",    "×"],
+            ["1",    "2",    "3",    "−"],
+            ["C",    "0",    ".",    "+"],
+            ["%",   "⌫",    "=",    ""]
+        ]
+        
         for row in rows:
             rc = st.columns(4)
             for ci, btn in enumerate(row):
-                with rc[ci]:
-                    if st.button(btn, key=f"calc_{btn}_{ci}", use_container_width=True):
-                        _add_calc(btn); st.rerun()
+                if btn:
+                    with rc[ci]:
+                        # Make "=" prominent
+                        btn_type = "primary" if btn == "=" else "secondary"
+                        if st.button(btn, key=f"calc_{btn}_{row}", use_container_width=True, type=btn_type):
+                            _add_calc(btn); st.rerun()
 
     # ── Bookmarks panel ────────────────────────────
     if st.session_state.get("bookmarks_open"):
@@ -1602,10 +1617,31 @@ else:
             except Exception:
                 cleaned_text = full_response
 
+        chart_fig = None
+        if "CHART_MANIFEST:" in cleaned_text:
+            try:
+                import json, re
+                match = re.search(r'CHART_MANIFEST:\s*(\{.*?\})', cleaned_text, re.DOTALL)
+                if match:
+                    manifest = json.loads(match.group(1))
+                    from utils.graph_engine import generate_advanced_chart
+                    chart_fig, _ = generate_advanced_chart(
+                        data=manifest.get("data", {}),
+                        chart_type=manifest.get("type", "bar"),
+                        title=manifest.get("title", "Data Visualization")
+                    )
+                cleaned_text = re.sub(r'---?\s*CHART_MANIFEST:.*', '', cleaned_text, flags=re.DOTALL).strip()
+            except Exception as e:
+                import logging
+                logging.error(f"Chart manifest error: {e}")
+
         tab_exp, tab_res, tab_lab, tab_share = st.tabs(["🎓 Explanation","📚 Resources","🛠️ Study Lab","🔗 Share"])
 
         with tab_exp:
             st.markdown(cleaned_text)
+            if chart_fig:
+                st.plotly_chart(chart_fig, use_container_width=True)
+                
             # Inline math rendering hint
             if any(sym in cleaned_text for sym in ["$$","\\(","\\["]):
                 st.info("💡 This response contains LaTeX math. It renders automatically in Streamlit.")
