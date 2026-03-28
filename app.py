@@ -114,8 +114,8 @@ def get_theme_css():
     
     if is_dark:
         colors = {
-            "bg": "#0a0a0b", "bg2": "#111113", "bg3": "#18181b",
-            "border": "#27272a", "border2": "#3f3f46",
+            "bg": "#0a0a0b", "bg_glass": "rgba(10,10,11,0.65)", "bg2": "#111113", "bg2_glass": "rgba(17,17,19,0.75)", "bg3": "#18181b", "bg3_glass": "rgba(24,24,27,0.7)",
+            "border": "#27272a", "bd_glass": "rgba(39,39,42,0.5)", "border2": "#3f3f46",
             "text": "#fafafa", "text2": "#a1a1aa", "text3": "#52525b",
             "accent": "#d97706", "accent2": "#f59e0b",
             "accent_bg": "rgba(217,119,6,0.08)", "accent_bd": "rgba(217,119,6,0.25)",
@@ -126,8 +126,8 @@ def get_theme_css():
         }
     else:
         colors = {
-            "bg": "#fafaf9", "bg2": "#f5f5f4", "bg3": "#e7e5e4",
-            "border": "#d6d3d1", "border2": "#a8a29e",
+            "bg": "#fafaf9", "bg_glass": "rgba(250,250,249,0.7)", "bg2": "#f5f5f4", "bg2_glass": "rgba(245,245,244,0.75)", "bg3": "#e7e5e4", "bg3_glass": "rgba(231,229,228,0.7)",
+            "border": "#d6d3d1", "bd_glass": "rgba(214,211,209,0.5)", "border2": "#a8a29e",
             "text": "#1c1917", "text2": "#57534e", "text3": "#a8a29e",
             "accent": "#d97706", "accent2": "#b45309",
             "accent_bg": "rgba(217,119,6,0.08)", "accent_bd": "rgba(217,119,6,0.25)",
@@ -144,9 +144,13 @@ def get_theme_css():
 
   :root {{
     --bg:        {c['bg']};
+    --bg-glass:  {c['bg_glass']};
     --bg2:       {c['bg2']};
+    --bg2-glass: {c['bg2_glass']};
     --bg3:       {c['bg3']};
+    --bg3-glass: {c['bg3_glass']};
     --border:    {c['border']};
+    --bd-glass:  {c['bd_glass']};
     --border2:   {c['border2']};
     --text:      {c['text']};
     --text2:     {c['text2']};
@@ -159,8 +163,7 @@ def get_theme_css():
     --green-bg:  {c['green_bg']};
     --red:       {c['red']};
     --blue:      {c['blue']};
-    --surface:   {c['surface']};
-    --surface2:  {c['surface2']};
+    --card-shadow:{c['card_shadow']};
     --sans:      'Inter', system-ui, -apple-system, sans-serif;
     --mono:      'JetBrains Mono', monospace;
   }}
@@ -177,9 +180,12 @@ def get_theme_css():
 
   /* ── Sidebar ── */
   [data-testid="stSidebar"] {{
-    background-color: var(--bg2) !important;
-    border-right: 1px solid var(--border) !important;
+    background-color: var(--bg2-glass) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border-right: 1px solid var(--bd-glass) !important;
     padding-top: 0 !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }}
   [data-testid="stSidebar"] > div:first-child {{
     padding-top: 0 !important;
@@ -195,36 +201,42 @@ def get_theme_css():
   }}
 
   /* ── Chat messages ── */
+  @keyframes messageSlideIn {{
+    0% {{ transform: translateY(15px); opacity: 0; }}
+    100% {{ transform: translateY(0); opacity: 1; }}
+  }}
   [data-testid="stChatMessage"] {{
     background: transparent !important;
     border: none !important;
     padding: 0.15rem 0 !important;
+    animation: messageSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }}
 
   /* ── Chat input ── */
   [data-testid="stChatInputContainer"] {{
-    background: linear-gradient(to top, var(--bg) 70%, transparent) !important;
+    background: linear-gradient(to top, var(--bg) 60%, transparent) !important;
     border-top: none !important;
     padding: 1rem 1.5rem 1.5rem !important;
     position: sticky !important;
     bottom: 0 !important;
-    backdrop-filter: blur(12px) !important;
   }}
   [data-testid="stChatInputContainer"] textarea {{
-    background-color: var(--bg3) !important;
-    border: 1px solid var(--border) !important;
+    background-color: var(--bg3-glass) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid var(--bd-glass) !important;
     border-radius: 20px !important;
     color: var(--text) !important;
     font-family: var(--sans) !important;
     font-size: 0.95rem !important;
     padding: 16px 20px !important;
-    transition: all 0.25s ease !important;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 8px 32px var(--card-shadow) !important;
   }}
   [data-testid="stChatInputContainer"] textarea:focus {{
     border-color: var(--accent) !important;
-    box-shadow: 0 0 0 4px var(--accent-bg), 0 4px 20px rgba(0,0,0,0.1) !important;
-    background-color: var(--bg2) !important;
+    box-shadow: 0 0 0 4px var(--accent-bg), 0 8px 32px var(--card-shadow) !important;
+    background-color: var(--bg) !important;
   }}
   [data-testid="stChatInputContainer"] textarea::placeholder {{
     color: var(--text3) !important;
@@ -233,79 +245,105 @@ def get_theme_css():
     background-color: var(--accent) !important;
     border-radius: 10px !important;
     color: white !important;
-    transition: background 0.2s !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }}
   [data-testid="stChatInputContainer"] button:hover {{
     background-color: var(--accent2) !important;
+    transform: scale(1.05);
+  }}
+  [data-testid="stChatInputContainer"] button:active {{
+    transform: scale(0.95);
   }}
 
   /* ── Buttons ── */
   .stButton > button {{
-    background-color: var(--bg3) !important;
-    border: 1px solid var(--border) !important;
-    color: var(--text2) !important;
+    background-color: var(--bg3-glass) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid var(--bd-glass) !important;
+    color: var(--text) !important;
     border-radius: 12px !important;
     font-family: var(--sans) !important;
     font-size: 0.88rem !important;
     font-weight: 500 !important;
     padding: 0.5rem 1.1rem !important;
-    transition: all 0.2s ease !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
     letter-spacing: 0.015em !important;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.03) !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02) !important;
   }}
   .stButton > button:hover {{
     border-color: var(--accent) !important;
     color: var(--accent) !important;
     background-color: var(--accent-bg) !important;
-    transform: translateY(-1.5px) !important;
-    box-shadow: 0 6px 15px rgba(217,119,6,0.15) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 16px var(--accent-bg) !important;
+  }}
+  .stButton > button:active {{
+    transform: translateY(0px) !important;
   }}
 
   /* ── Select box ── */
   [data-testid="stSelectbox"] > div > div {{
-    background-color: var(--bg3) !important;
-    border: 1px solid var(--border) !important;
+    background-color: var(--bg3-glass) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid var(--bd-glass) !important;
     border-radius: 10px !important;
     color: var(--text) !important;
+    transition: all 0.3s ease !important;
   }}
 
   /* ── File uploader ── */
   [data-testid="stFileUploader"] {{
-    background-color: var(--bg3) !important;
-    border: 1px dashed var(--border2) !important;
-    border-radius: 12px !important;
+    background-color: var(--bg3-glass) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1.5px dashed var(--bd-glass) !important;
+    border-radius: 14px !important;
     padding: 0.4rem !important;
-    transition: border-color 0.2s !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }}
   [data-testid="stFileUploader"]:hover {{
     border-color: var(--accent) !important;
+    background-color: var(--accent-bg) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px var(--accent-bg) !important;
   }}
 
   /* ── Text input ── */
   [data-testid="stTextInput"] input {{
-    background-color: var(--bg3) !important;
-    border: 1px solid var(--border) !important;
+    background-color: var(--bg3-glass) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid var(--bd-glass) !important;
     border-radius: 10px !important;
     color: var(--text) !important;
     font-family: var(--sans) !important;
     font-size: 0.88rem !important;
-    transition: border-color 0.2s !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }}
   [data-testid="stTextInput"] input:focus {{
     border-color: var(--accent) !important;
     box-shadow: 0 0 0 3px var(--accent-bg) !important;
+    background-color: var(--bg) !important;
   }}
   [data-testid="stTextInput"] input::placeholder {{ color: var(--text3) !important; }}
 
   /* ── Expander ── */
   [data-testid="stExpander"] {{
-    background-color: var(--bg2) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 10px !important;
+    background-color: var(--bg2-glass) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--bd-glass) !important;
+    border-radius: 12px !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02) !important;
+  }}
+  [data-testid="stExpander"]:hover {{
+    border-color: var(--border) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.06) !important;
   }}
   [data-testid="stExpander"] summary {{
-    font-size: 0.82rem !important;
-    color: var(--text2) !important;
+    font-size: 0.84rem !important;
+    color: var(--text) !important;
     font-weight: 500 !important;
   }}
 
@@ -423,11 +461,11 @@ def get_theme_css():
   .hero-wrap {{
     text-align: center;
     padding: 4rem 2rem 2rem;
-    animation: fadeUp 0.6s ease both;
+    animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
   }}
   @keyframes fadeUp {{
-    from {{ opacity: 0; transform: translateY(18px); }}
-    to   {{ opacity: 1; transform: translateY(0); }}
+    from {{ opacity: 0; transform: translateY(24px) scale(0.98); }}
+    to   {{ opacity: 1; transform: translateY(0) scale(1); }}
   }}
   .hero-badge {{
     display: inline-flex;
@@ -442,15 +480,17 @@ def get_theme_css():
     font-weight: 500;
     letter-spacing: 0.03em;
     margin-bottom: 1.4rem;
+    box-shadow: 0 4px 12px var(--accent-bg);
   }}
   .hero-title {{
     font-family: var(--sans);
-    font-size: 2.4rem;
+    font-size: 2.6rem;
     font-weight: 800;
     color: var(--text);
-    letter-spacing: -1px;
+    letter-spacing: -1.2px;
     line-height: 1.15;
     margin-bottom: 0.6rem;
+    text-shadow: 0 4px 20px var(--card-shadow);
   }}
   .hero-title em {{ color: var(--accent); font-style: italic; font-weight: 700; }}
   .hero-sub {{
@@ -469,19 +509,22 @@ def get_theme_css():
     margin: 0 auto;
   }}
   .pill {{
-    background: var(--bg3);
-    border: 1px solid var(--border);
+    background: var(--bg3-glass);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--bd-glass);
     border-radius: 20px;
     padding: 7px 16px;
     font-size: 0.8rem;
     color: var(--text2);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }}
   .pill:hover {{
     border-color: var(--accent);
     color: var(--accent);
     background: var(--accent-bg);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px var(--accent-bg);
   }}
 
   .stat-row {{
@@ -581,15 +624,21 @@ def get_theme_css():
     display: flex;
     align-items: center;
     gap: 12px;
-    background: linear-gradient(90deg, var(--bg2), var(--bg3));
-    border: 1px solid var(--border);
+    background: linear-gradient(90deg, var(--bg2-glass), var(--bg3-glass));
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--bd-glass);
     border-radius: 16px;
     padding: 10px 18px;
     margin-bottom: 1.5rem;
     font-size: 0.85rem;
     color: var(--text2);
     flex-wrap: wrap;
-    box-shadow: 0 4px 16px var(--card-shadow);
+    box-shadow: 0 4px 20px var(--card-shadow);
+    transition: all 0.3s ease;
+  }}
+  .study-banner:hover {{
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px var(--card-shadow);
   }}
   .study-banner-label {{ color: var(--text3); font-size: 0.76rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }}
 
