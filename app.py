@@ -2515,8 +2515,6 @@ if user_input:
     with st.chat_message("assistant", avatar=assistant_avatar):
         placeholder = st.empty()
         full_response = ""
-        max_attempts = key_manager.MAX_RETRIES
-        attempt = 0
         success = False
 
         history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[-20:]]
@@ -2533,54 +2531,63 @@ if user_input:
             
         persona_prompt = QueryEngine.get_structured_system_prompt(persona_prompt)
 
-        while attempt < max_attempts and not success:
-            current_key = key_manager.get_key(override=override)
-            if not current_key:
-                full_response = "⚠️ **All API keys are cooling down.** Please wait ~60 seconds and try again."
-                placeholder.warning(full_response)
-                break
+        # ── TIER 1: Try Groq (all keys, internal rotation inside groq_client) ──
+        try:
+            for chunk in stream_chat_with_groq(
+                history,
+                st.session_state.context_text,
+                override_key=override if override else None,
+                persona_prompt=persona_prompt,
+            ):
+                full_response += chunk
+                placeholder.markdown(full_response + "▌")
+            placeholder.markdown(full_response)
+            success = True
+            count_output_stats(full_response)
 
+        except Exception as groq_err:
+            # ── TIER 2: Groq exhausted → try Gemini (all 7 keys, internal rotation) ──
             full_response = ""
             try:
-                for chunk in stream_chat_with_groq(
+                from ai.gemini_client import stream_chat_with_gemini
+                placeholder.info("⚡ Switching to Gemini backup engines…", icon="🔄")
+                for chunk in stream_chat_with_gemini(
                     history,
-                    st.session_state.context_text,
-                    override_key=current_key,
-                    persona_prompt=persona_prompt
+                    context_text=st.session_state.context_text,
+                    persona_prompt=persona_prompt,
                 ):
                     full_response += chunk
                     placeholder.markdown(full_response + "▌")
                 placeholder.markdown(full_response)
                 success = True
-
-                # Track output stats
                 count_output_stats(full_response)
 
-            except ValueError as e:
-                full_response = f"⚠️ **Configuration Error:** {e}"
-                placeholder.error(full_response)
-                break
-
-            except Exception as e:
-                err_msg = str(e)
-                is_rate = "rate_limit" in err_msg.lower() or "429" in err_msg
-                is_auth  = "authentication" in err_msg.lower() or "401" in err_msg or "invalid" in err_msg.lower()
-                if is_rate or is_auth:
-                    reason = "Rate limit" if is_rate else "Invalid key"
-                    masked = f"{current_key[:8]}…{current_key[-4:]}"
-                    placeholder.warning(f"⚡ {reason} on `{masked}`. Switching to next key…", icon="🔄")
-                    # Key is already marked by groq_client, get next one
-                    attempt += 1
-                    continue
-                else:
-                    full_response = f"⚠️ **Error:** {err_msg}"
-                    placeholder.error(full_response)
-                    break
-
-            attempt += 1
+            except Exception as gemini_err:
+                # ── TIER 3: Both Groq and Gemini failed — force reset cooldowns and retry once ──
+                full_response = ""
+                try:
+                    from utils import gemini_key_manager as gkm
+                    key_manager.reset_all_cooldowns()
+                    gkm.reset_all_cooldowns()
+                    placeholder.info("🔄 Resetting key cooldowns and retrying…", icon="⏳")
+                    for chunk in stream_chat_with_groq(
+                        history,
+                        st.session_state.context_text,
+                        persona_prompt=persona_prompt,
+                    ):
+                        full_response += chunk
+                        placeholder.markdown(full_response + "▌")
+                    placeholder.markdown(full_response)
+                    success = True
+                    count_output_stats(full_response)
+                except Exception:
+                    full_response = ""
+                    # should literally never reach here with 12 Groq + 7 Gemini keys
+                    pass
 
         if not success and not full_response:
-            full_response = "⚠️ **All API keys are rate-limited.** Please wait ~60 seconds and try again."
+            # Absolute last resort — shouldn't happen with 19 total keys
+            full_response = "⚠️ Temporary overload across all engines. Please send your message again."
             placeholder.warning(full_response)
 
     # --- ELITE REPRESENTATION HUB (TABBED INTERFACE) ---

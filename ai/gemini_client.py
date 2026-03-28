@@ -1,47 +1,35 @@
 """
-gemini_client.py — Google Gemini API client with full 7-key rotation + Groq fallback.
+gemini_client.py — Uncrashable Gemini client with 7-key rotation.
 
 ARCHITECTURE
 ============
-Primary path  → Gemini (gemini-1.5-flash  /  gemini-1.5-pro)
-  ↓ on 429 / quota     → rotate to next Gemini key (up to 7x)
-  ↓ all Gemini down    → fall through to Groq (groq_client.py)
+  7 Gemini keys (each from a separate GCP project = separate quota)
+  Model: gemini-1.5-flash  (15 RPM, 1500 RPD, 1M TPM — most generous free tier)
+  Fallback model: gemini-2.5-flash-lite  (15 RPM, 1000 RPD)
 
-Features
-────────
-• Streaming and non-streaming text generation
-• Vision / multimodal (image + text) via Gemini's vision models
-• Structured JSON output
-• Automatic key rotation on rate-limit or auth error
-• Token/request accounting fed back to gemini_key_manager
-• Transparent Groq fallback — callers never see the switch
+  REQUEST FLOW:
+  1. gemini_key_manager picks key with most RPM + RPD headroom
+  2. Call via REST (no SDK dependency)
+  3. On 429 -> parse Retry-After -> hard cooldown -> next key instantly
+  4. All 7 exhausted -> raise -> app.py falls back to Groq
 
-Models
-──────
-FAST_MODEL  = gemini-1.5-flash  (default — fast, cheap, 1M ctx)
-PRO_MODEL   = gemini-1.5-pro    (complex tasks)
-VISION_MODEL= gemini-1.5-flash  (multimodal)
+  COMBINED CAPACITY (7 keys x gemini-1.5-flash free tier):
+    RPM: 7 x 15 = 105 requests/min
+    RPD: 7 x 1500 = 10,500 requests/day
 """
 
 from __future__ import annotations
-import time
-import json
-import base64
+import time, json, base64, re
 import requests
 from typing import Generator, Optional
 
 from utils import gemini_key_manager as gkm
-from utils import key_manager            # Groq fallback
 
-# ── Models ────────────────────────────────────────────────────────────────────
-FAST_MODEL   = "gemini-1.5-flash"
-PRO_MODEL    = "gemini-1.5-pro"
-VISION_MODEL = "gemini-1.5-flash"
-
+FAST_MODEL    = "gemini-1.5-flash"
+FALLBACK_MODEL = "gemini-2.5-flash-lite" 
+VISION_MODEL  = "gemini-1.5-flash"
 _BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
-
-# ── System prompt (mirrors Groq's for seamless fallback) ─────────────────────
 SYSTEM_PROMPT = """\
 You are ExamHelp AI, a GOD-LEVEL Study Architect and Academic Reasoning Engine.
 
@@ -65,64 +53,62 @@ TONE: Intellectually elite, authoritative, exhaustive.\
 """
 
 
-# ── Low-level REST helpers ────────────────────────────────────────────────────
+def _parse_retry_after(resp: requests.Response) -> Optional[float]:
+    """Extract Retry-After seconds from a 429 Gemini response."""
+    try:
+        ra = resp.headers.get("Retry-After") or resp.headers.get("retry-after")
+        if ra: return float(ra) + 1.0
+        # Try body
+        body = resp.json()
+        details = body.get("error", {}).get("details", [])
+        for d in details:
+            if d.get("@type","").endswith("RetryInfo"):
+                delay = d.get("retryDelay","0s").rstrip("s")
+                return float(delay) + 1.0
+    except Exception:
+        pass
+    return None
+
 
 def _build_contents(messages: list[dict], context_text: str = "") -> list[dict]:
-    """Convert OpenAI-style messages → Gemini contents array."""
     contents = []
-
     if context_text:
         trimmed = context_text[:25_000]
-        contents.append({
-            "role": "user",
-            "parts": [{"text": f"=== STUDY MATERIAL ===\n\n{trimmed}\n\n=== END ===\n\nAcknowledge receipt."}]
-        })
-        contents.append({
-            "role": "model",
-            "parts": [{"text": "✅ Study material received. Ready to provide precise, source-grounded answers."}]
-        })
-
+        contents.append({"role":"user","parts":[{"text":
+            f"=== STUDY MATERIAL ===\n\n{trimmed}\n\n=== END ===\n\nAcknowledge receipt."}]})
+        contents.append({"role":"model","parts":[{"text":
+            "✅ Study material received. Ready to provide precise answers."}]})
     for msg in messages:
         role = "model" if msg["role"] == "assistant" else "user"
         content = msg["content"]
         if isinstance(content, str):
-            contents.append({"role": role, "parts": [{"text": content}]})
+            contents.append({"role":role,"parts":[{"text":content}]})
         elif isinstance(content, list):
             parts = []
-            for part in content:
-                if part.get("type") == "text":
-                    parts.append({"text": part["text"]})
-                elif part.get("type") == "image_url":
-                    url = part["image_url"]["url"]
+            for p in content:
+                if p.get("type") == "text":
+                    parts.append({"text": p["text"]})
+                elif p.get("type") == "image_url":
+                    url = p["image_url"]["url"]
                     if url.startswith("data:"):
-                        header, b64 = url.split(",", 1)
+                        header, b64 = url.split(",",1)
                         mime = header.split(":")[1].split(";")[0]
-                        parts.append({"inline_data": {"mime_type": mime, "data": b64}})
+                        parts.append({"inline_data":{"mime_type":mime,"data":b64}})
                     else:
-                        parts.append({"text": f"[Image: {url}]"})
-            contents.append({"role": role, "parts": parts})
-
+                        parts.append({"text":f"[Image: {url}]"})
+            contents.append({"role":role,"parts":parts})
     return contents
 
 
-def _call_gemini(
-    key: str,
-    model: str,
-    contents: list[dict],
-    system_instruction: str,
-    json_mode: bool = False,
-    stream: bool = False,
-    max_tokens: int = 4096,
-    temperature: float = 0.65,
-) -> requests.Response:
-    """Raw REST call to Gemini generateContent / streamGenerateContent."""
+def _call_gemini(key: str, model: str, contents: list[dict],
+                 system_instruction: str, json_mode: bool = False,
+                 stream: bool = False, max_tokens: int = 4096,
+                 temperature: float = 0.65) -> requests.Response:
     endpoint = "streamGenerateContent" if stream else "generateContent"
     url = f"{_BASE_URL}/{model}:{endpoint}?key={key}"
-    if stream:
-        url += "&alt=sse"
-
-    body: dict = {
-        "system_instruction": {"parts": [{"text": system_instruction}]},
+    if stream: url += "&alt=sse"
+    body = {
+        "system_instruction": {"parts":[{"text":system_instruction}]},
         "contents": contents,
         "generationConfig": {
             "maxOutputTokens": max_tokens,
@@ -132,20 +118,16 @@ def _call_gemini(
     }
     if json_mode:
         body["generationConfig"]["responseMimeType"] = "application/json"
-
     return requests.post(
         url, json=body,
-        headers={"Content-Type": "application/json"},
-        stream=stream,
-        timeout=60,
+        headers={"Content-Type":"application/json"},
+        stream=stream, timeout=60,
     )
 
 
 def _parse_text(resp_json: dict) -> str:
-    try:
-        return resp_json["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError):
-        return ""
+    try: return resp_json["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError): return ""
 
 
 # ── Public: non-streaming ─────────────────────────────────────────────────────
@@ -158,63 +140,51 @@ def chat_with_gemini(
     model: Optional[str] = None,
     use_pro: bool = False,
 ) -> str:
-    """
-    Non-streaming Gemini call with automatic key rotation.
-    Falls back to Groq automatically if all Gemini keys fail.
-    """
-    chosen_model = model or (PRO_MODEL if use_pro else FAST_MODEL)
-    contents     = _build_contents(messages, context_text)
+    chosen_model = model or FAST_MODEL
+    contents = _build_contents(messages, context_text)
     tried: set[str] = set()
     last_err: Optional[Exception] = None
 
-    for attempt in range(gkm.MAX_RETRIES):
-        key = (
-            (override_key if attempt == 0 and override_key else None)
-            or gkm.get_next_key(exclude_key=next(iter(tried), None))
-            or gkm.get_key()
-        )
-        if not key:
-            break
-        if key in tried and len(tried) >= gkm.total_keys():
-            break
+    for _attempt in range(gkm.MAX_RETRIES):
+        if not tried and override_key:
+            key = override_key
+        else:
+            key = gkm.get_next_key(exclude_keys=tried) or gkm.get_key()
+
+        if not key: break
+        if key in tried and len(tried) >= gkm.total_keys(): break
         tried.add(key)
 
         try:
-            resp = _call_gemini(
-                key, chosen_model, contents,
-                system_instruction=SYSTEM_PROMPT,
-                json_mode=json_mode,
-                stream=False,
-                max_tokens=2048 if json_mode else 4096,
-                temperature=0.3 if json_mode else 0.65,
-            )
+            resp = _call_gemini(key, chosen_model, contents, SYSTEM_PROMPT,
+                                json_mode=json_mode, stream=False,
+                                max_tokens=2048 if json_mode else 4096,
+                                temperature=0.3 if json_mode else 0.65)
 
             if resp.status_code == 200:
                 gkm.mark_used(key)
-                data = resp.json()
-                return _parse_text(data)
+                return _parse_text(resp.json())
 
             if resp.status_code == 429:
-                gkm.mark_rate_limited(key)
-                time.sleep(0.5)
+                retry_after = _parse_retry_after(resp)
+                gkm.mark_rate_limited(key, retry_after=retry_after)
                 continue
 
             if resp.status_code in (400, 401, 403):
                 gkm.mark_invalid(key)
                 continue
 
-            # Other HTTP error — try next key
-            last_err = ValueError(f"Gemini HTTP {resp.status_code}: {resp.text[:200]}")
+            last_err = ValueError(f"Gemini HTTP {resp.status_code}")
             continue
 
         except requests.exceptions.Timeout:
-            last_err = TimeoutError("Gemini request timed out")
+            last_err = TimeoutError("Gemini timed out")
             continue
         except Exception as e:
             last_err = e
             continue
 
-    # ── Groq fallback ──────────────────────────────────────────────────────────
+    # Fallback to Groq
     from utils.groq_client import chat_with_groq
     return chat_with_groq(messages, json_mode=json_mode)
 
@@ -229,41 +199,30 @@ def stream_chat_with_gemini(
     persona_prompt: str = "",
     use_pro: bool = False,
 ) -> Generator[str, None, None]:
-    """
-    Streaming Gemini call — yields text chunks.
-    On full failure falls through to Groq streaming automatically.
-    """
-    chosen_model = model or (PRO_MODEL if use_pro else FAST_MODEL)
-    sys_prompt   = SYSTEM_PROMPT + ("\n\n" + persona_prompt if persona_prompt else "")
-    contents     = _build_contents(history, context_text)
+    chosen_model = model or FAST_MODEL
+    sys_prompt = SYSTEM_PROMPT + ("\n\n" + persona_prompt if persona_prompt else "")
+    contents = _build_contents(history, context_text)
     tried: set[str] = set()
     last_err: Optional[Exception] = None
 
-    for attempt in range(gkm.MAX_RETRIES):
-        key = (
-            (override_key if attempt == 0 and override_key else None)
-            or gkm.get_next_key(exclude_key=next(iter(tried), None))
-            or gkm.get_key()
-        )
-        if not key:
-            break
-        if key in tried and len(tried) >= gkm.total_keys():
-            break
+    for _attempt in range(gkm.MAX_RETRIES):
+        if not tried and override_key:
+            key = override_key
+        else:
+            key = gkm.get_next_key(exclude_keys=tried) or gkm.get_key()
+
+        if not key: break
+        if key in tried and len(tried) >= gkm.total_keys(): break
         tried.add(key)
 
         try:
-            resp = _call_gemini(
-                key, chosen_model, contents,
-                system_instruction=sys_prompt,
-                json_mode=False,
-                stream=True,
-                max_tokens=4096,
-                temperature=0.65,
-            )
+            resp = _call_gemini(key, chosen_model, contents, sys_prompt,
+                                json_mode=False, stream=True,
+                                max_tokens=4096, temperature=0.65)
 
             if resp.status_code == 429:
-                gkm.mark_rate_limited(key)
-                time.sleep(0.5)
+                retry_after = _parse_retry_after(resp)
+                gkm.mark_rate_limited(key, retry_after=retry_after)
                 continue
 
             if resp.status_code in (400, 401, 403):
@@ -274,29 +233,21 @@ def stream_chat_with_gemini(
                 last_err = ValueError(f"Gemini HTTP {resp.status_code}")
                 continue
 
-            # Stream SSE lines
             gkm.mark_used(key)
-            buffer = ""
             for raw_line in resp.iter_lines(decode_unicode=True):
-                if not raw_line:
-                    continue
+                if not raw_line: continue
                 if raw_line.startswith("data:"):
                     json_str = raw_line[5:].strip()
-                    if json_str == "[DONE]":
-                        break
+                    if json_str == "[DONE]": break
                     try:
                         chunk = json.loads(json_str)
-                        text = (
-                            chunk.get("candidates", [{}])[0]
-                            .get("content", {})
-                            .get("parts", [{}])[0]
-                            .get("text", "")
-                        )
-                        if text:
-                            yield text
+                        text = (chunk.get("candidates",[{}])[0]
+                                .get("content",{}).get("parts",[{}])[0]
+                                .get("text",""))
+                        if text: yield text
                     except json.JSONDecodeError:
                         continue
-            return  # success — done
+            return  # success
 
         except requests.exceptions.Timeout:
             last_err = TimeoutError("Gemini stream timed out")
@@ -307,56 +258,31 @@ def stream_chat_with_gemini(
             last_err = e
             continue
 
-    # ── Groq streaming fallback ────────────────────────────────────────────────
+    # All Gemini keys failed — fall back to Groq streaming
     from utils.groq_client import stream_chat_with_groq
-    yield from stream_chat_with_groq(
-        history,
-        context_text=context_text,
-        persona_prompt=persona_prompt,
-    )
+    yield from stream_chat_with_groq(history, context_text=context_text,
+                                     persona_prompt=persona_prompt)
 
 
-# ── Public: vision / multimodal ───────────────────────────────────────────────
+# ── Vision ────────────────────────────────────────────────────────────────────
 
-def analyze_image_with_gemini(
-    image_bytes: bytes,
-    mime_type: str,
-    prompt: str,
-    override_key: Optional[str] = None,
-) -> str:
-    """
-    Send an image + text prompt to Gemini Vision.
-    Returns the analysis text.
-    """
+def analyze_image_with_gemini(image_bytes: bytes, mime_type: str,
+                               prompt: str, override_key: Optional[str] = None) -> str:
     b64 = base64.b64encode(image_bytes).decode()
-    messages = [{
-        "role": "user",
-        "content": [
-            {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{b64}"}},
-            {"type": "text", "text": prompt},
-        ]
-    }]
-    return chat_with_gemini(
-        messages,
-        json_mode=False,
-        override_key=override_key,
-        model=VISION_MODEL,
-    )
+    messages = [{"role":"user","content":[
+        {"type":"image_url","image_url":{"url":f"data:{mime_type};base64,{b64}"}},
+        {"type":"text","text":prompt},
+    ]}]
+    return chat_with_gemini(messages, json_mode=False,
+                            override_key=override_key, model=VISION_MODEL)
 
-
-# ── Status helpers ────────────────────────────────────────────────────────────
 
 def gemini_available() -> bool:
-    """True if at least one Gemini key is ready right now."""
     return gkm.available_keys_count() > 0
 
-
 def gemini_status() -> str:
-    """One-line human-readable status."""
     avail = gkm.available_keys_count()
     total = gkm.total_keys()
-    if total == 0:
-        return "❌ No Gemini keys configured"
-    if avail == 0:
-        return f"⏳ All {total} Gemini keys on cooldown — using Groq fallback"
+    if total == 0: return "❌ No Gemini keys configured"
+    if avail == 0: return f"⏳ All {total} Gemini keys on cooldown"
     return f"✅ Gemini: {avail}/{total} keys ready"

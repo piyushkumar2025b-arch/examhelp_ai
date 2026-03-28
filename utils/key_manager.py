@@ -1,232 +1,287 @@
 """
-key_manager.py — Smart Groq API key rotation with proactive token-rate tracking.
+key_manager.py — Bulletproof Groq API key rotation engine.
 
-HOW IT WORKS
-============
-Groq free tier limits: ~6,000 tokens/min and ~500 requests/day per key.
-Instead of waiting for a 429 to hit, we track estimated tokens used per key
-in a rolling 60-second window. When a key is approaching its per-minute limit
-we pre-emptively switch to the next available key — zero downtime.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXACT GROQ FREE-TIER LIMITS (verified 2025-2026)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Model                        RPM   RPD     TPM    TPD
+  llama-3.3-70b-versatile       30  1,000  12,000  100,000
+  llama-3.1-8b-instant          30 14,400   6,000  500,000
+  llama-4-scout-17b             30  1,000  30,000  500,000
 
-On actual 429 received → hard cooldown for 62 seconds.
-On auth error         → key marked dead for 24h.
+  RPM  = Requests Per Minute   (rolling 60-second window)
+  RPD  = Requests Per Day      (resets midnight UTC)
+  TPM  = Tokens Per Minute     (rolling 60-second window)
+  TPD  = Tokens Per Day        (resets midnight UTC)
 
-Key Selection Priority
-─────────────────────
-1. Keys not on cooldown, sorted by fewest tokens used in current window
-2. If all on cooldown, pick the one that comes off cooldown soonest
+  Response headers expose LIVE remaining values:
+    x-ratelimit-remaining-tokens    -> remaining TPM this window
+    x-ratelimit-remaining-requests  -> remaining RPD today
+    x-ratelimit-reset-tokens        -> e.g. "7.66s" until TPM resets
+    retry-after                     -> seconds to wait after 429
 
-Configuration
-─────────────
-Local .env:
-    GROQ_API_KEY_1=gsk_...
-    GROQ_API_KEY_2=gsk_...  (up to GROQ_API_KEY_12)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRE-EMPTIVE SWITCH THRESHOLDS (switch BEFORE hitting the wall)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TPM  -> switch when < 2,000 tokens remain in 60s window
+  RPM  -> switch when < 4 requests remain in 60s window
+  RPD  -> switch when < 10 requests remain for the day
+  TPD  -> switch when < 5,000 tokens remain for the day
 
-Streamlit Cloud Secrets:
-    GROQ_API_KEY_1 = "gsk_..."
-    ...
-    GROQ_API_KEY_12 = "gsk_..."
-
-Single legacy key: GROQ_API_KEY = "gsk_..."
+  On actual 429 -> hard cooldown = retry-after header + 2s
+  On auth error -> disable key for 24h
 """
 
 from __future__ import annotations
-import os
-import time
-import threading
+import os, time, threading, datetime
 from collections import deque
 from typing import Optional
-
 import streamlit as st
 
-# ── Groq free-tier limits (conservative — actual is ~6k/min) ──────────────────
-TOKEN_WINDOW_SECONDS: float = 60.0        # rolling window length
-SOFT_TOKEN_LIMIT: int       = 5_000       # switch key before hitting 6k limit
-HARD_COOLDOWN_SECONDS: float = 63.0       # wait after a real 429
-DEAD_KEY_SECONDS: float      = 86_400.0   # 24h for invalid/auth errors
-MAX_RETRIES: int             = 0           # set after keys load (see below)
+# Exact limits for worst-case model (llama-3.3-70b) used as safe floor
+DEFAULT_RPM = 30
+DEFAULT_RPD = 1_000
+DEFAULT_TPM = 6_000    # smallest tpm across models
+DEFAULT_TPD = 100_000
 
+SWITCH_TPM_BELOW = 2_000
+SWITCH_RPM_BELOW = 4
+SWITCH_RPD_BELOW = 10
+SWITCH_TPD_BELOW = 5_000
 
-# ── Load keys ─────────────────────────────────────────────────────────────────
+HARD_COOLDOWN_BASE = 65.0
+DEAD_KEY_SECONDS   = 86_400.0
+WINDOW = 60.0
+
+MAX_RETRIES: int = 0
+
 
 def _load_keys() -> list[str]:
     keys: list[str] = []
     for i in range(1, 13):
-        var = f"GROQ_API_KEY_{i}"
         val = ""
-        try:
-            val = st.secrets.get(var, "") or ""
-        except Exception:
-            pass
-        if not val:
-            val = os.getenv(var, "") or ""
-        if val.strip():
-            keys.append(val.strip())
-
+        try: val = st.secrets.get(f"GROQ_API_KEY_{i}", "") or ""
+        except Exception: pass
+        if not val: val = os.getenv(f"GROQ_API_KEY_{i}", "") or ""
+        if val.strip(): keys.append(val.strip())
     if not keys:
-        for var in ("GROQ_API_KEY",):
-            val = ""
-            try:
-                val = st.secrets.get(var, "") or ""
-            except Exception:
-                pass
-            if not val:
-                val = os.getenv(var, "") or ""
-            if val.strip():
-                keys.append(val.strip())
-                break
-
+        val = ""
+        try: val = st.secrets.get("GROQ_API_KEY", "") or ""
+        except Exception: pass
+        if not val: val = os.getenv("GROQ_API_KEY", "") or ""
+        if val.strip(): keys.append(val.strip())
     return keys
 
 
 _RAW_KEYS: list[str] = _load_keys()
-MAX_RETRIES = max(len(_RAW_KEYS) * 2, 6)
-
-# ── Per-key state ──────────────────────────────────────────────────────────────
-
+MAX_RETRIES = max(len(_RAW_KEYS) * 3, 12)
 _lock = threading.Lock()
+
+
+def _midnight_utc() -> float:
+    now = datetime.datetime.utcnow()
+    t = (now + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return t.timestamp()
+
 
 def _new_state() -> dict:
     return {
-        "cooldown_until": 0.0,    # unix timestamp; 0 = available
-        "uses":           0,       # total successful calls
-        "errors":         0,       # total errors
-        "last_used":      0.0,     # unix timestamp of last use
-        # rolling token tracking: deque of (timestamp, token_count) tuples
-        "token_log":      deque(), # type: deque[tuple[float, int]]
-        "total_tokens":   0,       # lifetime tokens
+        "cooldown_until": 0.0,
+        "rpm_log": deque(),
+        "tpm_log": deque(),
+        "rpd_used": 0,
+        "tpd_used": 0,
+        "day_reset_at": _midnight_utc(),
+        "hdr_remaining_tokens":   DEFAULT_TPM,
+        "hdr_remaining_requests": DEFAULT_RPD,
+        "hdr_reset_tokens_at":    0.0,
+        "uses": 0, "errors": 0, "last_used": 0.0, "total_tokens": 0,
     }
+
 
 _state: dict[str, dict] = {k: _new_state() for k in _RAW_KEYS}
 
 
-# ── Token tracking helpers ────────────────────────────────────────────────────
+def _rpm_in_window(s: dict, now: float) -> int:
+    cutoff = now - WINDOW
+    log = s["rpm_log"]
+    while log and log[0] < cutoff: log.popleft()
+    return len(log)
 
-def _tokens_in_window(key: str, now: float) -> int:
-    """Sum of tokens used by this key in the last TOKEN_WINDOW_SECONDS."""
-    log: deque = _state[key]["token_log"]
-    cutoff = now - TOKEN_WINDOW_SECONDS
-    # Drop expired entries
-    while log and log[0][0] < cutoff:
-        log.popleft()
+
+def _tpm_in_window(s: dict, now: float) -> int:
+    cutoff = now - WINDOW
+    log = s["tpm_log"]
+    while log and log[0][0] < cutoff: log.popleft()
     return sum(t for _, t in log)
 
 
-def _record_tokens(key: str, token_count: int, now: float) -> None:
-    _state[key]["token_log"].append((now, token_count))
-    _state[key]["total_tokens"] += token_count
+def _daily_reset(s: dict, now: float) -> None:
+    if now >= s["day_reset_at"]:
+        s["rpd_used"] = 0
+        s["tpd_used"] = 0
+        s["day_reset_at"] = _midnight_utc()
+
+
+def _headroom_score(key: str, now: float) -> float:
+    """
+    Returns 0.0 if key should NOT be used right now.
+    Returns 0.0-1.0 headroom ratio (higher = more room).
+    Uses ALL four dimensions: RPM, TPM, RPD, TPD.
+    """
+    s = _state[key]
+    if s["cooldown_until"] > now:
+        return 0.0
+
+    _daily_reset(s, now)
+
+    rpm_used = _rpm_in_window(s, now)
+    tpm_used = _tpm_in_window(s, now)
+
+    rpm_remaining = DEFAULT_RPM - rpm_used
+    tpm_remaining = DEFAULT_TPM - tpm_used
+    rpd_remaining = DEFAULT_RPD - s["rpd_used"]
+    tpd_remaining = DEFAULT_TPD - s["tpd_used"]
+
+    # Blend with live header values if fresh
+    if s["hdr_reset_tokens_at"] > now - WINDOW:
+        tpm_remaining = min(tpm_remaining, s["hdr_remaining_tokens"])
+        rpd_remaining = min(rpd_remaining, s["hdr_remaining_requests"])
+
+    # Pre-emptive switch — bail before hitting the wall
+    if tpm_remaining < SWITCH_TPM_BELOW: return 0.0
+    if rpm_remaining < SWITCH_RPM_BELOW: return 0.0
+    if rpd_remaining < SWITCH_RPD_BELOW: return 0.0
+    if tpd_remaining < SWITCH_TPD_BELOW: return 0.0
+
+    # Bottleneck score — worst dimension determines quality
+    return min(
+        rpm_remaining / DEFAULT_RPM,
+        tpm_remaining / DEFAULT_TPM,
+        rpd_remaining / DEFAULT_RPD,
+        tpd_remaining / DEFAULT_TPD,
+    )
 
 
 def _is_available(key: str, now: float) -> bool:
-    if _state[key]["cooldown_until"] > now:
-        return False
-    return _tokens_in_window(key, now) < SOFT_TOKEN_LIMIT
+    return _headroom_score(key, now) > 0.0
 
-
-# ── Public API ────────────────────────────────────────────────────────────────
 
 def get_key(override: Optional[str] = None) -> Optional[str]:
-    """
-    Return the best key to use right now.
-    If override is set it is returned directly (no tracking).
-    Priority: fewest tokens in window → least recently used.
-    """
-    if override and override.strip():
-        return override.strip()
-
+    if override and override.strip(): return override.strip()
     now = time.time()
     with _lock:
-        available = [k for k in _RAW_KEYS if _is_available(k, now)]
-        if available:
-            # Prefer key with most headroom (fewest recent tokens)
-            return min(available, key=lambda k: _tokens_in_window(k, now))
-
-        # All soft-limited or hard-cooldown — pick the one that recovers soonest
-        # First check if any are just soft-limited (window will clear)
+        ranked = sorted(_RAW_KEYS, key=lambda k: -_headroom_score(k, now))
+        if ranked and _headroom_score(ranked[0], now) > 0:
+            return ranked[0]
+        # All soft-limited — pick least-loaded not on hard cooldown
         not_hard = [k for k in _RAW_KEYS if _state[k]["cooldown_until"] <= now]
         if not_hard:
-            return min(not_hard, key=lambda k: _tokens_in_window(k, now))
-
-        # All hard-cooldown — return the one that unblocks first
-        if _RAW_KEYS:
-            return min(_RAW_KEYS, key=lambda k: _state[k]["cooldown_until"])
-
-    return None
+            return min(not_hard, key=lambda k: _tpm_in_window(_state[k], now))
+        # All hard-cooldown — earliest recovery
+        return min(_RAW_KEYS, key=lambda k: _state[k]["cooldown_until"]) if _RAW_KEYS else None
 
 
-def get_next_key(exclude_key: Optional[str] = None) -> Optional[str]:
-    """
-    Return the next best key, explicitly excluding one that just failed.
-    Used for immediate retry after a rate-limit hit.
-    """
+def get_next_key(exclude_keys: Optional[set] = None) -> Optional[str]:
+    now = time.time()
+    excl = exclude_keys or set()
+    with _lock:
+        pool = [k for k in _RAW_KEYS if k not in excl]
+        if not pool: return None
+        ranked = sorted(pool, key=lambda k: -_headroom_score(k, now))
+        if ranked and _headroom_score(ranked[0], now) > 0:
+            return ranked[0]
+        not_hard = [k for k in pool if _state[k]["cooldown_until"] <= now]
+        if not_hard:
+            return min(not_hard, key=lambda k: _tpm_in_window(_state[k], now))
+        return min(pool, key=lambda k: _state[k]["cooldown_until"])
+
+
+def mark_used(key: str, token_count: int = 0, headers: Optional[dict] = None) -> None:
     now = time.time()
     with _lock:
-        candidates = [k for k in _RAW_KEYS if k != exclude_key and _is_available(k, now)]
-        if candidates:
-            return min(candidates, key=lambda k: _tokens_in_window(k, now))
-
-        # Fall back to anything not hard-cooldown and not excluded
-        soft_ok = [k for k in _RAW_KEYS if k != exclude_key and _state[k]["cooldown_until"] <= now]
-        if soft_ok:
-            return min(soft_ok, key=lambda k: _tokens_in_window(k, now))
-
-        # All bad — try anything not excluded
-        remaining = [k for k in _RAW_KEYS if k != exclude_key]
-        if remaining:
-            return min(remaining, key=lambda k: _state[k]["cooldown_until"])
-
-    return None
+        if key not in _state: return
+        s = _state[key]
+        _daily_reset(s, now)
+        s["uses"] += 1
+        s["last_used"] = now
+        s["rpd_used"] += 1
+        s["rpm_log"].append(now)
+        if token_count > 0:
+            s["tpm_log"].append((now, token_count))
+            s["tpd_used"] += token_count
+            s["total_tokens"] += token_count
+        if headers:
+            _ingest_headers(s, headers, now)
 
 
-def mark_used(key: str, token_count: int = 0) -> None:
-    """Record a successful API call. Pass token_count from usage metadata."""
+def _ingest_headers(s: dict, headers: dict, now: float) -> None:
+    """Read live remaining values directly from Groq response headers."""
+    try:
+        rem_tok = headers.get("x-ratelimit-remaining-tokens")
+        rem_req = headers.get("x-ratelimit-remaining-requests")
+        reset_tok = headers.get("x-ratelimit-reset-tokens", "")
+
+        if rem_tok is not None:
+            s["hdr_remaining_tokens"] = int(rem_tok)
+            s["hdr_reset_tokens_at"]  = now
+
+        if rem_req is not None:
+            s["hdr_remaining_requests"] = int(rem_req)
+
+        # Parse "7.66s" or "1m2.5s" into seconds
+        if reset_tok:
+            secs = 0.0
+            rt = str(reset_tok).rstrip("s")
+            if "m" in rt:
+                parts = rt.split("m")
+                secs = float(parts[0]) * 60 + float(parts[1] or 0)
+            else:
+                secs = float(rt) if rt else 0.0
+            if secs > 0:
+                s["hdr_reset_tokens_at"] = now + secs
+    except Exception:
+        pass
+
+
+def mark_rate_limited(key: str, retry_after: Optional[float] = None) -> None:
     now = time.time()
+    cooldown = (retry_after + 2.0) if retry_after else HARD_COOLDOWN_BASE
     with _lock:
         if key in _state:
-            _state[key]["uses"] += 1
-            _state[key]["last_used"] = now
-            if token_count > 0:
-                _record_tokens(key, token_count, now)
-
-
-def mark_rate_limited(key: str) -> None:
-    """Hard cooldown — received a real 429 from Groq."""
-    now = time.time()
-    with _lock:
-        if key in _state:
-            _state[key]["errors"] += 1
-            _state[key]["cooldown_until"] = now + HARD_COOLDOWN_SECONDS
-            # Also log a big token spike so the soft-limit also fires
-            _record_tokens(key, SOFT_TOKEN_LIMIT, now)
+            s = _state[key]
+            s["errors"] += 1
+            s["cooldown_until"] = now + cooldown
+            s["rpm_log"].clear()
+            s["tpm_log"].clear()
+            s["hdr_remaining_tokens"]   = 0
+            s["hdr_remaining_requests"] = 0
 
 
 def mark_invalid(key: str) -> None:
-    """Auth error — disable for 24 hours."""
     with _lock:
         if key in _state:
             _state[key]["errors"] += 1
             _state[key]["cooldown_until"] = time.time() + DEAD_KEY_SECONDS
 
 
-def seconds_until_available(key: str) -> float:
+def reset_all_cooldowns() -> None:
     with _lock:
-        return max(0.0, _state[key]["cooldown_until"] - time.time())
+        for k in _RAW_KEYS:
+            s = _state[k]
+            s["cooldown_until"] = 0.0
+            s["rpm_log"].clear()
+            s["tpm_log"].clear()
+            s["hdr_remaining_tokens"]   = DEFAULT_TPM
+            s["hdr_remaining_requests"] = DEFAULT_RPD
 
 
-def total_keys() -> int:
-    return len(_RAW_KEYS)
-
-
+def total_keys() -> int: return len(_RAW_KEYS)
 def available_keys_count() -> int:
     now = time.time()
-    with _lock:
-        return sum(1 for k in _RAW_KEYS if _is_available(k, now))
-
-
-def tokens_used_this_minute(key: str) -> int:
-    now = time.time()
-    with _lock:
-        return _tokens_in_window(key, now)
+    with _lock: return sum(1 for k in _RAW_KEYS if _is_available(k, now))
+def seconds_until_available(key: str) -> float:
+    with _lock: return max(0.0, _state[key]["cooldown_until"] - time.time())
 
 
 def status_table() -> list[dict]:
@@ -235,27 +290,19 @@ def status_table() -> list[dict]:
     with _lock:
         for i, k in enumerate(_RAW_KEYS, 1):
             s = _state[k]
-            cd = s["cooldown_until"]
-            toks = _tokens_in_window(k, now)
-            if cd > now:
-                status = f"⏳ cooldown {cd - now:.0f}s"
-            elif toks >= SOFT_TOKEN_LIMIT:
-                status = f"🔴 token limit ({toks}/{SOFT_TOKEN_LIMIT})"
-            else:
-                pct = int(toks / SOFT_TOKEN_LIMIT * 100)
-                status = f"✅ {pct}% used ({toks}/{SOFT_TOKEN_LIMIT} tok/min)"
+            _daily_reset(s, now)
+            score = _headroom_score(k, now)
+            cd    = s["cooldown_until"]
+            if cd > now:   status = f"⏳ cooldown {cd-now:.0f}s"
+            elif score==0: status = "🔴 pre-limit → switching"
+            else:          status = f"✅ {score*100:.0f}% headroom"
             rows.append({
-                "key": f"Key #{i}  ({k[:8]}…{k[-4:]})",
+                "key":    f"Groq #{i} ({k[:8]}…{k[-4:]})",
                 "status": status,
-                "uses": s["uses"],
-                "errors": s["errors"],
-                "tokens_lifetime": s["total_tokens"],
+                "rpm": f"{_rpm_in_window(s,now)}/{DEFAULT_RPM}",
+                "tpm": f"{_tpm_in_window(s,now)}/{DEFAULT_TPM}",
+                "rpd": f"{s['rpd_used']}/{DEFAULT_RPD}",
+                "uses": s["uses"], "errors": s["errors"],
+                "total_tokens": s["total_tokens"],
             })
     return rows
-
-
-def reset_all_cooldowns() -> None:
-    with _lock:
-        for k in _RAW_KEYS:
-            _state[k]["cooldown_until"] = 0.0
-            _state[k]["token_log"].clear()
