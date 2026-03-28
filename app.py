@@ -5,7 +5,10 @@ import re
 import time
 import base64
 import streamlit as st
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 from dotenv import load_dotenv
 
 try:
@@ -22,7 +25,7 @@ from utils.web_handler import scrape_web_page, format_web_context, get_web_stats
 from utils import key_manager
 from utils.personas import PERSONAS, get_persona_names, get_persona_by_name, build_persona_prompt
 from utils.ocr_handler import extract_text_from_image
-from utils.analytics import get_subject_mastery_radar, get_study_intensity_heatmap
+from utils.analytics import get_subject_mastery_radar, get_study_intensity_heatmap, estimate_required_velocity
 
 load_dotenv()
 
@@ -908,7 +911,7 @@ with st.sidebar:
     # ── Active Context ────────────────────────
     if st.session_state.context_sources:
         st.markdown('<div class="section-label">📎 Active Context</div>', unsafe_allow_html=True)
-        icons = {"pdf": "📄", "youtube": "▶️", "web": "🌐"}
+        icons = {"pdf": "📄", "youtube": "▶️", "web": "🌐", "ocr": "📸"}
         chips = "".join([
             f'<span class="source-chip"><span class="chip-dot"></span>{icons.get(s["type"],"📎")} {s["label"][:32]}</span>'
             for s in st.session_state.context_sources
@@ -954,7 +957,9 @@ with st.sidebar:
         st.session_state.study_goals.append({"text": new_goal, "done": False})
         st.rerun()
     for i, g in enumerate(st.session_state.study_goals):
-        st.checkbox(g["text"], value=g["done"], key=f"goal_{i}")
+        checked = st.checkbox(g["text"], value=g["done"], key=f"goal_{i}")
+        if checked != g["done"]:
+            st.session_state.study_goals[i]["done"] = checked
     
     st.divider()
     
@@ -968,22 +973,32 @@ with st.sidebar:
         if st.button("▶️ Go" if not st.session_state.timer_running else "⏹️ Stop", use_container_width=True):
             st.session_state.timer_running = not st.session_state.timer_running
     
-    # ── OCR / Notes Scanner (New) ───────────
+    # ── OCR / Notes Scanner ─────────────────
     st.markdown('<div class="section-label">📸 Notes Scanner (OCR)</div>', unsafe_allow_html=True)
     scanned_file = st.file_uploader("Upload Image", type=["png", "jpg", "jpeg"], label_visibility="collapsed", key="ocr_up")
     if scanned_file:
         if st.button("🔍 Run OCR Scan", use_container_width=True):
-            with st.spinner("Extracting handwritten text..."):
-                 ocr_text = extract_text_from_image(scanned_file.read())
-                 if ocr_text.startswith("OCR"): st.error(ocr_text)
-                 else:
-                     add_context(f"OCR Scan: {scanned_file.name}\n\n{ocr_text}", scanned_file.name, "web")
-                     st.success("✅ Scanned text loaded into context!")
+            with st.spinner("Extracting text from image..."):
+                ocr_text = extract_text_from_image(scanned_file.read())
+                if ocr_text.startswith("Error"):
+                    st.error(ocr_text)
+                else:
+                    add_context(f"OCR Scan: {scanned_file.name}\n\n{ocr_text}", scanned_file.name, "ocr")
+                    st.success(f"✅ Scanned text loaded — {len(ocr_text.split())} words extracted!")
 
-    # ── Academic Analytics (Massive charts) ──
+    # ── Mastery Tracker ──────────────────────
     st.markdown('<div class="section-label">📈 Mastery Tracker</div>', unsafe_allow_html=True)
-    radar_chart = get_subject_mastery_radar({})
-    if radar_chart: st.plotly_chart(radar_chart, use_container_width=True, config={'displayModeBar': False})
+    # Build mastery data from session activity
+    _mastery = {}
+    if st.session_state.get("card_mastery"):
+        passed = sum(1 for v in st.session_state.card_mastery.values() if v == "pass")
+        total_cards = len(st.session_state.card_mastery)
+        _mastery["Recall"] = int((passed / max(1, total_cards)) * 100)
+    if st.session_state.get("quiz_score") and st.session_state.get("quiz_data"):
+        _mastery["Comprehension"] = int((st.session_state.quiz_score / max(1, len(st.session_state.quiz_data))) * 100)
+    radar_chart = get_subject_mastery_radar(_mastery)
+    if radar_chart:
+        st.plotly_chart(radar_chart, use_container_width=True, config={'displayModeBar': False})
 
     # ── Exam Countdown ──────────────────────
     st.markdown('<div class="section-label">🗓️ Exam Countdown</div>', unsafe_allow_html=True)
@@ -1006,43 +1021,47 @@ with st.sidebar:
     )
     st.session_state.model_choice = "llama-3.1-8b-instant" if "Fast" in intelligence_level else "llama-3.3-70b-versatile"
 
-    # ── Context Intelligence Dashboard (New) ──
+    # ── Context Intelligence Dashboard ────────
     if st.session_state.context_text:
         st.markdown('<div class="section-label">📜 Context Summary</div>', unsafe_allow_html=True)
-        if "last_context_summary" not in st.session_state or st.session_state.get("last_context_hash") != hash(st.session_state.context_text):
-            with st.spinner("Analyzing insight..."):
+        ctx_hash = hash(st.session_state.context_text)
+        if "last_context_summary" not in st.session_state or st.session_state.get("last_context_hash") != ctx_hash:
+            with st.spinner("Analyzing content..."):
                 try:
-                    summary_prompt = [{"role": "system", "content": "Briefly summarize the core topics of this material in exactly 3 bullet points with emojis."}, {"role": "user", "content": st.session_state.context_text[:8000]}]
-                    st.session_state.last_context_summary = chat_with_groq(summary_prompt, model="llama-3.1-8b-instant")
-                    st.session_state.last_context_hash = hash(st.session_state.context_text)
+                    override_k = _get_override_key()
+                    summary_prompt = [
+                        {"role": "system", "content": "Briefly summarize the core topics of this material in exactly 3 bullet points with emojis. Be concise."},
+                        {"role": "user", "content": st.session_state.context_text[:6000]}
+                    ]
+                    st.session_state.last_context_summary = chat_with_groq(
+                        summary_prompt, model="llama-3.1-8b-instant", override_key=override_k
+                    )
+                    st.session_state.last_context_hash = ctx_hash
                 except Exception:
-                    st.session_state.last_context_summary = "Ready to discuss your notes."
+                    st.session_state.last_context_summary = "📚 Study material loaded and ready for questions."
         
         st.markdown(f'<div style="font-size:0.75rem; color:var(--text3); line-height:1.4; background:var(--bg3); padding:10px; border-radius:8px; border-left:3px solid var(--accent);">{st.session_state.last_context_summary}</div>', unsafe_allow_html=True)
 
-    # ── Academic Analytics (New) ──────────────
-    st.markdown('<div class="section-label">📈 Academic Analytics</div>', unsafe_allow_html=True)
-    msg_total = len(st.session_state.messages)
+    # ── Academic Progress ─────────────────────
+    st.markdown('<div class="section-label">📈 Session Progress</div>', unsafe_allow_html=True)
     concepts_total = len(st.session_state.context_sources)
-    
-    # Calculate total words in current context
-    word_count_total = sum(len(s.get("label", "").split()) for s in st.session_state.context_sources) # simplistic proxy
-    # Better: access the text directly
-    actual_words = len(st.session_state.context_text.split())
+    actual_words = len(st.session_state.context_text.split()) if st.session_state.context_text else 0
+    concepts_pct = int(min(100.0, float(concepts_total) * 10.0))
+    words_pct = int(min(100.0, float(actual_words) / 100.0))
     
     st.markdown(f"""
     <div style="background:var(--bg3); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:1rem;">
         <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text3); margin-bottom:4px;">
-            <span>Concepts Mastered</span> <span>{concepts_total}</span>
+            <span>Sources Loaded</span> <span>{concepts_total}</span>
         </div>
         <div style="height:4px; background:var(--bg2); border-radius:2px; margin-bottom:10px;">
-            <div style="width:{int(min(100.0, float(concepts_total)*10.0))}%; height:100%; background:var(--accent); border-radius:2px;"></div>
+            <div style="width:{concepts_pct}%; height:100%; background:var(--accent); border-radius:2px;"></div>
         </div>
         <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text3); margin-bottom:4px;">
             <span>Knowledge Density</span> <span>{actual_words:,} words</span>
         </div>
         <div style="height:4px; background:var(--bg2); border-radius:2px;">
-            <div style="width:{int(min(100.0, float(actual_words)/100.0))}%; height:100%; background:var(--accent); border-radius:2px; opacity:0.6;"></div>
+            <div style="width:{words_pct}%; height:100%; background:var(--accent); border-radius:2px; opacity:0.6;"></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1093,7 +1112,6 @@ with st.sidebar:
         {"id": "quiz", "name": "Quiz Mode", "icon": "📝", "desc": "Interactive assessment", "mode": "quiz"},
         {"id": "map", "name": "Mind Map", "icon": "📊", "desc": "Visual concept mapping", "mode": "mindmap"},
         {"id": "plan", "name": "Study Planner", "icon": "📅", "desc": "Tailored revision timetable", "mode": "planner"},
-        {"id": "voice", "name": "Voice Assistant", "icon": "🎙️", "desc": "Speak to your tutor", "mode": "voice"},
         {"id": "chat", "name": "Standard Chat", "icon": "💬", "desc": "General study conversation", "mode": "chat"},
     ]
 
@@ -1217,13 +1235,19 @@ if app_mode == "flashcards":
                     </div>
                     """, unsafe_allow_html=True)
             
-            col_a, col_b, col_c = st.columns([1,1,1])
+            is_last = idx == len(cards) - 1
+            if not is_last:
+                col_a, col_b, col_c = st.columns([1,1,1])
+            else:
+                col_a, col_b, col_c, col_d = st.columns([1,1,1,1])
+            
             with col_a:
                 if st.button("❌ Need more", use_container_width=True):
-                    # Tracking (simplistic)
                     if "card_mastery" not in st.session_state: st.session_state.card_mastery = {}
                     st.session_state.card_mastery[idx] = "fail"
-                    if idx < len(cards)-1: st.session_state.current_card += 1; st.rerun()
+                    if not is_last:
+                        st.session_state.current_card += 1
+                        st.rerun()
             with col_b:
                 if st.button("💾 Save Deck", use_container_width=True):
                     summary = "\n".join([f"Q: {c['q']} | A: {c['a']}" for c in cards])
@@ -1233,11 +1257,16 @@ if app_mode == "flashcards":
                 if st.button("✅ Got it", use_container_width=True):
                     if "card_mastery" not in st.session_state: st.session_state.card_mastery = {}
                     st.session_state.card_mastery[idx] = "pass"
-                    if idx < len(cards)-1: st.session_state.current_card += 1; st.rerun()
-                elif idx == len(cards)-1:
-                    if st.button("Finish 🏁", use_container_width=True):
-                         st.session_state.flashcards = []
-                         st.rerun()
+                    if not is_last:
+                        st.session_state.current_card += 1
+                        st.rerun()
+            if is_last:
+                with col_d:
+                    if st.button("🏁 Finish", use_container_width=True):
+                        st.session_state.flashcards = []
+                        st.session_state.card_mastery = {}
+                        st.session_state.current_card = 0
+                        st.rerun()
 
             # Progress Bar
             mastery_count = sum(1 for v in st.session_state.get("card_mastery", {}).values() if v == "pass")
@@ -1252,10 +1281,14 @@ if app_mode == "flashcards":
             st.divider()
             col_ex1, col_ex2 = st.columns(2)
             with col_ex1:
-                st.download_button("📤 JSON Export", json.dumps(cards), "deck.json", use_container_width=True)
+                st.download_button("📤 JSON Export", json.dumps(cards, indent=2), "deck.json", use_container_width=True)
             with col_ex2:
-                df = pd.DataFrame(cards)
-                st.download_button("📊 CSV Export", df.to_csv(index=False), "deck.csv", use_container_width=True)
+                if pd is not None:
+                    df = pd.DataFrame(cards)
+                    st.download_button("📊 CSV Export", df.to_csv(index=False), "deck.csv", use_container_width=True)
+                else:
+                    csv_lines = ["question,answer"] + [f'"{c["q"]}","{c["a"]}"' for c in cards]
+                    st.download_button("📊 CSV Export", "\n".join(csv_lines), "deck.csv", use_container_width=True)
     st.stop()
 
 elif app_mode == "quiz":
@@ -1352,8 +1385,21 @@ elif app_mode == "mindmap":
                 ]
                 try:
                     mm_code = chat_with_groq(prompt, override_key=_get_override_key())
-                    if "```mermaid" in mm_code: mm_code = mm_code.split("```mermaid")[1].split("```")[0]
-                    elif "```" in mm_code: mm_code = mm_code.split("```")[1].split("```")[0]
+                    # Extract mermaid code from markdown fences
+                    if "```mermaid" in mm_code:
+                        mm_code = mm_code.split("```mermaid", 1)[1]
+                        end_idx = mm_code.find("```")
+                        if end_idx != -1:
+                            mm_code = mm_code[:end_idx]
+                    elif "```" in mm_code:
+                        parts = mm_code.split("```")
+                        if len(parts) >= 3:
+                            mm_code = parts[1]
+                            # Strip language identifier if present
+                            if mm_code.startswith("\n"):
+                                mm_code = mm_code[1:]
+                            elif mm_code.split("\n", 1)[0].strip().isalpha():
+                                mm_code = mm_code.split("\n", 1)[1] if "\n" in mm_code else mm_code
                     st.session_state.mindmap_code = mm_code.strip()
                 except Exception as e:
                     st.error(f"Visualization Error: {e}")
@@ -1434,16 +1480,24 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # ── Voice Input & Chat Input ────────────────────────────────
-audio_val = st.audio_input("Record a voice question", label_visibility="collapsed")
+try:
+    audio_val = st.audio_input("Record a voice question", label_visibility="collapsed")
+except Exception:
+    audio_val = None  # Graceful fallback if audio_input not supported
+
 if audio_val and audio_val != st.session_state.get("last_audio"):
     st.session_state.last_audio = audio_val
     with st.spinner("Transcribing voice..."):
         try:
-            transcript = transcribe_audio(audio_val.read(), override_key=_get_override_key())
-            if hasattr(transcript, "text") and transcript.text.strip():
-                st.session_state.queued_prompt = transcript.text
-            elif isinstance(transcript, str) and transcript.strip():
-                st.session_state.queued_prompt = transcript
+            audio_bytes = audio_val.read()
+            if audio_bytes:
+                transcript = transcribe_audio(audio_bytes, override_key=_get_override_key())
+                if hasattr(transcript, "text") and transcript.text.strip():
+                    st.session_state.queued_prompt = transcript.text
+                    st.rerun()
+                elif isinstance(transcript, str) and transcript.strip():
+                    st.session_state.queued_prompt = transcript
+                    st.rerun()
         except Exception as e:
             st.error(f"Voice transcription failed: {e}")
 
