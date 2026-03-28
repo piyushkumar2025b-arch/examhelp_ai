@@ -1464,7 +1464,8 @@ else:
           <div class="hero-title">Study smarter with <em>AI</em></div>
           <div class="hero-sub">
             Upload a PDF, paste a YouTube link, or ask any academic question.
-            Get expert explanations, flashcards, quizzes, and more.
+            Get expert explanations, flashcards, quizzes, and more.<br><br>
+            <span style="color: var(--primary-color);">💡 Kindly upload a PDF, PNG, or other study material to use the document-specific functions below.</span>
           </div>
         </div>""", unsafe_allow_html=True)
 
