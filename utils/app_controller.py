@@ -13,6 +13,10 @@ try:
     from duckduckgo_search import DDGS
 except ImportError:
     DDGS = None
+try:
+    from sympy import sympify
+except ImportError:
+    sympify = None
 
 from utils.groq_client import chat_with_groq
 
@@ -124,3 +128,23 @@ class AppController:
         if success:
             return list(res_data.values())[0] if res_data else None
         return None
+
+    @staticmethod
+    def evaluate_expression(expr: str):
+        if sympify is None:
+            return "Error (sympy not installed)"
+        if not expr.strip():
+            return ""
+            
+        safe_expr = expr.replace('×', '*').replace('÷', '/').replace('^', '**').replace('−', '-').replace('π', 'pi')
+        safe_expr = safe_expr.replace('√(', 'sqrt(').replace('ln(', 'log(').replace('log(', 'log10(')
+        
+        try:
+            result = sympify(safe_expr).evalf()
+            res_float = float(result)
+            if res_float == int(res_float):
+                return str(int(res_float))
+            res_str = f"{res_float:.8f}"
+            return res_str.rstrip('0').rstrip('.')
+        except Exception:
+            return "Error"

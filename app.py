@@ -1050,64 +1050,77 @@ with st.sidebar:
         calc_input = st.text_input(
             "Expression", 
             value=st.session_state.calc_expr,
-            placeholder="e.g. sin(45*pi/180), sqrt(144), 2**10",
+            placeholder="e.g. 5+5, sin(pi/4)",
             label_visibility="collapsed",
             key="calc_input_field"
         )
         
-        c1, c2, c3, c4, c5 = st.columns(5)
-        calc_buttons = [
-            ("sin", c1), ("cos", c2), ("tan", c3), ("√", c4), ("π", c5),
-        ]
-        for label, col in calc_buttons:
+        if calc_input != st.session_state.calc_expr:
+            st.session_state.calc_expr = calc_input
+            
+        def _add_calc(val):
+            if st.session_state.calc_result and st.session_state.calc_result != "Error":
+                if val in ["+", "−", "×", "÷", "^", "%"]:
+                    st.session_state.calc_expr = st.session_state.calc_result + val
+                else: 
+                    st.session_state.calc_expr = val
+                st.session_state.calc_result = ""
+            else:
+                st.session_state.calc_expr += val
+
+        def _eval_calc():
+            st.session_state.calc_result = AppController.evaluate_expression(st.session_state.calc_expr)
+            if st.session_state.calc_result != "Error":
+                st.session_state.calc_expr = st.session_state.calc_result
+            
+        s1, s2, s3, s4, s5 = st.columns(5)
+        for lbl, val, col in [("sin", "sin(", s1), ("cos", "cos(", s2), ("tan", "tan(", s3), ("log", "log(", s4), ("ln", "ln(", s5)]:
+            with col: 
+                if st.button(lbl, key=f"cb_{lbl}", use_container_width=True): _add_calc(val); st.rerun()
+        s6, s7, s8, s9, s10 = st.columns(5)
+        for lbl, val, col in [("√", "√(", s6), ("π", "π", s7), ("(", "(", s8), (")", ")", s9), ("e", "e", s10)]:
             with col:
-                if st.button(label, key=f"cb_{label}", use_container_width=True):
-                    mapping = {"sin": "sin(", "cos": "cos(", "tan": "tan(", "√": "sqrt(", "π": "pi"}
-                    st.session_state.calc_expr = calc_input + mapping[label]
-                    st.rerun()
-        
-        c6, c7, c8, c9, c10 = st.columns(5)
-        calc_buttons2 = [
-            ("log", c6), ("ln", c7), ("x²", c8), ("(", c9), (")", c10),
-        ]
-        for label, col in calc_buttons2:
+                if st.button(lbl, key=f"cb_{lbl}", use_container_width=True): _add_calc(val); st.rerun()
+                
+        r1_1, r1_2, r1_3, r1_4, r1_5 = st.columns(5)
+        for lbl, val, col in [("7", "7", r1_1), ("8", "8", r1_2), ("9", "9", r1_3), ("÷", "÷", r1_4)]:
             with col:
-                if st.button(label, key=f"cb_{label}", use_container_width=True):
-                    mapping = {"log": "log10(", "ln": "log(", "x²": "**2", "(": "(", ")": ")"}
-                    st.session_state.calc_expr = calc_input + mapping[label]
-                    st.rerun()
-        
-        c11, c12 = st.columns([3, 1])
-        with c11:
-            pass  # expression already shown above
-        with c12:
-            if st.button("= Calc", key="calc_go", use_container_width=True):
-                try:
-                    safe_expr = calc_input.replace("^", "**")
-                    allowed = {"sin": math.sin, "cos": math.cos, "tan": math.tan,
-                               "sqrt": math.sqrt, "log": math.log, "log10": math.log10,
-                               "log2": math.log2, "pi": math.pi, "e": math.e,
-                               "abs": abs, "pow": pow, "round": round,
-                               "asin": math.asin, "acos": math.acos, "atan": math.atan,
-                               "sinh": math.sinh, "cosh": math.cosh, "tanh": math.tanh,
-                               "factorial": math.factorial, "ceil": math.ceil, "floor": math.floor,
-                               "degrees": math.degrees, "radians": math.radians}
-                    result = eval(safe_expr, {"__builtins__": {}}, allowed)
-                    st.session_state.calc_result = str(result)
-                    st.session_state.calc_expr = str(result)
-                except Exception as ex:
-                    st.session_state.calc_result = f"Error: {ex}"
+                if st.button(lbl, key=f"cb_{lbl}", use_container_width=True): _add_calc(val); st.rerun()
+        with r1_5:
+            if st.button("⌫", key="cb_bk", use_container_width=True):
+                st.session_state.calc_expr = st.session_state.calc_expr[:-1]
                 st.rerun()
-        
+                
+        r2_1, r2_2, r2_3, r2_4, r2_5 = st.columns(5)
+        for lbl, val, col in [("4", "4", r2_1), ("5", "5", r2_2), ("6", "6", r2_3), ("×", "×", r2_4), ("^", "^", r2_5)]:
+            with col:
+                if st.button(lbl, key=f"cb_{lbl}", use_container_width=True): _add_calc(val); st.rerun()
+                
+        r3_1, r3_2, r3_3, r3_4, r3_5 = st.columns(5)
+        for lbl, val, col in [("1", "1", r3_1), ("2", "2", r3_2), ("3", "3", r3_3), ("−", "−", r3_4), ("%", "%", r3_5)]:
+            with col:
+                if st.button(lbl, key=f"cb_{lbl}", use_container_width=True): _add_calc(val); st.rerun()
+                
+        r4_1, r4_2, r4_3, r4_4, r4_5 = st.columns(5)
+        with r4_1:
+            if st.button("C", key="cb_clr", use_container_width=True):
+                st.session_state.calc_expr = ""
+                st.session_state.calc_result = ""
+                st.rerun()
+        with r4_2:
+            if st.button("0", key="cb_0", use_container_width=True): _add_calc("0"); st.rerun()
+        with r4_3:
+            if st.button(".", key="cb_dot", use_container_width=True): _add_calc("."); st.rerun()
+        with r4_4:
+            if st.button("=", key="cb_eq", type="primary", use_container_width=True):
+                _eval_calc(); st.rerun()
+        with r4_5:
+            if st.button("+", key="cb_plus", use_container_width=True): _add_calc("+"); st.rerun()
+                
         if st.session_state.calc_result:
-            bg_col = "var(--green-bg)" if not st.session_state.calc_result.startswith("Error") else "rgba(248,113,113,0.08)"
-            txt_col = "var(--green)" if not st.session_state.calc_result.startswith("Error") else "var(--red)"
+            bg_col = "var(--green-bg)" if st.session_state.calc_result != "Error" else "rgba(248,113,113,0.08)"
+            txt_col = "var(--green)" if st.session_state.calc_result != "Error" else "var(--red)"
             st.markdown(f'<div style="background:{bg_col};border-radius:8px;padding:10px 14px;font-family:var(--mono);font-size:1.1rem;font-weight:700;color:{txt_col};text-align:right;">{st.session_state.calc_result}</div>', unsafe_allow_html=True)
-        
-        if st.button("🗑️ Clear", key="calc_clear", use_container_width=True):
-            st.session_state.calc_expr = ""
-            st.session_state.calc_result = ""
-            st.rerun()
 
     # ── Bookmarks Panel ───────────────────────
     if st.session_state.get("bookmarks_open"):
@@ -1640,55 +1653,43 @@ elif app_mode == "calculator":
         g1, g2, g3, g4, g5, g6 = st.columns(6)
         btns_row1 = [("sin", "sin(", g1), ("cos", "cos(", g2), ("tan", "tan(", g3), ("asin", "asin(", g4), ("acos", "acos(", g5), ("atan", "atan(", g6)]
         g7, g8, g9, g10, g11, g12 = st.columns(6)
-        btns_row2 = [("log", "log10(", g7), ("ln", "log(", g8), ("log2", "log2(", g9), ("e", "e", g10), ("π", "pi", g11), ("√", "sqrt(", g12)]
+        btns_row2 = [("log", "log10(", g7), ("ln", "log(", g8), ("log2", "log2(", g9), ("e", "e", g10), ("π", "π", g11), ("√", "√(", g12)]
         g13, g14, g15, g16, g17, g18 = st.columns(6)
         
-        # Advanced math bounds
-        btns_row3 = [("n!", "factorial(", g13), ("x²", "**2", g14), ("x³", "**3", g15), ("^", "**", g16), ("|x|", "abs(", g17), ("mod", "%", g18)]
+        btns_row3 = [("7", "7", g13), ("8", "8", g14), ("9", "9", g15), ("÷", "÷", g16), ("(", "(", g17), (")", ")", g18)]
         g19, g20, g21, g22, g23, g24 = st.columns(6)
+        btns_row4 = [("4", "4", g19), ("5", "5", g20), ("6", "6", g21), ("×", "×", g22), ("|x|", "abs(", g23), ("mod", "%", g24)]
+        g25, g26, g27, g28, g29, g30 = st.columns(6)
+        btns_row5 = [("1", "1", g25), ("2", "2", g26), ("3", "3", g27), ("−", "−", g28), ("x²", "**2", g29), ("^", "^", g30)]
+        g31, g32, g33, g34, g35, g36 = st.columns(6)
         
-        # Combinatorics & grouping
-        btns_row4 = [("nCr", "comb(", g19), ("nPr", "perm(", g20), ("ceil", "ceil(", g21), ("floor", "floor(", g22), ("(", "(", g23), (")", ")", g24)]
-        
-        for name, val, col in btns_row1 + btns_row2 + btns_row3 + btns_row4:
+        for name, val, col in btns_row1 + btns_row2 + btns_row3 + btns_row4 + btns_row5:
             with col:
                 if st.button(name, key=f"fsc_{name}", use_container_width=True):
-                    st.session_state.fs_calc_expr = fs_input + val
-                    st.rerun()
+                    _add_fsc(val); st.rerun()
                     
-        rc1, rc2 = st.columns([4, 1])
-        with rc1:
-            if st.button("🗑️ Clear", key="fsc_clear", use_container_width=True):
+        with g31:
+            if st.button("C", key="fsc_clr", use_container_width=True):
                 st.session_state.fs_calc_expr = ""
                 st.session_state.fs_calc_result = ""
                 st.rerun()
-        with rc2:
-            if st.button("= Calculate", key="fsc_go", type="primary", use_container_width=True):
-                try:
-                    safe_expr = fs_input.replace("^", "**")
-                    allowed = {"sin": _math.sin, "cos": _math.cos, "tan": _math.tan,
-                               "sqrt": _math.sqrt, "log": _math.log, "log10": _math.log10,
-                               "log2": _math.log2, "pi": _math.pi, "e": _math.e,
-                               "abs": abs, "pow": pow, "round": round,
-                               "asin": _math.asin, "acos": _math.acos, "atan": _math.atan,
-                               "sinh": _math.sinh, "cosh": _math.cosh, "tanh": _math.tanh,
-                               "factorial": _math.factorial, "ceil": _math.ceil, "floor": _math.floor,
-                               "degrees": _math.degrees, "radians": _math.radians}
-                    if hasattr(_math, 'comb'): allowed['comb'] = _math.comb
-                    if hasattr(_math, 'perm'): allowed['perm'] = _math.perm
-                    
-                    result = eval(safe_expr, {"__builtins__": {}}, allowed)
-                    st.session_state.fs_calc_result = str(result)
-                    st.session_state.fs_calc_expr = str(result)
-                    st.session_state.fs_calc_history.append(f"{fs_input} = {result}")
-                    if len(st.session_state.fs_calc_history) > 10: st.session_state.fs_calc_history.pop(0)
-                except Exception as ex:
-                    st.session_state.fs_calc_result = f"Error: {ex}"
+        with g32:
+            if st.button("0", key="fsc_0", use_container_width=True): _add_fsc("0"); st.rerun()
+        with g33:
+            if st.button(".", key="fsc_dot", use_container_width=True): _add_fsc("."); st.rerun()
+        with g34:
+            if st.button("=", key="fsc_eq", type="primary", use_container_width=True):
+                _eval_fsc(); st.rerun()
+        with g35:
+            if st.button("+", key="fsc_plus", use_container_width=True): _add_fsc("+"); st.rerun()
+        with g36:
+            if st.button("⌫", key="fsc_bk", use_container_width=True):
+                st.session_state.fs_calc_expr = st.session_state.fs_calc_expr[:-1]
                 st.rerun()
                 
         if st.session_state.fs_calc_result:
-            bg_col = "var(--green-bg)" if not st.session_state.fs_calc_result.startswith("Error") else "rgba(248,113,113,0.08)"
-            txt_col = "var(--green)" if not st.session_state.fs_calc_result.startswith("Error") else "var(--red)"
+            bg_col = "var(--green-bg)" if st.session_state.fs_calc_result != "Error" else "rgba(248,113,113,0.08)"
+            txt_col = "var(--green)" if st.session_state.fs_calc_result != "Error" else "var(--red)"
             st.markdown(f'<div style="background:{bg_col};border:1px solid {txt_col};border-radius:15px;padding:25px;font-family:var(--mono);font-size:2.4rem;font-weight:800;color:{txt_col};text-align:right;box-shadow: 0 8px 32px {bg_col};margin-top:20px;">{st.session_state.fs_calc_result}</div>', unsafe_allow_html=True)
 
     with calc_col2:
