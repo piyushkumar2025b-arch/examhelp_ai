@@ -88,3 +88,6 @@ python-jose==3.3.0
 websockets==12.0
 streamlit-aggrid==0.3.4
 streamlit-elements==0.1.0
+
+# ── Gemini SDK (optional — gemini_client.py uses raw REST, but SDK is handy) ──
+google-generativeai>=0.7.0

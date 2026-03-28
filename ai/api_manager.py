@@ -74,10 +74,38 @@ class UnifiedAPIManager:
             from utils.contest_engine import fetch_upcoming_contests
             return fetch_upcoming_contests()
 
-        # LLM
+        # LLM via Groq (fast, default)
         elif api_name == "llm":
             return chat_with_groq(kwargs.get("messages", []),
                                   json_mode=kwargs.get("json_mode", False))
+
+        # LLM via Gemini (vision-capable, large context)
+        elif api_name in ("gemini", "gemini_llm"):
+            from ai.gemini_client import chat_with_gemini
+            return chat_with_gemini(
+                kwargs.get("messages", []),
+                context_text=kwargs.get("context_text", ""),
+                json_mode=kwargs.get("json_mode", False),
+                use_pro=kwargs.get("use_pro", False),
+            )
+
+        # Vision / image analysis via Gemini
+        elif api_name == "vision":
+            from ai.gemini_client import analyze_image_with_gemini
+            return analyze_image_with_gemini(
+                image_bytes=kwargs.get("image_bytes", b""),
+                mime_type=kwargs.get("mime_type", "image/jpeg"),
+                prompt=query,
+            )
+
+        # Status check for all keys
+        elif api_name == "key_status":
+            from utils import key_manager as km
+            from utils import gemini_key_manager as gkm
+            return {
+                "groq": km.status_table(),
+                "gemini": gkm.status_table(),
+            }
 
         return f"Unknown API: {api_name}"
 
