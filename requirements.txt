@@ -91,3 +91,6 @@ streamlit-elements==0.1.0
 
 # ── Gemini SDK (optional — gemini_client.py uses raw REST, but SDK is handy) ──
 google-generativeai>=0.7.0
+
+# ── Google Docs Clone Editor ──
+streamlit-quill==0.0.3

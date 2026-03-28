@@ -545,11 +545,12 @@ with st.sidebar:
         st.divider()
 
     # ── Toolbar icons ──────────────────────────────
-    tb_cols = st.columns(6)
+    tb_cols = st.columns(7)
     _tb_items = [
         ("📅", "tb_cal", "Calendar",    "calendar_open"),
         ("🧮", "tb_calc", "Calculator", None),
         ("📈", "tb_graph", "Graphs",    None),
+        ("📝", "tb_editor", "AI Editor", None),
         ("🔕" if st.session_state.focus_mode else "🔔", "tb_focus", "Focus Mode", None),
         ("🔖", "tb_bm",  "Bookmarks",   "bookmarks_open"),
         ("📜", "tb_hist", "History",    None),
@@ -561,6 +562,8 @@ with st.sidebar:
                     st.session_state.calculator_open = not st.session_state.calculator_open
                 elif k == "tb_graph":
                     st.session_state.app_mode = "graph"; st.rerun()
+                elif k == "tb_editor":
+                    st.session_state.app_mode = "editor"; st.rerun()
                 elif k == "tb_focus":
                     st.session_state.focus_mode = not st.session_state.focus_mode; st.rerun()
                 elif k == "tb_hist":
@@ -1432,6 +1435,13 @@ elif app_mode == "graph":
         st.session_state.app_mode = "chat"; st.rerun()
 
 # ─────────────────────────────────────────────
+# AI EDITOR MODE
+# ─────────────────────────────────────────────
+elif app_mode == "editor":
+    from ui.doc_editor import render_doc_editor
+    render_doc_editor()
+
+# ─────────────────────────────────────────────
 # CHAT MODE (default)
 # ─────────────────────────────────────────────
 else:
@@ -1487,8 +1497,19 @@ else:
                         st.toast("Bookmarked!")
                 with ac3:
                     if st.button("🔊", key=f"speak_{i}", help="Read aloud"):
-                        AppController.speak(msg["content"][:600])
-                        st.toast("Playing…")
+                        try:
+                            import pyttsx3, tempfile, os, re
+                            engine = pyttsx3.init()
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as t: t_path = t.name
+                            clean_text = re.sub('<[^<]+?>', '', msg["content"]).replace("*", "").replace("#", "")[:2000]
+                            engine.save_to_file(clean_text, t_path)
+                            engine.runAndWait()
+                            with open(t_path, "rb") as f:
+                                st.audio(f.read(), format="audio/wav", autoplay=True)
+                            os.unlink(t_path)
+                            st.toast("Playing audio...")
+                        except Exception as e:
+                            st.error(f"TTS Error: {e}")
 
     # ── Voice input ────────────────────────────────
     try:
