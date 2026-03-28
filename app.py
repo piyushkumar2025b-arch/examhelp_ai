@@ -2315,6 +2315,13 @@ if user_input:
             full_response = "⚠️ **All API keys are rate-limited.** Please wait ~60 seconds and try again."
             placeholder.warning(full_response)
 
+    # --- IMAGE RECOGNITION & RENDERING ---
+    pattern = r"\[SYSTEM_VIEW: IMAGE_FOUND\] .*?\(URL: (.*?)\)"
+    match = re.search(pattern, full_response)
+    if match:
+        img_url = match.group(1)
+        st.image(img_url, caption=f"🔍 Visual Context for: {user_input[:40]}...", use_container_width=True)
+
     st.session_state.messages.append({"role": "assistant", "content": full_response})
     if st.session_state.get("voice_mode") and full_response:
         AppController.speak(full_response)

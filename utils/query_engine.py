@@ -156,86 +156,60 @@ class QueryEngine:
 
     @staticmethod
     def route_and_enrich(query: str, user_context: str = ""):
+        from ai.api_manager import UnifiedAPIManager
+        api_manager = UnifiedAPIManager()
+        
         intent = QueryEngine.classify_query(query)
         sources = []
         enriched_context = ""
         
-        # 1. Native URL Web Scraping (Fallback extraction)
-        import re
-        urls = re.findall(r'(https?://[^\s]+)', query)
-        if urls:
-            from utils.web_handler import scrape_web_page
-            enriched_context += "### Extracted Web Context:\n"
-            for url in urls:
-                try:
-                    text, title = scrape_web_page(url)
-                    enriched_context += f"**{title}**:\n{text[:3000]}...\n\n"
-                    sources.append(url)
-                except Exception as e:
-                    enriched_context += f"(Failed to scrape {url}: {e})\n\n"
+        # 1. Image Check (Multimedia Intent)
+        image_url = None
+        if "show me" in query.lower() or "image of" in query.lower():
+            image_query = query.lower().replace("show me", "").replace("image of", "").replace("photo of", "").strip()
+            image_url = api_manager.call("image", image_query)
         
-        # --- MULTI-API ROUTING LOGIC ---
+        # 2. Parallel API Execution (The Performance Core)
+        tasks = []
         if intent == "factual":
-            wiki_res = QueryEngine.search_wikipedia(query)
-            if wiki_res:
-                enriched_context += "### Wikipedia Knowledge:\n"
-                for w in wiki_res:
-                    enriched_context += f"**{w['title']}**: {w['snippet']}\n"
-                    sources.append(w['link'])
-            
-            # Layer in Dictionary for factual simple words
+            tasks.append({"name": "wiki", "api": "wiki", "query": query})
             if len(query.split()) < 3:
-                defn = QueryEngine.search_dictionary(query)
-                if defn: enriched_context += f"\n**Lexicon Definition**: {defn}\n"
-
-        elif intent == "literary":
-            books = QueryEngine.search_google_books(query)
-            for b in books:
-                enriched_context += f"**Book: {b['title']}**: {b['snippet']}\n"
-                sources.append(b['link'])
-            ol = QueryEngine.search_open_library(query)
-            for o in ol:
-                enriched_context += f"**OpenLibrary: {o['title']}**: {o['snippet']}\n"
-                sources.append(o['link'])
-
+                tasks.append({"name": "dict", "api": "dict", "query": query})
         elif intent == "scientific":
-            arxiv = QueryEngine.search_arxiv(query)
-            for a in arxiv:
+            tasks.append({"name": "arxiv", "api": "arxiv", "query": query})
+            tasks.append({"name": "bio", "api": "biorxiv", "query": query})
+        elif intent == "literary":
+            tasks.append({"name": "books", "api": "books", "query": query})
+        elif intent == "recent":
+            tasks.append({"name": "news", "api": "search", "query": query, "kwargs": {"max_results": 2}})
+        
+        # Always run a supplementary DDG search in parallel for maximum depth
+        tasks.append({"name": "search", "api": "search", "query": query, "kwargs": {"max_results": 2}})
+        
+        # Execute all tasks in parallel
+        results = api_manager.parallel_fetch(tasks)
+        
+        # 3. Context Processing
+        if results.get("wiki"):
+            enriched_context += "### Wikipedia Knowledge:\n"
+            for w in results["wiki"]:
+                enriched_context += f"**{w['title']}**: {w['snippet']}\n"
+                sources.append(w['link'])
+                
+        if results.get("arxiv"):
+            for a in results["arxiv"]:
                 enriched_context += f"**ArXiv Paper: {a['title']}**: {a['snippet']}\n"
                 sources.append(a['link'])
-            bio = QueryEngine.search_biorxiv(query)
-            for b in bio:
-                enriched_context += f"**BioRxiv: {b['title']}**: {b['snippet']}\n"
-                sources.append(b['link'])
-
-        elif intent == "code":
-            so = QueryEngine.search_stack_overflow(query)
-            for s in so:
-                enriched_context += f"**StackOverflow: {s['title']}**: {s['link']}\n"
-                sources.append(s['link'])
-
-        elif intent == "recent":
-            news = QueryEngine.search_news(query)
-            for n in news:
-                enriched_context += f"**News Update: {n['title']}**: {n['snippet']}\n"
-                sources.append(n['link'])
-                    
-        elif intent == "math":
-            # Attempt inline evaluation
-            maybe_calc = query.lower().replace("calculate", "").replace("what is", "").strip()
-            res = AppController.evaluate_expression(maybe_calc)
-            if res and res != "Error":
-                enriched_context += f"### Exact Calculation Engine Result:\n{res}\n"
-        
-        # Fallback to DDG for general context if enriched_context is still thin
-        if len(enriched_context) < 500:
-            ddg_res = QueryEngine.search_duckduckgo(query, max_results=2)
-            if ddg_res:
-                enriched_context += "\n### Supplementary Web Context:\n"
-                for d in ddg_res:
-                    enriched_context += f"**{d['title']}**: {d['snippet']}\n"
-                    sources.append(d['link'])
                 
+        if results.get("search"):
+            enriched_context += "\n### Research Context (Web):\n"
+            for d in results["search"]:
+                enriched_context += f"**{d['title']}**: {d['snippet']}\n"
+                sources.append(d['link'])
+        
+        if image_url:
+            enriched_context += f"\n\n[SYSTEM_VIEW: IMAGE_FOUND] Displaying verified visual content for query. (URL: {image_url})\n"
+
         final_prompt = query
         if enriched_context:
             final_prompt += f"\n\n{enriched_context}"
