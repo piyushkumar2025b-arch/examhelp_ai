@@ -63,6 +63,11 @@ def init_state():
         "quiz_score": 0,
         "quiz_current": 0,
         "quiz_feedback": None,
+        "bookmarks": [],
+        "calendar_events": {},
+        "focus_mode": False,
+        "calculator_open": False,
+        "chat_history_open": False,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -597,11 +602,230 @@ def get_theme_css():
     border: 1px solid var(--border);
     border-radius: 10px;
   }}
+
+  /* ── Light Mode Deep Fix ── */
+  .light-active [data-testid="stSidebar"],
+  .light-active [data-testid="stSidebar"] * {{
+    color: var(--text) !important;
+  }}
+  .light-active [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] {{
+    background-color: var(--bg3) !important;
+    color: var(--text) !important;
+  }}
+  .light-active [data-testid="stSidebar"] [data-baseweb="select"] span,
+  .light-active [data-testid="stSidebar"] [data-baseweb="select"] div {{
+    color: var(--text) !important;
+  }}
+  .light-active .main .block-container * {{
+    color: var(--text);
+  }}
+  .light-active [data-testid="stChatMessage"] p,
+  .light-active [data-testid="stChatMessage"] li,
+  .light-active [data-testid="stChatMessage"] h1,
+  .light-active [data-testid="stChatMessage"] h2,
+  .light-active [data-testid="stChatMessage"] h3 {{
+    color: var(--text) !important;
+  }}
+  .light-active [data-testid="stChatInputContainer"] textarea {{
+    background-color: #ffffff !important;
+    border: 1px solid #d6d3d1 !important;
+    color: #1c1917 !important;
+  }}
+  .light-active [data-testid="stMarkdownContainer"] p {{
+    color: var(--text) !important;
+  }}
+  .light-active .stat-val {{ color: var(--text) !important; }}
+  .light-active .hero-title {{ color: var(--text) !important; }}
+  .light-active code {{
+    background-color: #e7e5e4 !important;
+    color: #b45309 !important;
+    border-color: #d6d3d1 !important;
+  }}
+  .light-active pre {{
+    background-color: #f5f5f4 !important;
+  }}
+
+  /* ── Scroll-to-Bottom FAB ── */
+  .scroll-fab {{
+    position: fixed;
+    bottom: 100px;
+    right: 32px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 16px rgba(217,119,6,0.35);
+    z-index: 999;
+    transition: transform 0.2s, opacity 0.2s;
+    opacity: 0.85;
+  }}
+  .scroll-fab:hover {{
+    transform: scale(1.12);
+    opacity: 1;
+  }}
+
+  /* ── Toolbar row (calendar, calc, focus, etc.) ── */
+  .eh-toolbar {{
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0;
+    flex-wrap: wrap;
+  }}
+  .eh-toolbar-btn {{
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.15s;
+    color: var(--text2);
+    text-decoration: none;
+  }}
+  .eh-toolbar-btn:hover {{
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-bg);
+  }}
+  .eh-toolbar-btn.active {{
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+  }}
+
+  /* ── Calendar popup ── */
+  .cal-popup {{
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 14px;
+    margin: 8px 0;
+    box-shadow: 0 8px 24px var(--card-shadow);
+  }}
+  .cal-event {{
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; border-radius: 6px;
+    background: var(--bg3); border: 1px solid var(--border);
+    margin-bottom: 4px; font-size: 0.78rem; color: var(--text2);
+  }}
+  .cal-event .cal-dot {{
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }}
+
+  /* ── Calculator ── */
+  .calc-popup {{
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 14px;
+    margin: 8px 0;
+    box-shadow: 0 8px 24px var(--card-shadow);
+  }}
+  .calc-display {{
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+    text-align: right;
+    margin-bottom: 10px;
+    min-height: 52px;
+    word-break: break-all;
+  }}
+  .calc-btn-grid {{
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+  }}
+  .calc-btn {{
+    padding: 10px 4px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg3);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.12s;
+    text-align: center;
+  }}
+  .calc-btn:hover {{
+    background: var(--accent-bg);
+    border-color: var(--accent);
+    color: var(--accent);
+  }}
+  .calc-btn.op {{
+    background: var(--accent-bg);
+    border-color: var(--accent-bd);
+    color: var(--accent);
+  }}
+  .calc-btn.eq {{
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    grid-column: span 1;
+  }}
+
+  /* ── Bookmark ── */
+  .bm-btn {{
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text3);
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 4px;
+  }}
+  .bm-btn:hover {{
+    color: var(--accent);
+    border-color: var(--accent-bd);
+    background: var(--accent-bg);
+  }}
+
+  /* ── Focus mode ── */
+  .focus-active .section-label,
+  .focus-active .stat-row,
+  .focus-active .poweredby,
+  .focus-active .roadmap-item,
+  .focus-active .eh-logo-sub {{
+    display: none !important;
+  }}
 </style>
 """
 
 
 st.markdown(get_theme_css(), unsafe_allow_html=True)
+
+# Inject light-mode / focus-mode body classes
+_body_classes = []
+if st.session_state.get("theme_mode") == "light":
+    _body_classes.append("light-active")
+if st.session_state.get("focus_mode"):
+    _body_classes.append("focus-active")
+if _body_classes:
+    _cls_js = " ".join(_body_classes)
+    st.markdown(f"""<script>document.body.classList.add(..."{_cls_js}".split(" "));</script>""", unsafe_allow_html=True)
+else:
+    st.markdown("""<script>document.body.classList.remove("light-active","focus-active");</script>""", unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────
@@ -732,87 +956,173 @@ with st.sidebar:
 
     st.divider()
 
-    # ── API Status ────────────────────────────
-    st.markdown('<div class="section-label">🔑 API Status</div>', unsafe_allow_html=True)
+    # ── Toolbar Row ──────────────────────────
+    tb1, tb2, tb3, tb4, tb5 = st.columns(5)
+    with tb1:
+        if st.button("📅", key="tb_cal", help="Calendar", use_container_width=True):
+            st.session_state.calculator_open = False
+            st.session_state.chat_history_open = False
+            st.session_state["calendar_open"] = not st.session_state.get("calendar_open", False)
+            st.rerun()
+    with tb2:
+        if st.button("🧮", key="tb_calc", help="Calculator", use_container_width=True):
+            st.session_state["calendar_open"] = False
+            st.session_state.chat_history_open = False
+            st.session_state.calculator_open = not st.session_state.calculator_open
+            st.rerun()
+    with tb3:
+        focus_icon = "🔕" if st.session_state.focus_mode else "🔔"
+        if st.button(focus_icon, key="tb_focus", help="Focus Mode", use_container_width=True):
+            st.session_state.focus_mode = not st.session_state.focus_mode
+            st.rerun()
+    with tb4:
+        if st.button("🔖", key="tb_bm", help="Bookmarks", use_container_width=True):
+            st.session_state["bookmarks_open"] = not st.session_state.get("bookmarks_open", False)
+            st.rerun()
+    with tb5:
+        if st.button("📜", key="tb_hist", help="Chat History", use_container_width=True):
+            st.session_state.chat_history_open = not st.session_state.chat_history_open
+            st.rerun()
 
+    # ── Calendar Popup ────────────────────────
+    if st.session_state.get("calendar_open"):
+        st.markdown('<div class="section-label">📅 Calendar</div>', unsafe_allow_html=True)
+        cal_date = st.date_input("Date", value=datetime.date.today(), label_visibility="collapsed", key="cal_pick")
+        cal_note = st.text_input("Event note", placeholder="e.g. Physics exam Ch.5", label_visibility="collapsed", key="cal_note")
+        if st.button("➕ Save Event", use_container_width=True, key="cal_save"):
+            if cal_note:
+                date_key = cal_date.isoformat()
+                if date_key not in st.session_state.calendar_events:
+                    st.session_state.calendar_events[date_key] = []
+                st.session_state.calendar_events[date_key].append(cal_note)
+                st.success(f"Saved: {cal_note} on {cal_date.strftime('%b %d')}")
+        # Show upcoming events
+        today_str = datetime.date.today().isoformat()
+        upcoming = {k: v for k, v in sorted(st.session_state.calendar_events.items()) if k >= today_str}
+        if upcoming:
+            for date_k, events in list(upcoming.items())[:5]:
+                for ev in events:
+                    d_label = datetime.date.fromisoformat(date_k).strftime("%b %d")
+                    st.markdown(f'<div class="cal-event"><span class="cal-dot"></span><strong>{d_label}</strong> — {ev}</div>', unsafe_allow_html=True)
+        else:
+            st.caption("No upcoming events")
+
+    # ── Calculator Popup ──────────────────────
+    if st.session_state.calculator_open:
+        import math
+        st.markdown('<div class="section-label">🧮 Scientific Calculator</div>', unsafe_allow_html=True)
+        if "calc_expr" not in st.session_state:
+            st.session_state.calc_expr = ""
+            st.session_state.calc_result = ""
+        
+        calc_input = st.text_input(
+            "Expression", 
+            value=st.session_state.calc_expr,
+            placeholder="e.g. sin(45*pi/180), sqrt(144), 2**10",
+            label_visibility="collapsed",
+            key="calc_input_field"
+        )
+        
+        c1, c2, c3, c4, c5 = st.columns(5)
+        calc_buttons = [
+            ("sin", c1), ("cos", c2), ("tan", c3), ("√", c4), ("π", c5),
+        ]
+        for label, col in calc_buttons:
+            with col:
+                if st.button(label, key=f"cb_{label}", use_container_width=True):
+                    mapping = {"sin": "sin(", "cos": "cos(", "tan": "tan(", "√": "sqrt(", "π": "pi"}
+                    st.session_state.calc_expr = calc_input + mapping[label]
+                    st.rerun()
+        
+        c6, c7, c8, c9, c10 = st.columns(5)
+        calc_buttons2 = [
+            ("log", c6), ("ln", c7), ("x²", c8), ("(", c9), (")", c10),
+        ]
+        for label, col in calc_buttons2:
+            with col:
+                if st.button(label, key=f"cb_{label}", use_container_width=True):
+                    mapping = {"log": "log10(", "ln": "log(", "x²": "**2", "(": "(", ")": ")"}
+                    st.session_state.calc_expr = calc_input + mapping[label]
+                    st.rerun()
+        
+        c11, c12 = st.columns([3, 1])
+        with c11:
+            pass  # expression already shown above
+        with c12:
+            if st.button("= Calc", key="calc_go", use_container_width=True):
+                try:
+                    safe_expr = calc_input.replace("^", "**")
+                    allowed = {"sin": math.sin, "cos": math.cos, "tan": math.tan,
+                               "sqrt": math.sqrt, "log": math.log, "log10": math.log10,
+                               "log2": math.log2, "pi": math.pi, "e": math.e,
+                               "abs": abs, "pow": pow, "round": round,
+                               "asin": math.asin, "acos": math.acos, "atan": math.atan,
+                               "sinh": math.sinh, "cosh": math.cosh, "tanh": math.tanh,
+                               "factorial": math.factorial, "ceil": math.ceil, "floor": math.floor,
+                               "degrees": math.degrees, "radians": math.radians}
+                    result = eval(safe_expr, {"__builtins__": {}}, allowed)
+                    st.session_state.calc_result = str(result)
+                    st.session_state.calc_expr = str(result)
+                except Exception as ex:
+                    st.session_state.calc_result = f"Error: {ex}"
+                st.rerun()
+        
+        if st.session_state.calc_result:
+            bg_col = "var(--green-bg)" if not st.session_state.calc_result.startswith("Error") else "rgba(248,113,113,0.08)"
+            txt_col = "var(--green)" if not st.session_state.calc_result.startswith("Error") else "var(--red)"
+            st.markdown(f'<div style="background:{bg_col};border-radius:8px;padding:10px 14px;font-family:var(--mono);font-size:1.1rem;font-weight:700;color:{txt_col};text-align:right;">{st.session_state.calc_result}</div>', unsafe_allow_html=True)
+        
+        if st.button("🗑️ Clear", key="calc_clear", use_container_width=True):
+            st.session_state.calc_expr = ""
+            st.session_state.calc_result = ""
+            st.rerun()
+
+    # ── Bookmarks Panel ───────────────────────
+    if st.session_state.get("bookmarks_open"):
+        st.markdown('<div class="section-label">🔖 Bookmarks</div>', unsafe_allow_html=True)
+        if st.session_state.bookmarks:
+            for i, bm in enumerate(st.session_state.bookmarks):
+                role_icon = "👤" if bm.get("role") == "user" else "🎓"
+                preview = bm.get("content", "")[:80] + ("…" if len(bm.get("content", "")) > 80 else "")
+                col_bm, col_del = st.columns([5, 1])
+                with col_bm:
+                    st.markdown(f'<div class="cal-event"><span class="cal-dot"></span>{role_icon} {preview}</div>', unsafe_allow_html=True)
+                with col_del:
+                    if st.button("✕", key=f"del_bm_{i}", use_container_width=True):
+                        st.session_state.bookmarks.pop(i)
+                        st.rerun()
+        else:
+            st.caption("No bookmarks yet. Use 🔖 in chat to save messages.")
+
+    # ── Chat History Panel ────────────────────
+    if st.session_state.chat_history_open:
+        st.markdown('<div class="section-label">📜 Chat History</div>', unsafe_allow_html=True)
+        if st.session_state.persistent_sessions:
+            for sname, sdata in st.session_state.persistent_sessions.items():
+                ts = sdata.get("timestamp", "")[:10]
+                msg_n = len(sdata.get("messages", []))
+                col_h1, col_h2 = st.columns([4, 1])
+                with col_h1:
+                    st.markdown(f'<div class="cal-event"><span class="cal-dot"></span><strong>{sname}</strong> · {msg_n} msgs · {ts}</div>', unsafe_allow_html=True)
+                with col_h2:
+                    if st.button("📂", key=f"load_h_{sname}", use_container_width=True):
+                        st.session_state.messages = sdata["messages"]
+                        st.session_state.context_text = sdata.get("context", "")
+                        st.session_state.context_sources = sdata.get("sources", [])
+                        st.session_state.chat_history_open = False
+                        st.rerun()
+        else:
+            st.caption("No saved sessions yet. Save one from sidebar.")
+
+    # ── API Key (collapsed) ───────────────────
     override = _get_override_key()
     active_key = key_manager.get_key(override=override)
-    total_keys = key_manager.total_keys()
-    avail_keys = key_manager.available_keys_count()
-
-    if active_key:
-        masked = f"{active_key[:8]}…{active_key[-4:]}"
-        st.markdown(f"""
-        <div class="key-status-row" style="margin-bottom:0.5rem;">
-          <div class="key-dot dot-green"></div>
-          <span style="color:var(--green); font-weight:600;">Connected</span>
-          <span style="color:var(--text3); margin-left:auto; font-size:0.68rem;">{masked}</span>
-        </div>
-        """, unsafe_allow_html=True)
-
-        with st.expander("🔧 Key Pool Health"):
-            for row in key_manager.status_table():
-                status_color = "var(--green)" if "available" in row["status"].lower() else "var(--accent)"
-                st.markdown(f"""
-                <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg3); padding:6px 8px; border-radius:6px; margin-bottom:4px; font-size:0.73rem; border:1px solid var(--border); font-family:var(--mono);">
-                  <div style="display:flex; align-items:center; gap:6px;">
-                    <div class="key-dot" style="background:{status_color}"></div>
-                    <span style="color:var(--text2);">{row['key']}</span>
-                  </div>
-                  <div style="color:var(--text3); display:flex; gap:8px;">
-                    <span title="Uses">✓{row['uses']}</span>
-                    <span title="Errors">✕{row['errors']}</span>
-                  </div>
-                </div>
-                """, unsafe_allow_html=True)
-            if st.button("↺ Reset All Cooldowns", use_container_width=True):
-                key_manager.reset_all_cooldowns()
-                st.rerun()
-    else:
-        manual_key = st.text_input(
-            "Enter Groq API Key",
-            type="password",
-            placeholder="gsk_…",
-            help="Get a free key at console.groq.com",
-        )
-        if manual_key:
-            st.session_state["manual_api_key"] = manual_key
-            st.success("Key saved!", icon="✅")
-        else:
-            st.warning("No API key — add one above or set GROQ_API_KEY in .env", icon="⚠️")
-
-    st.divider()
-
-    # ── Output Stats (replaces Key Pool Health) ──
-    st.markdown('<div class="section-label">📊 Output Stats</div>', unsafe_allow_html=True)
-    
-    out_chars = st.session_state.get("total_output_chars", 0)
-    out_lines = st.session_state.get("total_output_lines", 0)
-    
-    if out_chars >= 1000:
-        chars_display = f"{out_chars/1000:.1f}k"
-    else:
-        chars_display = str(out_chars)
-    
-    st.markdown(f"""
-    <div class="stat-row">
-      <div class="stat-box"><div class="stat-val">{chars_display}</div><div class="stat-lbl">Characters</div></div>
-      <div class="stat-box"><div class="stat-val">{out_lines}</div><div class="stat-lbl">Lines</div></div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Network Status ────────────────────────
-    st.markdown('<div class="section-label">🌐 Network</div>', unsafe_allow_html=True)
-    
-    st.markdown("""
-    <div id="net-status">
-      <div class="status-indicator" id="online-status">
-        <div class="key-dot dot-green" id="online-dot"></div>
-        <span id="online-text" style="color:var(--green);font-weight:600;">Online</span>
-        <span id="speed-text" style="color:var(--text3);margin-left:auto;">Connected</span>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    if not active_key:
+        with st.expander("🔑 Add API Key"):
+            manual_key = st.text_input("Groq API Key", type="password", placeholder="gsk_…", help="Get a free key at console.groq.com", key="api_key_input")
+            if manual_key:
+                st.session_state["manual_api_key"] = manual_key
+                st.success("Key saved!", icon="✅")
 
     st.divider()
 
@@ -1471,13 +1781,27 @@ if not st.session_state.messages and app_mode == "chat":
     """, unsafe_allow_html=True)
 
 # ── Chat history ──────────────────────────────
-for msg in st.session_state.messages:
+for i_msg, msg in enumerate(st.session_state.messages):
     avatar = "🎓" if msg["role"] == "assistant" else "👤"
-    # Use persona emoji for assistant if persona is active
     if msg["role"] == "assistant" and persona and st.session_state.selected_persona != "Default (ExamHelp)":
         avatar = persona["emoji"]
     with st.chat_message(msg["role"], avatar=avatar):
         st.markdown(msg["content"])
+        # Bookmark button
+        is_bookmarked = any(b.get("idx") == i_msg for b in st.session_state.bookmarks)
+        bm_label = "🔖 Bookmarked" if is_bookmarked else "🔖 Bookmark"
+        if st.button(bm_label, key=f"bm_msg_{i_msg}"):
+            if not is_bookmarked:
+                st.session_state.bookmarks.append({"idx": i_msg, "role": msg["role"], "content": msg["content"]})
+            else:
+                st.session_state.bookmarks = [b for b in st.session_state.bookmarks if b.get("idx") != i_msg]
+            st.rerun()
+
+# ── Auto-scroll to bottom FAB ─────────────────
+if st.session_state.messages:
+    st.markdown("""
+    <button class="scroll-fab" onclick="window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})" title="Scroll to bottom">⬇</button>
+    """, unsafe_allow_html=True)
 
 # ── Voice Input & Chat Input ────────────────────────────────
 try:
@@ -1506,6 +1830,39 @@ user_input = st.chat_input("Ask anything about your study material…", key="cha
 if st.session_state.queued_prompt:
     user_input = st.session_state.queued_prompt
     st.session_state.queued_prompt = None
+
+# Voice-to-calculator: detect "calculate ..." or "compute ..." commands
+if user_input and any(user_input.lower().startswith(kw) for kw in ["calculate ", "compute ", "calc ", "what is ", "solve "]):
+    import math as _math
+    calc_expr_voice = re.sub(r"^(calculate|compute|calc|what is|solve)\s+", "", user_input, flags=re.IGNORECASE).strip()
+    calc_expr_voice = calc_expr_voice.rstrip("?. ")
+    # Normalize natural language to math expressions
+    calc_expr_voice = calc_expr_voice.replace("×", "*").replace("÷", "/").replace("^", "**")
+    calc_expr_voice = calc_expr_voice.replace("plus", "+").replace("minus", "-").replace("times", "*").replace("divided by", "/")
+    calc_expr_voice = calc_expr_voice.replace("squared", "**2").replace("cubed", "**3")
+    calc_expr_voice = calc_expr_voice.replace("square root of", "sqrt(").replace("sine of", "sin(").replace("cosine of", "cos(")
+    # Fix unclosed parens
+    open_p = calc_expr_voice.count("(") - calc_expr_voice.count(")")
+    if open_p > 0:
+        calc_expr_voice += ")" * open_p
+    try:
+        _allowed = {"sin": _math.sin, "cos": _math.cos, "tan": _math.tan,
+                     "sqrt": _math.sqrt, "log": _math.log, "log10": _math.log10,
+                     "pi": _math.pi, "e": _math.e, "abs": abs, "pow": pow, "round": round,
+                     "asin": _math.asin, "acos": _math.acos, "atan": _math.atan,
+                     "factorial": _math.factorial, "ceil": _math.ceil, "floor": _math.floor,
+                     "degrees": _math.degrees, "radians": _math.radians}
+        calc_result_voice = eval(calc_expr_voice, {"__builtins__": {}}, _allowed)
+        st.session_state.calc_expr = str(calc_result_voice)
+        st.session_state.calc_result = str(calc_result_voice)
+        # Show calc result as a chat message instead
+        user_input = f"Calculate: `{calc_expr_voice}` = **{calc_result_voice}**"
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.session_state.messages.append({"role": "assistant", "content": f"🧮 **Calculator Result**\n\n`{calc_expr_voice}` = **{calc_result_voice}**\n\n💡 You can also open the calculator from the sidebar toolbar (🧮)."})
+        st.rerun()
+    except Exception:
+        pass  # Not a valid math expression — treat as normal chat question
+
 
 if user_input:
     override = _get_override_key()
