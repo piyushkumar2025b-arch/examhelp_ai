@@ -101,14 +101,12 @@ if "action" in st.query_params:
         st.session_state.queued_prompt = "Generate a comprehensive Mermaid.js mind map (graph TD) of the key concepts from the study material. Provide ONLY the raw Mermaid code block."
     elif action == "planner":
         st.session_state.queued_prompt = "Create a structured, day-by-day revision timetable based on the major topics in the provided study material. Be highly specific about timeframes."
-    
-    st.query_params.clear()
-    st.rerun()
+from chat.share import ChatShare
 
 if "chat" in st.query_params:
     encoded_chat = st.query_params["chat"]
     try:
-        import zlib
+        import zlib, json, base64
         decoded_bytes = base64.urlsafe_b64decode(encoded_chat.encode("utf-8"))
         decompressed = zlib.decompress(decoded_bytes).decode('utf-8')
         minimal_history = json.loads(decompressed)
@@ -118,14 +116,6 @@ if "chat" in st.query_params:
     except Exception as e:
         print(f"Chat load error: {e}")
         st.query_params.clear()
-
-def generate_share_link(chat_history):
-    import zlib
-    minimal_history = [{"r": m["role"], "c": m["content"]} for m in chat_history]
-    json_str = json.dumps(minimal_history)
-    compressed = zlib.compress(json_str.encode("utf-8"))
-    encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
-    return encoded
 
 
 # ─────────────────────────────────────────────
@@ -2102,13 +2092,16 @@ for i_msg, msg in enumerate(st.session_state.messages):
             # Add subtle divider
             st.markdown("<hr style='border: none; border-top: 1px dashed var(--bd-glass); margin: 12px 0;'>", unsafe_allow_html=True)
             
-            c1, c2, c3, c4, c_fill = st.columns([1, 1, 1, 1, 8])
+            from chat.feedback import ChatFeedback
+            from chat.share import ChatShare
+            
+            c1, c2, c3, c4, c5, c_fill = st.columns([1, 1, 1, 1, 1, 7])
             with c1:
                 if st.button("👍", key=f"like_{i_msg}", help="Good response", use_container_width=True):
-                    st.toast("Feedback saved - appreciated!", icon="✅")
+                    ChatFeedback.save_feedback(f"msg_{i_msg}", True)
             with c2:
                 if st.button("👎", key=f"dislike_{i_msg}", help="Bad response", use_container_width=True):
-                    st.toast("Feedback saved - we will improve.", icon="📉")
+                    ChatFeedback.save_feedback(f"msg_{i_msg}", False)
             with c3:
                 if st.button("📋", key=f"copy_{i_msg}", help="Copy response", use_container_width=True):
                     try:
@@ -2118,13 +2111,20 @@ for i_msg, msg in enumerate(st.session_state.messages):
                     except Exception:
                         st.toast("Clipboard API unavailable. Select and copy manually.", icon="⚠️")
             with c4:
+                if st.button("🔄", key=f"regen_{i_msg}", help="Regenerate this response", use_container_width=True):
+                    if i_msg == len(st.session_state.messages) - 1:
+                        st.session_state.queued_prompt = ChatFeedback.regenerate_prompt(st.session_state.messages)
+                        st.rerun()
+                    else:
+                        st.toast("You can only regenerate the latest message directly.", icon="ℹ️")
+            with c5:
                 @st.dialog("🔗 Share Chat")
                 def share_dialog(idx):
-                    st.write("Share this specific conversation state.")
-                    code = generate_share_link(st.session_state.messages[:idx+1])
+                    st.write("Share this specific conversation state automatically.")
+                    code = ChatShare.generate_share_link(st.session_state.messages[:idx+1])
                     share_url = f"?chat={code}"
                     st.code(share_url, language="text")
-                    st.info("Append this code to the application URL to share.")
+                    st.info("Append this code block to the initial application URL inside a browser to share securely.")
                 
                 if st.button("🔗", key=f"share_{i_msg}", help="Share Chat State", use_container_width=True):
                     share_dialog(i_msg)
