@@ -14,19 +14,30 @@ import markdown2
 class StudyGenerator:
     @staticmethod
     def generate_pdf(title: str, content: str) -> bytes:
-        """Generate a clean, paginated PDF study guide."""
+        """Generate a clean, paginated PDF study guide with Unicode safety."""
         pdf = FPDF()
         pdf.add_page()
-        pdf.set_font("Helvetica", "B", 20)
-        pdf.cell(0, 15, title, ln=True, align="C")
+        
+        # Header - Font Setup (Arial is a safe alias for Helvetica in fpdf2)
+        pdf.set_font("Arial", "B", 18)
+        # Clean title for Latin-1
+        safe_title = title.encode('latin-1', 'ignore').decode('latin-1')
+        pdf.cell(0, 15, safe_title, ln=True, align="C")
         pdf.ln(10)
         
-        pdf.set_font("Helvetica", size=11)
-        # Simple markdown-to-pdf text cleaning
-        clean_text = content.replace("##", "").replace("#", "").replace("**", "")
-        pdf.multi_cell(0, 7, clean_text)
+        # Body Content
+        pdf.set_font("Arial", size=11)
         
-        # FPDF2 output(dest='S') returns a bytearray/bytes object already
+        # 1. Strip Markdown noise
+        clean_text = content.replace("##", "").replace("#", "").replace("**", "")
+        
+        # 2. CRITICAL FIX: Strip non-Latin-1 characters (Emojis, non-Western chars)
+        # Standard fonts in FPDF only support Latin-1 range.
+        safe_body = clean_text.encode('latin-1', 'ignore').decode('latin-1')
+        
+        pdf.multi_cell(0, 7, safe_body)
+        
+        # FPDF2 output(dest='S') returns a bytearray/bytes object
         return bytes(pdf.output(dest='S'))
 
     @staticmethod
