@@ -45,6 +45,43 @@ FALLBACK_MODEL = "llama-3.1-8b-instant"  # fallback
 MAX_CONTEXT_CHARS = 25_000
 
 
+import requests
+import re
+import random
+
+def _fetch_free_api_context(query: str) -> str:
+    """Uses the free public Wikipedia API to fetch factual context for the user's latest query."""
+    try:
+        # Very basic stopword removal to get the core entity
+        clean_q = re.sub(r'\b(what|is|the|explain|how|why|who|a|an|describe|tell|me|about|calculate)\b', '', query, flags=re.IGNORECASE).strip()
+        if not clean_q or len(clean_q) < 3:
+            return ""
+        
+        # Take the first ~3 words as the search title
+        search_term = " ".join(clean_q.split()[:3])
+        
+        url = "https://en.wikipedia.org/w/api.php"
+        params = {
+            "action": "query",
+            "format": "json",
+            "prop": "extracts",
+            "exsentences": "4",
+            "exlimit": "1",
+            "titles": search_term,
+            "explaintext": "1",
+            "formatversion": "2",
+            "redirects": "1"
+        }
+        resp = requests.get(url, params=params, timeout=1.5)
+        if resp.status_code == 200:
+            data = resp.json()
+            pages = data.get("query", {}).get("pages", [])
+            if pages and "extract" in pages[0] and pages[0]["extract"].strip():
+                return pages[0]["extract"].strip()
+    except Exception:
+        pass
+    return ""
+
 def _build_messages(
     history: list[dict],
     context_text: str,
@@ -74,6 +111,19 @@ def _build_messages(
         messages.append({
             "role": "assistant",
             "content": "✅ Study material received and ready. I'll use it as my primary reference to give you accurate, source-grounded answers. Ask me anything!"
+        })
+
+    # Fetch live free context for the very last user message to make AI perfect
+    last_user_msg = next((m["content"] for m in reversed(history) if m["role"] == "user"), None)
+    live_api_context = ""
+    if last_user_msg:
+        live_api_context = _fetch_free_api_context(last_user_msg)
+
+    if live_api_context:
+        # We silently inject the free API data right before appending the history
+        messages.append({
+            "role": "system",
+            "content": f"[SYSTEM INJECTION: The Free Open Knowledge API has retrieved the following real-time background fact for the latest query: '{live_api_context}'. Integrate this factual baseline into your upcoming answer to increase output perfection.]"
         })
 
     messages.extend(history)
