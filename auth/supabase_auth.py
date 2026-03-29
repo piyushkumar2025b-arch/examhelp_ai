@@ -116,6 +116,7 @@ def get_google_oauth_url() -> str:
         f"{SUPABASE_URL}/auth/v1/authorize"
         f"?provider=google"
         f"&redirect_to={_get_secret('SUPABASE_REDIRECT_URL', 'http://localhost:8501')}"
+        f"&scopes=openid%20email%20profile"
     )
 
 
