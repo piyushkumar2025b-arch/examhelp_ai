@@ -12,15 +12,23 @@ import base64
 import zlib
 import streamlit as st
 
-# ── Auth + Integrations (loaded early, before page config) ──────────────────
-from auth.supabase_auth import is_logged_in, current_user, clear_session, try_refresh
-from auth.login_ui import render_login_page
-from integrations.google_ui import (
-    handle_google_oauth_callback, render_google_connect_button,
-    render_gmail_panel, render_drive_panel, render_calendar_panel, render_maps_panel,
-    is_google_connected,
-)
-from integrations.stripe_ui import render_pricing_page, render_upgrade_banner
+# ── Auth + Integrations — MASKED (Supabase/Google/Stripe disabled for direct access) ──
+# All functions below are safe no-ops so the app runs without any external auth.
+
+def is_logged_in(): return True
+def current_user(): return {"email": "user@examhelp.ai", "user_metadata": {"full_name": "Student"}}
+def clear_session(): pass
+def try_refresh(): pass
+def render_login_page(): pass
+def handle_google_oauth_callback(): pass
+def render_google_connect_button(): pass
+def render_gmail_panel(**kwargs): st.info("📧 Gmail integration coming soon.")
+def render_drive_panel(**kwargs): st.info("📁 Google Drive integration coming soon.")
+def render_calendar_panel(**kwargs): st.info("📅 Google Calendar integration coming soon.")
+def render_maps_panel(**kwargs): st.info("🗺️ Google Maps integration coming soon.")
+def is_google_connected(): return False
+def render_pricing_page(**kwargs): st.info("💳 Plans & Pricing coming soon.")
+def render_upgrade_banner(**kwargs): pass
 
 try:
     import pandas as pd
@@ -186,14 +194,9 @@ handle_google_oauth_callback()
 # AUTH GATE — show login page if not signed in
 # Guest bypass: _guest_bypass flag skips auth entirely
 # ─────────────────────────────────────────────
-_guest_mode = st.session_state.get("_guest_bypass", False)
-if not _guest_mode and not is_logged_in():
-    render_login_page()
-    st.stop()
-
-# Silently refresh token if needed (skip for guests — they have no token)
-if not _guest_mode:
-    try_refresh()
+# Direct access — auth is bypassed, everyone is a guest
+st.session_state["_guest_bypass"] = True
+_guest_mode = True
 
 
 # ─────────────────────────────────────────────
@@ -1314,39 +1317,20 @@ with st.sidebar:
             st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
             st.rerun()
 
-        # ── User profile chip + sign-out ───────────
-        _guest_mode_sidebar = st.session_state.get("_guest_bypass", False)
-        _u = current_user() or {}
-        if _guest_mode_sidebar:
-            _uname = "Guest"
-            _uemail = "No account · Direct Access"
-        else:
-            _uname = (_u.get("user_metadata") or {}).get("full_name") or _u.get("email", "User") or "User"
-            _uemail = _u.get("email", "")
-        st.markdown(f'''
+        # ── User profile chip ───────────────────────
+        st.markdown('''
         <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
           border-radius:12px;padding:.5rem .8rem;display:flex;align-items:center;
           gap:.5rem;margin-bottom:.4rem;">
           <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7c6af7,#4f8ef7);
             display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;color:#fff;">
-            {_uname[0].upper() if _uname else "G"}
+            S
           </div>
           <div style="flex:1;overflow:hidden;">
-            <div style="font-size:.78rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_uname}</div>
-            <div style="font-size:.66rem;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_uemail}</div>
+            <div style="font-size:.78rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Student</div>
+            <div style="font-size:.66rem;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ExamHelp AI · Direct Access</div>
           </div>
         </div>''', unsafe_allow_html=True)
-        if _guest_mode_sidebar:
-            if st.button("🔑 Sign In / Create Account", key="signout_btn", use_container_width=True):
-                st.session_state.pop("_guest_bypass", None)
-                st.session_state.pop("_guest_user", None)
-                st.rerun()
-        else:
-            if st.button("🚪 Sign Out", key="signout_btn", use_container_width=True):
-                from auth.supabase_auth import sign_out, current_token
-                sign_out(current_token() or "")
-                clear_session()
-                st.rerun()
 
         # ── Google connect ──────────────────────────
         render_google_connect_button()
@@ -1979,35 +1963,9 @@ with st.sidebar:
                 st.session_state.app_mode = mode
                 st.rerun()
 
-    # ── Google Suite ────────────────────────────
-    st.markdown('<div class="section-label">🔗 Google Suite</div>', unsafe_allow_html=True)
-    _gsuite_tools = [
-        ("📧", "Gmail Send",        "Email your AI output",          "gmail_panel"),
-        ("📁", "Google Drive",      "Save files to your Drive",      "drive_panel"),
-        ("📅", "Google Calendar",   "Add study events",              "calendar_panel"),
-        ("🗺️", "Google Maps",       "Search places & directions",    "maps_panel"),
-    ]
-    for icon, name, desc, mode in _gsuite_tools:
-        col_icon, col_info, col_btn = st.columns([1, 4, 2])
-        with col_icon:
-            st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
-        with col_info:
-            st.markdown(
-                f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
-                f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
-                unsafe_allow_html=True)
-        with col_btn:
-            if st.button("Open", key=f"gsuite_{mode}", use_container_width=True):
-                st.session_state.app_mode = mode
-                st.rerun()
-
-    # ── Account ──────────────────────────────────
-    st.markdown('<div class="section-label">⚙️ Account</div>', unsafe_allow_html=True)
-    if st.button("💳 Plans & Pricing", key="nav_pricing", use_container_width=True):
-        st.session_state.app_mode = "pricing"
-        st.rerun()
-
-    st.markdown('<div class="poweredby">Powered by <span>Groq</span> · <span>Gemini</span> · <span>LLaMA</span> · <span>Supabase</span></div>',
+    # ── Account ──────────────────────────────────────────────────────
+    # (Google Suite & Stripe integrations coming soon)
+    st.markdown('<div class=\"poweredby\">Powered by <span>Groq</span> · <span>Gemini</span> · <span>LLaMA</span></div>',
                 unsafe_allow_html=True)
 
 
@@ -3594,7 +3552,6 @@ else:
         st.session_state.last_audio = audio_val
         with st.spinner("Transcribing..."):
             try:
-                from utils.groq_client import transcribe_audio
                 audio_bytes = audio_val.read()
                 transcript  = transcribe_audio(audio_bytes, override_key=_get_override_key())
                 if isinstance(transcript, str) and transcript.strip():

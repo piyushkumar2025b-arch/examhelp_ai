@@ -424,7 +424,7 @@ def _classify_error(err_str: str) -> str:
         return "model_not_found"
     if "context_length" in e or ("token" in e and "exceed" in e):
         return "context_length"
-    if "connection" in e or "timeout" in e or "network" in e:
+    if "connection" in e or "timeout" in e or "network" in e or "proxy" in e or "tunnel" in e or "connectionpool" in e:
         return "network"
     if "overload" in e or "503" in e or "service_unavailable" in e or "capacity" in e or "529" in e:
         return "overload"

@@ -485,6 +485,7 @@ def stream_chat_with_groq(
             if etype == "rate_limit":
                 retry_after = _parse_retry_after(err_str)
                 key_manager.mark_rate_limited(key, retry_after=retry_after)
+                key_manager.mark_used(key, token_count=0, headers=headers or None)
                 continue  # No sleep — instantly switch to next key
 
             elif etype == "auth":
@@ -532,12 +533,27 @@ def stream_chat_with_groq(
                 key_manager.mark_error(key)
                 continue
 
+    # ── Gemini non-streaming fallback ─────────────────────────────────────
+    try:
+        from utils.secret_manager import call_gemini
+        prompt_text = "\n\n".join(
+            f"{m.get('role','user').upper()}: {m.get('content','')}"
+            for m in messages
+        )
+        result = call_gemini(prompt=prompt_text, system=sys_prompt)
+        if result:
+            words = result.split()
+            for i in range(0, len(words), 6):
+                yield " ".join(words[i:i+6])
+                if i + 6 < len(words):
+                    yield " "
+            return
+    except Exception:
+        pass
+
     if last_err:
         raise last_err
-    raise ValueError("All Groq API keys exhausted.")
-
-
-# ── Public: non-streaming ─────────────────────────────────────────────────────
+    raise ValueError("All Groq API keys exhausted and Gemini fallback failed.")
 
 def chat_with_groq(
     messages: list[dict],
@@ -614,8 +630,21 @@ def chat_with_groq(
             else:
                 key_manager.mark_error(key); continue
 
+    # ── Gemini fallback when all Groq keys are exhausted ──────────────────
+    try:
+        from utils.secret_manager import call_gemini
+        prompt_text = "\n\n".join(
+            f"{m.get('role','user').upper()}: {m.get('content','')}"
+            for m in messages
+        )
+        result = call_gemini(prompt=prompt_text, system=sys_prompt)
+        if result:
+            return result
+    except Exception:
+        pass
+
     if last_err: raise last_err
-    raise ValueError("All Groq API keys exhausted.")
+    raise ValueError("All Groq API keys exhausted and Gemini fallback failed.")
 
 
 # ── Audio transcription ───────────────────────────────────────────────────────

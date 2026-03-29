@@ -203,31 +203,31 @@ def get_key_status() -> Dict:
 def validate_all_keys() -> Dict[str, bool]:
     """Validate all required keys exist without exposing values."""
     status = {}
-    
-    # Check Groq
-    if _HAS_ST and "groq" in st.secrets and "api_keys" in st.secrets["groq"] and st.secrets["groq"]["api_keys"]:
-        status["groq"] = True
-    elif os.getenv("GROQ_API_KEY") or os.getenv("GROQ_API_KEY_1"):
-        status["groq"] = True
-    else:
-        status["groq"] = False
 
-    # Check Gemini
-    if _HAS_ST and "gemini" in st.secrets and "api_keys" in st.secrets["gemini"] and st.secrets["gemini"]["api_keys"]:
-        status["gemini"] = True
-    elif os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY_1"):
-        status["gemini"] = True
-    else:
-        status["gemini"] = False
+    # Check Groq — flat keys GROQ_API_KEY_1 .. N
+    groq_ok = False
+    for i in range(1, 21):
+        if _get_secret(f"GROQ_API_KEY_{i}"):
+            groq_ok = True
+            break
+    if not groq_ok and _get_secret("GROQ_API_KEY"):
+        groq_ok = True
+    status["groq"] = groq_ok
 
-    # Check SerpAPI
-    status["serpapi"] = bool(_get_secret("SERPAPI_KEY") or (_HAS_ST and "serpapi" in st.secrets and st.secrets["serpapi"].get("api_key")))
-    
-    # Check Wolfram
-    status["wolfram"] = bool(_get_secret("WOLFRAM_APP_ID") or (_HAS_ST and "wolfram" in st.secrets and st.secrets["wolfram"].get("app_id")))
-    
-    # Check Unsplash
-    status["unsplash"] = bool(_get_secret("UNSPLASH_ACCESS_KEY") or (_HAS_ST and "unsplash" in st.secrets and st.secrets["unsplash"].get("access_key")))
+    # Check Gemini — flat keys GEMINI_API_KEY_1 .. N
+    gemini_ok = False
+    for i in range(1, 11):
+        if _get_secret(f"GEMINI_API_KEY_{i}"):
+            gemini_ok = True
+            break
+    if not gemini_ok and _get_secret("GEMINI_API_KEY"):
+        gemini_ok = True
+    status["gemini"] = gemini_ok
+
+    # Other optional services
+    status["serpapi"] = bool(_get_secret("SERPAPI_KEY"))
+    status["wolfram"] = bool(_get_secret("WOLFRAM_APP_ID"))
+    status["unsplash"] = bool(_get_secret("UNSPLASH_ACCESS_KEY"))
 
     return status
 
