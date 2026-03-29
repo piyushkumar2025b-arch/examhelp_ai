@@ -13,9 +13,16 @@ from email import encoders
 from typing import Optional
 import httpx
 
-GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI  = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8501")
+def _get_secret(key: str, default: str = "") -> str:
+    try:
+        import streamlit as st
+        return st.secrets.get(key, "") or default
+    except Exception:
+        return os.getenv(key, default)
+
+GOOGLE_CLIENT_ID     = _get_secret("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = _get_secret("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI  = _get_secret("GOOGLE_REDIRECT_URI", "http://localhost:8501")
 
 SCOPES = " ".join([
     "https://www.googleapis.com/auth/gmail.send",

@@ -8,12 +8,19 @@ import os
 import httpx
 from typing import Optional
 
-STRIPE_SECRET_KEY        = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_WEBHOOK_SECRET    = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-STRIPE_PRO_PRICE_ID      = os.getenv("STRIPE_PRO_PRICE_ID", "")       # Monthly price
-STRIPE_ANNUAL_PRICE_ID   = os.getenv("STRIPE_ANNUAL_PRICE_ID", "")    # Annual price
-STRIPE_SUCCESS_URL        = os.getenv("STRIPE_SUCCESS_URL", "http://localhost:8501?payment=success")
-STRIPE_CANCEL_URL         = os.getenv("STRIPE_CANCEL_URL",  "http://localhost:8501?payment=cancel")
+def _get_secret(key: str, default: str = "") -> str:
+    try:
+        import streamlit as st
+        return st.secrets.get(key, "") or default
+    except Exception:
+        return os.getenv(key, default)
+
+STRIPE_SECRET_KEY      = _get_secret("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET  = _get_secret("STRIPE_WEBHOOK_SECRET")
+STRIPE_PRO_PRICE_ID    = _get_secret("STRIPE_PRO_PRICE_ID")
+STRIPE_ANNUAL_PRICE_ID = _get_secret("STRIPE_ANNUAL_PRICE_ID")
+STRIPE_SUCCESS_URL     = _get_secret("STRIPE_SUCCESS_URL", "http://localhost:8501?payment=success")
+STRIPE_CANCEL_URL      = _get_secret("STRIPE_CANCEL_URL",  "http://localhost:8501?payment=cancel")
 
 _STRIPE_HEADERS = lambda: {
     "Authorization": f"Bearer {STRIPE_SECRET_KEY}",

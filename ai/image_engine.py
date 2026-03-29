@@ -12,10 +12,14 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Tuple
 from dotenv import load_dotenv
 
-load_dotenv()
-PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
-# Free Pixabay key (public demo key — works for low-volume usage)
-PIXABAY_KEY = os.getenv("PIXABAY_API_KEY", "")
+def _get_secret(key: str, default: str = "") -> str:
+    try:
+        return st.secrets.get(key, "") or default
+    except Exception:
+        return os.getenv(key, default)
+
+PEXELS_API_KEY = _get_secret("PEXELS_API_KEY")
+PIXABAY_KEY    = _get_secret("PIXABAY_API_KEY")
 
 HEADERS = {
     "User-Agent": (

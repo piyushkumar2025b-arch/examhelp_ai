@@ -10,8 +10,15 @@ from typing import Optional
 import httpx
 import json
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+def _get_secret(key: str, default: str = "") -> str:
+    try:
+        import streamlit as st
+        return st.secrets.get(key, "") or default
+    except Exception:
+        return os.getenv(key, default)
+
+SUPABASE_URL = _get_secret("SUPABASE_URL")
+SUPABASE_ANON_KEY = _get_secret("SUPABASE_ANON_KEY")
 
 _headers = lambda: {
     "apikey": SUPABASE_ANON_KEY,
@@ -108,7 +115,7 @@ def get_google_oauth_url() -> str:
     return (
         f"{SUPABASE_URL}/auth/v1/authorize"
         f"?provider=google"
-        f"&redirect_to={os.getenv('SUPABASE_REDIRECT_URL', 'http://localhost:8501')}"
+        f"&redirect_to={_get_secret('SUPABASE_REDIRECT_URL', 'http://localhost:8501')}"
     )
 
 

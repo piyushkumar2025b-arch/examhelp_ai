@@ -11,7 +11,13 @@ from integrations.google_services import (
     get_google_auth_url, exchange_code_for_tokens,
 )
 
-MAPS_API_KEY = os.getenv("GOOGLE_MAPS_EMBED_KEY", "")
+def _get_secret(key: str, default: str = "") -> str:
+    try:
+        return st.secrets.get(key, "") or default
+    except Exception:
+        return os.getenv(key, default)
+
+MAPS_API_KEY = _get_secret("GOOGLE_MAPS_EMBED_KEY")
 
 
 # ── OAuth flow ───────────────────────────────────────────────────────────────
