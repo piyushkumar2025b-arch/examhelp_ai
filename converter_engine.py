@@ -429,6 +429,14 @@ UNIT_CATEGORIES = {
         "units": ["Pascal","Kilopascal","Megapascal","Bar","Millibar","Atmosphere","PSI","mmHg (Torr)","inHg"],
         "to_base": {"Pascal":1,"Kilopascal":1000,"Megapascal":1e6,"Bar":1e5,"Millibar":100,"Atmosphere":101325,"PSI":6894.76,"mmHg (Torr)":133.322,"inHg":3386.39},
     },
+    "🌡️ Heat Flux": {
+        "units": ["Watt/square meter", "Kilowatt/square meter", "BTU/(hr·ft²)", "Calorie/(s·cm²)"],
+        "to_base": {"Watt/square meter": 1, "Kilowatt/square meter": 1000, "BTU/(hr·ft²)": 3.15459, "Calorie/(s·cm²)": 41840},
+    },
+    "🧱 Thermal Conductivity": {
+        "units": ["W/(m·K)","BTU/(hr·ft·°F)","cal/(s·cm·°C)","kcal/(hr·m·°C)"],
+        "to_base": {"W/(m·K)":1,"BTU/(hr·ft·°F)":1.730735,"cal/(s·cm·°C)":418.68,"kcal/(hr·m·°C)":1.163},
+    },
     "💾 Data Storage": {
         "units": ["Bit","Byte","Kilobyte","Megabyte","Gigabyte","Terabyte","Petabyte","Kibibyte","Mebibyte","Gibibyte","Tebibyte"],
         "to_base": {"Bit":0.125,"Byte":1,"Kilobyte":1000,"Megabyte":1e6,"Gigabyte":1e9,"Terabyte":1e12,"Petabyte":1e15,"Kibibyte":1024,"Mebibyte":1048576,"Gibibyte":1073741824,"Tebibyte":1099511627776},
@@ -444,6 +452,14 @@ UNIT_CATEGORIES = {
     "🌊 Force": {
         "units": ["Newton","Kilonewton","Pound-force","Dyne","Kilogram-force"],
         "to_base": {"Newton":1,"Kilonewton":1000,"Pound-force":4.44822,"Dyne":1e-5,"Kilogram-force":9.80665},
+    },
+    "⚙️ Torque": {
+        "units": ["Newton-meter", "Pound-foot", "Pound-inch", "Ounce-inch", "Kilogram-meter"],
+        "to_base": {"Newton-meter": 1, "Pound-foot": 1.355818, "Pound-inch": 0.1129848, "Ounce-inch": 0.00706155, "Kilogram-meter": 9.80665},
+    },
+    "🚰 Flow Rate": {
+        "units": ["Cubic meter/second", "Liter/second", "Liter/minute", "Gallon/minute (US)", "Cubic foot/second", "Cubic foot/minute"],
+        "to_base": {"Cubic meter/second": 1, "Liter/second": 0.001, "Liter/minute": 0.0000166667, "Gallon/minute (US)": 0.0000630902, "Cubic foot/second": 0.0283168, "Cubic foot/minute": 0.000471947},
     },
     "🔢 Number Base": {
         "units": ["Binary (base 2)","Octal (base 8)","Decimal (base 10)","Hexadecimal (base 16)"],

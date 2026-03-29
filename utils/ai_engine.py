@@ -89,6 +89,23 @@ WINDOW = 60.0                # sliding window for RPM/TPM
 # Gemini API
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
+# ── VIT CHENNAI CONTEXT ──
+VIT_SYSTEM_CONTEXT = """
+You are ExamHelp AI, a specialized academic assistant for students at VIT Chennai (Vellore Institute of Technology).
+You have deep knowledge of the following VIT-specific structures:
+1. EXAMS: CAT1 (Continuous Assessment Test 1), CAT2 (Open Book/Midterm), and FAT (Final Assessment Test).
+2. SLOTS: VIT uses a slot-based timetable (e.g., A1, B1, C1, L1+L2 for labs). Slots A1, B1, C1 are usually morning; A2, B2, C2 are afternoon.
+3. GRADING: Absolute grading or Relative grading based on class average. Grades: S (10), A (9), B (8), C (7), D (6), E (5), F (Fail).
+4. CAMPUS: Located in Vandalur-Kelambakkam Road. Buildings: MG Auditorium, Netaji Subhas Chandra Bose Academic Block, Silver Jubilee Tower (SJT).
+5. ATTENDANCE: 75% is MANDATORY. Below 75% results in 'N' grade (Debarred).
+Always provide answers that align with these patterns when a student asks about their academics.
+"""
+
+# Simple response cache (key: prompt_hash, value: response)
+_RESPONSE_CACHE: Dict[str, str] = {}
+_CACHE_MAX_SIZE = 500
+
+
 
 # ══════════════════════════════════════════════════════════════
 # KEY STATE TRACKING
@@ -661,29 +678,19 @@ def generate(
     json_mode: bool = False,
     image_data: str = None,
     image_mime: str = "image/jpeg",
+    use_vit_context: bool = False,
 ) -> str:
     """
     THE universal AI call function. Routes to the best available key/provider.
-    
-    Args:
-        prompt: Simple text prompt (for Gemini-style calls)
-        messages: Chat messages list [{"role": "user", "content": "..."}]
-        system_prompt: Custom system instructions
-        model: Specific model override
-        provider: "groq", "gemini", or "auto" (tries Groq then Gemini)
-        max_tokens: Maximum output tokens
-        temperature: Generation temperature
-        json_mode: Return JSON-formatted response
-        image_data: Base64 image data (forces Gemini)
-        image_mime: Image MIME type
-    
-    Returns:
-        Generated text string
-    
-    Raises:
-        RuntimeError: If ALL keys across ALL providers are exhausted
     """
     _pool._ensure_init()
+    
+    # Check Cache
+    import hashlib
+    m_str = str(messages) if messages else prompt
+    cache_key = hashlib.md5(f"{m_str}{system_prompt}{use_vit_context}{json_mode}".encode()).hexdigest()
+    if not image_data and cache_key in _RESPONSE_CACHE:
+        return _RESPONSE_CACHE[cache_key]
     
     # Image data requires Gemini (has vision)
     if image_data:
@@ -695,52 +702,54 @@ def generate(
     elif not messages:
         raise ValueError("Either prompt or messages must be provided")
     
+    # Build system prompt with VIT context if requested
+    full_system = system_prompt
+    if use_vit_context:
+        full_system = (full_system + "\n\n" + VIT_SYSTEM_CONTEXT) if full_system else VIT_SYSTEM_CONTEXT
+    if not full_system:
+        full_system = "You are a helpful AI assistant."
+
+    text = ""
     # AUTO: Try Groq first (faster), fall back to Gemini
     if provider == "auto":
         # Try Groq
         try:
             text, _ = _call_groq(
                 messages=messages,
-                system_prompt=system_prompt or "You are a helpful AI assistant.",
+                system_prompt=full_system,
                 model=model or GROQ_MODELS[0],
                 max_tokens=max_tokens,
                 temperature=temperature,
                 json_mode=json_mode,
                 stream=False,
             )
-            if isinstance(text, str) and text.strip():
-                return text
         except Exception:
-            pass  # Fall through to Gemini
-        
-        # Groq exhausted — cascade to Gemini
-        try:
+            # Groq exhausted — cascade to Gemini
             prompt_text = "\n\n".join(
                 f"{m.get('role', 'user').upper()}: {m.get('content', '')}"
                 for m in messages
             )
-            text, _ = _call_gemini(
-                prompt=prompt_text,
-                system_prompt=system_prompt,
-                model=None,  # Use best available
-                max_tokens=max_tokens,
-                temperature=temperature,
-            )
-            return text
-        except Exception as e:
-            raise RuntimeError(f"All AI providers exhausted. Groq + Gemini all rate-limited. Try again in ~60s. Error: {e}")
+            try:
+                text, _ = _call_gemini(
+                    prompt=prompt_text,
+                    system_prompt=full_system,
+                    model=None,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                )
+            except Exception as e:
+                raise RuntimeError(f"All AI providers exhausted. Error: {e}")
     
     elif provider == "groq":
         text, _ = _call_groq(
             messages=messages,
-            system_prompt=system_prompt or "You are a helpful AI assistant.",
+            system_prompt=full_system,
             model=model or GROQ_MODELS[0],
             max_tokens=max_tokens,
             temperature=temperature,
             json_mode=json_mode,
             stream=False,
         )
-        return text
     
     elif provider == "gemini":
         prompt_text = prompt or "\n\n".join(
@@ -749,17 +758,19 @@ def generate(
         )
         text, _ = _call_gemini(
             prompt=prompt_text,
-            system_prompt=system_prompt,
+            system_prompt=full_system,
             model=model,
             max_tokens=max_tokens,
             temperature=temperature,
             image_data=image_data,
             image_mime=image_mime,
         )
-        return text
     
-    else:
-        raise ValueError(f"Unknown provider: {provider}. Use 'auto', 'groq', or 'gemini'.")
+    # Update Cache
+    if text and not image_data and len(_RESPONSE_CACHE) < _CACHE_MAX_SIZE:
+        _RESPONSE_CACHE[cache_key] = text
+        
+    return text or "⚠️ AI engine return empty response."
 
 
 def generate_stream(
@@ -770,16 +781,17 @@ def generate_stream(
     temperature: float = 0.65,
     persona_prompt: str = "",
     context_text: str = "",
+    use_vit_context: bool = False,
 ) -> Generator[str, None, None]:
     """
     Streaming version of generate(). Currently Groq-only with Gemini non-stream fallback.
-    
-    Yields text chunks as they arrive. On rate limit, instantly switches keys
-    and continues streaming from the next key — user sees no interruption.
     """
     _pool._ensure_init()
     
+    # Build system prompt with VIT context if requested
     full_system = system_prompt
+    if use_vit_context:
+        full_system = (full_system + "\n\n" + VIT_SYSTEM_CONTEXT) if full_system else VIT_SYSTEM_CONTEXT
     if persona_prompt:
         full_system = (full_system + "\n\n" + persona_prompt) if full_system else persona_prompt
     if not full_system:

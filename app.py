@@ -33,6 +33,12 @@ from utils.personas import PERSONAS, get_persona_names, get_persona_by_name, bui
 from utils.ocr_handler import extract_text_from_image
 from utils.analytics import get_subject_mastery_radar, get_study_intensity_heatmap, estimate_required_velocity
 from utils.app_controller import AppController
+from new_features import (
+    render_vit_map, render_trip_planner, render_universal_converter, 
+    render_ai_humaniser, render_html_generator, render_citation_generator,
+    render_regex_tester, render_vit_academics, render_study_toolkit
+)
+from utils import ai_engine
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -1329,6 +1335,12 @@ with st.sidebar:
             st.session_state.selected_language = sel_lang
             st.rerun()
 
+        # ── Academic Context ────────────────────────
+        st.markdown('<div class="section-label">🎓 Academic Context</div>', unsafe_allow_html=True)
+        vit_mode = st.toggle("🎓 VIT Chennai Mode", 
+                             help="Injects specific VIT Chennai exam, slot, and campus context into every AI response.")
+        st.session_state["vit_mode"] = vit_mode
+
         # ── Model selector ─────────────────────────
         st.markdown('<div class="section-label">🧠 Model Speed</div>', unsafe_allow_html=True)
         model_choice = st.select_slider(
@@ -1822,6 +1834,8 @@ with st.sidebar:
         ("🎓", "Learn Coding",    "Interactive coding tutor",     "learn_coding"),
         ("📄", "Essay Writer",    "AI academic essay generator",  "essay_writer"),
         ("🎤", "Interview Coach", "Mock interviews + feedback",   "interview_coach"),
+        ("⚡", "Study Toolkit",   "Formulas, PYQs & Pomodoro",    "study_toolkit"),
+        ("🎓", "VIT Academics",    "GPA, Attendance & Slots",      "vit_academics"),
         ("🔬", "Research Assist", "Paper analysis & summaries",   "research_assistant"),
         ("🌍", "Language Tools",  "Translate + grammar + learn",  "language_tools"),
         ("🧮", "Science Solver",  "Math & science step solver",   "science_solver"),
@@ -1846,6 +1860,8 @@ with st.sidebar:
     st.markdown('<div class="section-label">⚡ Exotic Power Tools</div>', unsafe_allow_html=True)
     _power_tools = [
         ("🔄", "Universal Converter", "Convert any file format instantly", "file_converter"),
+        ("📚", "Citation Gen",        "IEEE/APA/MLA AI generator",      "citation_gen"),
+        ("🔣", "Regex Builder",      "AI regex architect & tester",    "regex_tester"),
         ("🔲", "QR Code Engine",      "Generate pro QR codes & data links", "qr_creator"),
         ("🤖", "AI Text Humaniser",   "Bypass AI detectors & sound human", "ai_humaniser"),
         ("🎨", "HTML Generator",      "AI to beautiful single-page website", "html_generator"),
@@ -3312,7 +3328,6 @@ elif app_mode == "science_solver":
     if st.button("💬 Back to Chat", use_container_width=True, key="ss_back"):
         st.session_state.app_mode = "chat"; st.rerun()
 
-
 # ══════════════════════════════════════════════════════
 # SMART NOTES MODE
 # ══════════════════════════════════════════════════════
@@ -3390,46 +3405,22 @@ elif app_mode == "smart_notes":
                     st.error(str(e))
         if st.session_state.get("notes_result"):
             st.markdown(st.session_state.notes_result)
-            st.download_button("📥 Download Q&A", st.session_state.notes_result, file_name="exam_questions.md", use_container_width=True, key="sn_exam_dl")
-
-    with tab_map:
-        content4 = _sn_source("map")
-        if st.button("🗺️ Build Concept Map", type="primary", use_container_width=True, disabled=not str(content4).strip(), key="sn_map_btn"):
-            with st.spinner("Mapping concepts..."):
-                try:
-                    r = build_concept_map(str(content4))
-                    st.session_state.notes_result = r
-                except Exception as e:
-                    st.error(str(e))
-        if st.session_state.get("notes_result"):
-            st.markdown(st.session_state.notes_result)
-
-    with tab_para:
-        p_text = st.text_area("Text to paraphrase", height=180, key="sn_ptext", placeholder="Paste text to reword/paraphrase...")
-        pp1, pp2 = st.columns(2)
-        with pp1: p_style = st.selectbox("Style", ["Academic","Casual","Formal","Simple","Technical"], key="sn_pstyle")
-        with pp2: p_simplify = st.checkbox("Simplify (make easier)", key="sn_psimplify")
-        if st.button("🔄 Paraphrase", type="primary", use_container_width=True, disabled=not p_text.strip(), key="sn_para_btn"):
-            with st.spinner("Paraphrasing..."):
-                try:
-                    r = paraphrase_text(p_text, p_style, p_simplify)
-                    st.session_state.notes_result = r
-                except Exception as e:
-                    st.error(str(e))
-        if st.session_state.get("notes_result"):
-            st.markdown(st.session_state.notes_result)
+            st.download_button("📥 Download", st.session_state.notes_result, file_name="exam_questions.md", use_container_width=True, key="sn_dl_exam")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="sn_back"):
         st.session_state.app_mode = "chat"; st.rerun()
 
+
 # ─── FILE CONVERTER ───────────────────────────────────────────────────────────
 elif app_mode == "file_converter":
-    from new_features import render_universal_converter
     render_universal_converter()
 
 # ─── QR CREATOR ───────────────────────────────────────────────────────────────
 elif app_mode == "qr_creator":
-    from qr_engine import generate_text_qr, generate_url_qr, generate_vcard_qr, generate_wifi_qr, generate_email_qr, generate_phone_qr, generate_sms_qr, qr_to_base64
+    from qr_engine import (
+        generate_text_qr, generate_url_qr, generate_vcard_qr, 
+        generate_wifi_qr, generate_email_qr, generate_phone_qr, generate_sms_qr
+    )
     st.markdown("## 📲 QR Code Creator")
     qr_type = st.selectbox("QR Type", ["Text / URL","vCard","WiFi","Email","Phone","SMS"])
     qr_bytes = None
@@ -3439,92 +3430,75 @@ elif app_mode == "qr_creator":
             qr_bytes = generate_url_qr(val) if val.startswith("http") else generate_text_qr(val)
     elif qr_type == "vCard":
         n = st.text_input("Full Name"); ph = st.text_input("Phone"); em = st.text_input("Email")
-        if st.button("Generate QR", type="primary") and n:
-            qr_bytes = generate_vcard_qr(n, ph, em)
+        if st.button("Generate QR", type="primary") and n: qr_bytes = generate_vcard_qr(n, ph, em)
     elif qr_type == "WiFi":
         ssid = st.text_input("SSID"); pwd = st.text_input("Password", type="password")
-        if st.button("Generate QR", type="primary") and ssid:
-            qr_bytes = generate_wifi_qr(ssid, pwd)
+        if st.button("Generate QR", type="primary") and ssid: qr_bytes = generate_wifi_qr(ssid, pwd)
     elif qr_type == "Email":
         to = st.text_input("To Email"); subj = st.text_input("Subject")
-        if st.button("Generate QR", type="primary") and to:
-            qr_bytes = generate_email_qr(to, subj)
+        if st.button("Generate QR", type="primary") and to: qr_bytes = generate_email_qr(to, subj)
     elif qr_type == "Phone":
         ph = st.text_input("Phone Number")
-        if st.button("Generate QR", type="primary") and ph:
-            qr_bytes = generate_phone_qr(ph)
+        if st.button("Generate QR", type="primary") and ph: qr_bytes = generate_phone_qr(ph)
     elif qr_type == "SMS":
         ph = st.text_input("Phone"); msg = st.text_area("Message")
-        if st.button("Generate QR", type="primary") and ph:
-            qr_bytes = generate_sms_qr(ph, msg)
+        if st.button("Generate QR", type="primary") and ph: qr_bytes = generate_sms_qr(ph, msg)
     if qr_bytes:
         st.image(qr_bytes, caption="Your QR Code", width=300)
         st.download_button("⬇️ Download QR PNG", qr_bytes, file_name="qr_code.png", mime="image/png")
 
 # ─── AI HUMANISER ─────────────────────────────────────────────────────────────
 elif app_mode == "ai_humaniser":
-    from new_features import render_ai_humaniser
     render_ai_humaniser()
 
 # ─── HTML GENERATOR ───────────────────────────────────────────────────────────
 elif app_mode == "html_generator":
-    from new_features import render_html_generator
     render_html_generator()
 
 # ─── IMAGE SEARCHER ───────────────────────────────────────────────────────────
 elif app_mode == "image_searcher":
     from image_search_engine import search_by_image
-    st.markdown("## 🔍 AI Image Search — Find 20+ Related Links")
-    st.caption("Upload any photo and AI will analyze it, identify the subject, and find 20+ links exactly related to it.")
-    img_file = st.file_uploader("Upload Image", type=["jpg","jpeg","png","webp","gif"])
+    st.markdown("## 🔍 AI Image Search")
+    st.caption("Identify subjects and find related links.")
+    img_file = st.file_uploader("Upload Image", type=["jpg","jpeg","png","webp"])
     if img_file:
-        st.image(img_file, width=320, caption="Uploaded Image")
-        if st.button("🔍 Search the Web for This Image", type="primary"):
-            img_bytes = img_file.read()
-            ext = img_file.name.rsplit(".",1)[-1].lower()
-            mime_map = {"jpg":"image/jpeg","jpeg":"image/jpeg","png":"image/png","webp":"image/webp","gif":"image/gif"}
-            mime = mime_map.get(ext, "image/jpeg")
-            with st.spinner("Analyzing image with Gemini Vision + searching the web..."):
-                results = search_by_image(img_bytes, mime, img_file.name)
-            analysis = results.get("analysis", {})
-            st.markdown("### 🧠 AI Analysis")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Subject", analysis.get("main_subject","—")[:30])
-            col2.metric("Category", analysis.get("category","—"))
-            col3.metric("Links Found", len(results.get("links", [])))
-            st.markdown(f"**Description:** {analysis.get('description','—')}")
-            if analysis.get("visible_text"):
-                st.info(f"📝 Text in image: {analysis['visible_text']}")
-            if results.get("search_queries"):
-                st.markdown("**Search queries used:** " + " · ".join([f"`{q}`" for q in results["search_queries"][:5]]))
-            st.markdown(f"### 🔗 {len(results.get('links',[]))} Related Links Found")
-            type_icons = {"image_host":"🖼️","encyclopedia":"📚","news":"📰","official":"🏛️","social":"💬","stock":"💼","search_result":"🔎","image_search":"🔍","reverse_image":"🔄"}
-            for i, link in enumerate(results.get("links",[]), 1):
-                icon = type_icons.get(link.get("type",""), "🔗")
-                with st.expander(f"{icon} {i}. {link.get('title','Link')[:70]}"):
-                    st.markdown(f"**URL:** [{link.get('url','')}]({link.get('url','')})")
-                    st.markdown(f"**Why relevant:** {link.get('reason','')}")
-                    st.markdown(f"**Domain:** `{link.get('domain','')}`")
+        st.image(img_file, width=320)
+        if st.button("🔍 Search", type="primary"):
+            with st.spinner("Analyzing..."):
+                results = search_by_image(img_file.read(), img_file.type, img_file.name)
+                st.json(results)
 
 # ─── AI NEWS HUB ──────────────────────────────────────────────────────────────
 elif app_mode == "news_hub":
-    from new_features import render_news_hub
     render_news_hub()
 
 # ─── MAP & TRIP PLANNER ───────────────────────────────────────────────────────
 elif app_mode == "map_planner":
-    from new_features import render_vit_map, render_trip_planner
     st.markdown("## 🗺️ Maps & Travel Guide")
     tab_vit, tab_india = st.tabs(["🏫 VIT Chennai Campus", "✈️ India Trip Planner"])
-    with tab_vit:
-        render_vit_map()
-    with tab_india:
-        render_trip_planner()
+    with tab_vit: render_vit_map()
+    with tab_india: render_trip_planner()
+
+# ─── CITATION GENERATOR ───────────────────────────────────────────────────────
+elif app_mode == "citation_gen":
+    render_citation_generator()
+
+# ─── REGEX BUILDER ────────────────────────────────────────────────────────────
+elif app_mode == "regex_tester":
+    render_regex_tester()
+
+# ─── VIT ACADEMICS ────────────────────────────────────────────────────────────
+elif app_mode == "vit_academics":
+    render_vit_academics()
+
+# ─── STUDY TOOLKIT ────────────────────────────────────────────────────────────
+elif app_mode == "study_toolkit":
+    render_study_toolkit()
 
 else:
+
     # ── Empty state ────────────────────────────────
     if not st.session_state.messages:
-        from utils.query_engine import QueryEngine
         st.markdown("""
         <div class="hero-wrap">
           <div class="hero-badge">⚡ Powered by Groq + Gemini — Ultra-Fast AI</div>
@@ -3532,7 +3506,7 @@ else:
           <div class="hero-sub">
             Upload a PDF, paste a YouTube link, or ask any academic question.
             Get expert explanations, flashcards, quizzes, and more.<br><br>
-            <span style="color: var(--primary-color);">💡 Kindly upload a PDF, PNG, or other study material to use the document-specific functions below.</span>
+            <span style="color: var(--accent);">💡 Kindly upload a PDF, PNG, or other study material to use the document-specific functions below.</span>
           </div>
         </div>""", unsafe_allow_html=True)
 
@@ -3550,22 +3524,20 @@ else:
         for i, prompt in enumerate(QUICK_PROMPTS):
             with cols[i % 4]:
                 if st.button(prompt, key=f"qp_{i}", use_container_width=True):
-                    st.session_state.queued_prompt = prompt.split(" ",1)[1]
+                    st.session_state.queued_prompt = prompt.split(" ", 1)[1]
                     st.rerun()
 
     # ── Chat history ───────────────────────────────
     for i, msg in enumerate(st.session_state.messages):
         is_user = msg["role"] == "user"
-        avatar  = "👤" if is_user else (persona["emoji"] if persona and st.session_state.selected_persona != "Default (ExamHelp)" else "🎓")
+        avatar  = "👤" if is_user else (persona["emoji"] if (persona and st.session_state.selected_persona != "Default (ExamHelp)") else "🎓")
 
         with st.chat_message(msg["role"], avatar=avatar):
-            if is_user:
-                st.markdown(f'<span class="user-msg-hook" style="display:none"></span>', unsafe_allow_html=True)
             st.markdown(msg["content"])
 
             # Actions row
             if not is_user:
-                ac1, ac2, ac3, ac4 = st.columns([1,1,1,5])
+                ac1, ac2, ac3, ac4 = st.columns([1, 1, 1, 5])
                 with ac1:
                     if st.button("📋", key=f"copy_{i}", help="Copy"):
                         st.toast("Copied to clipboard!")
@@ -3575,32 +3547,29 @@ else:
                         st.toast("Bookmarked!")
                 with ac3:
                     if st.button("🔊", key=f"speak_{i}", help="Read aloud"):
-                        safe_speak = _safe_js_text(msg["content"][:2000])
-                        js_code = f'<script>window.parent.speechSynthesis.cancel();const s=new window.parent.SpeechSynthesisUtterance("{safe_speak}");window.parent.speechSynthesis.speak(s);</script>'
-                        import streamlit.components.v1 as components
-                        components.html(js_code, height=0, width=0)
+                        AppController.speak(msg["content"][:1500])
                         st.toast("Reading aloud...")
 
-    # ── Voice input ────────────────────────────────
+    # ── Input Area ────────────────────────────────
+    audio_val = None
     try:
         audio_val = st.audio_input("🎙️ Record question", label_visibility="collapsed")
-    except Exception:
-        audio_val = None
+    except Exception: pass
 
     if audio_val and audio_val != st.session_state.get("last_audio"):
         st.session_state.last_audio = audio_val
-        with st.spinner("Transcribing…"):
+        with st.spinner("Transcribing..."):
             try:
+                from utils.groq_client import transcribe_audio
                 audio_bytes = audio_val.read()
-                if audio_bytes:
-                    transcript = transcribe_audio(audio_bytes, override_key=_get_override_key())
-                    if isinstance(transcript, str) and transcript.strip():
-                        st.session_state.queued_prompt = transcript
-                        st.rerun()
+                transcript  = transcribe_audio(audio_bytes, override_key=_get_override_key())
+                if isinstance(transcript, str) and transcript.strip():
+                    st.session_state.queued_prompt = transcript
+                    st.rerun()
             except Exception as e:
                 st.error(f"Voice error: {e}")
 
-    user_input = st.chat_input("Ask anything about your study material…", key="chat_input")
+    user_input = st.chat_input("Ask anything about your study material...", key="chat_input")
     txt_low    = user_input.lower() if user_input else ""
 
     if st.session_state.queued_prompt:
@@ -3609,7 +3578,7 @@ else:
         st.session_state.queued_prompt = None
 
     # ── Smart triggers ─────────────────────────────
-    if user_input and any(user_input.lower().startswith(kw) for kw in ["calculate ","calc ","compute ","solve "]):
+    if user_input and any(txt_low.startswith(kw) for kw in ["calculate ","calc ","compute ","solve "]):
         expr = re.sub(r"^(calculate|calc|compute|solve)\s+","",user_input,flags=re.IGNORECASE).strip()
         res  = AppController.evaluate_expression(expr)
         if res and res != "Error":
@@ -3618,65 +3587,25 @@ else:
                 f"🧮 **Calculation Result:**\n\n`{expr}` = **{res}**\n\n💡 Use the 🧮 calculator in the toolbar for continuous equations."})
             st.rerun()
 
-    elif user_input and any(user_input.lower().startswith(kw) for kw in ["plot ","graph ","draw graph "]):
+    elif user_input and any(txt_low.startswith(kw) for kw in ["plot ","graph ","draw graph "]):
         st.session_state.app_mode = "graph"
         st.session_state.messages.append({"role":"user","content":user_input})
         st.session_state.messages.append({"role":"assistant","content":"📈 **Graph Plotter Activated**\n\nEnter your expression in the graph workspace."})
         st.rerun()
 
-    elif user_input and any(kw in user_input.lower() for kw in ["open quiz","start quiz","quiz me"]):
-        st.session_state.app_mode = "quiz"
-        st.session_state.messages.append({"role":"user","content":user_input})
-        st.session_state.messages.append({"role":"assistant","content":"📝 **Quiz Mode Activated** — switching workspace."})
-        st.rerun()
-
-    elif user_input and any(kw in user_input.lower() for kw in ["open planner","study plan","study planner"]):
-        st.session_state.app_mode = "planner"
-        st.session_state.messages.append({"role":"user","content":user_input})
-        st.session_state.messages.append({"role":"assistant","content":"📅 **Study Planner Activated** — generating your plan."})
-        st.rerun()
-
-    elif user_input and any(kw in txt_low for kw in ["mindmap","mind map","concept map"]):
-        st.session_state.app_mode = "mindmap"
-        st.session_state.messages.append({"role":"user","content":user_input})
-        st.session_state.messages.append({"role":"assistant","content":"📊 **Mind Map Generator Activated.**"})
-        st.rerun()
-
-    elif user_input and any(kw in txt_low for kw in ["debug", "fix my code", "my code has", "code debugger", "open debugger"]):
-        st.session_state.app_mode = "debugger"
-        st.session_state.messages.append({"role":"user","content":user_input})
-        st.session_state.messages.append({"role":"assistant","content":"🐛 **Code Debugger Activated** — paste your code in the debug workspace."})
-        st.rerun()
-
-    elif user_input and any(kw in txt_low for kw in ["learn coding", "teach me", "learn python", "learn javascript", "learn c++", "coding tutor", "open learn"]):
-        st.session_state.app_mode = "learn_coding"
-        st.session_state.messages.append({"role":"user","content":user_input})
-        st.session_state.messages.append({"role":"assistant","content":"🎓 **Learn Coding Mode Activated** — choose a language and topic to begin your lesson."})
-        st.rerun()
-
     # ── Main query processing ──────────────────────
     elif user_input:
-        override   = _get_override_key()
-        active_key = key_manager.get_key(override=override)
-
-        if not active_key:
-            st.error("⚠️ No API key available. Add a Groq key in the sidebar (🔑 Override API Key).", icon="🔑")
-            st.stop()
-
-        from utils.query_engine import QueryEngine
-
         st.session_state.messages.append({"role":"user","content":user_input})
         with st.chat_message("user", avatar="👤"):
             st.markdown(f'<span class="user-msg-hook" style="display:none"></span>', unsafe_allow_html=True)
             st.markdown(user_input)
 
+        from utils.query_engine import QueryEngine
         try:
             augmented_prompt, matched_sources, intent = QueryEngine.route_and_enrich(
                 user_input, st.session_state.get("context_text",""))
-        except Exception:
-            augmented_prompt = user_input
-            matched_sources  = []
-            intent           = "complex"
+        except:
+            augmented_prompt, matched_sources, intent = user_input, [], "complex"
 
         assistant_avatar = persona["emoji"] if (persona and st.session_state.selected_persona != "Default (ExamHelp)") else "🎓"
 
@@ -3686,7 +3615,7 @@ else:
             success       = False
 
             history = [{"role":m["role"],"content":m["content"]} for m in st.session_state.messages[-12:]]
-            history[-1]["content"] = augmented_prompt  # Silently enrich prompt
+            history[-1]["content"] = augmented_prompt
 
             # Persona prompt
             persona_prompt = ""
@@ -3698,225 +3627,89 @@ else:
 
             chosen_model = st.session_state.get("model_choice","llama-4-scout-17b-16e-instruct")
 
-            # ── TIER 1: Groq (all keys, internal rotation) ──
             try:
-                for chunk in stream_chat_with_groq(
-                    history,
-                    st.session_state.context_text,
-                    override_key=override,
+                for chunk in ai_engine.generate_stream(
+                    messages=history,
+                    context_text=st.session_state.get("context_text",""),
                     model=chosen_model,
                     persona_prompt=persona_prompt,
+                    use_vit_context=st.session_state.get("vit_mode", False),
                 ):
                     full_response += chunk
                     placeholder.markdown(full_response + "▌")
                 placeholder.markdown(full_response)
                 success = True
                 count_output_stats(full_response)
+            except Exception as e:
+                placeholder.error(f"🚨 Engine Error: {e}")
+                st.session_state.last_error = str(e)
+                success = False
 
-            except Exception as groq_err:
-                # ── TIER 2: Gemini (all keys, internal rotation) ──
-                full_response = ""
+        if success and full_response:
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            st.divider()
+
+            # Visualization Logic
+            chart_fig = None
+            if "CHART_MANIFEST:" in full_response:
                 try:
-                    from ai.gemini_client import stream_chat_with_gemini
-                    placeholder.info("⚡ Switching to Gemini backup…", icon="🔄")
-                    for chunk in stream_chat_with_gemini(
-                        history,
-                        context_text=st.session_state.context_text,
-                        persona_prompt=persona_prompt,
-                    ):
-                        full_response += chunk
-                        placeholder.markdown(full_response + "▌")
-                    placeholder.markdown(full_response)
-                    success = True
-                    count_output_stats(full_response)
+                    match = re.search(r'CHART_MANIFEST:\s*(\{.*?\})', full_response, re.DOTALL)
+                    if match:
+                        manifest = json.loads(match.group(1))
+                        from utils.graph_engine import generate_advanced_chart
+                        chart_fig, _ = generate_advanced_chart(
+                            data=manifest.get("data", {}),
+                            chart_type=manifest.get("type", "bar"),
+                            title=manifest.get("title", "Data Visualization")
+                        )
+                except: pass
 
-                except Exception as gemini_err:
-                    # ── TIER 3: Force-reset cooldowns + retry Groq with fast models ──
-                    full_response = ""
+            tab_exp, tab_res, tab_lab, tab_share = st.tabs(["🎓 Explanation","📚 Resources","🛠️ Study Lab","🔗 Share"])
+            with tab_exp:
+                st.markdown(full_response)
+                if chart_fig: st.plotly_chart(chart_fig, use_container_width=True)
+                if st.session_state.get("voice_mode"):
+                    safe_speak = _safe_js_text(full_response[:1000])
+                    js_code = f'<script>window.speechSynthesis.cancel();const s=new SpeechSynthesisUtterance("{safe_speak}");s.rate=1.0;window.speechSynthesis.speak(s);</script>'
+                    import streamlit.components.v1 as components
+                    components.html(js_code, height=0)
+
+            with tab_res:
+                st.markdown("#### 🔗 References")
+                if matched_sources:
+                    for s in matched_sources[:5]:
+                        label = s.split("//")[-1][:40] if "//" in s else s[:40]
+                        st.markdown(f"- [{label}...]({s})")
+                else: st.info("Direct AI knowledge used — no external links required.")
+
+            with tab_lab:
+                st.markdown("#### 📥 Export Study Material")
+                from utils.study_generator import StudyGenerator
+                col_pdf, col_doc, col_ppt = st.columns(3)
+                with col_pdf:
                     try:
-                        from utils import gemini_key_manager as gkm
-                        key_manager.reset_all_cooldowns()
-                        gkm.reset_all_cooldowns()
-                        placeholder.info("🔄 Resetting key pool and retrying…", icon="⏳")
-                        # Try scout model first (high TPD capacity), then 8B
-                        for fallback_model in ("llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"):
-                            if success:
-                                break
-                            try:
-                                for chunk in stream_chat_with_groq(
-                                    history,
-                                    st.session_state.context_text,
-                                    persona_prompt=persona_prompt,
-                                    model=fallback_model,
-                                ):
-                                    full_response += chunk
-                                    placeholder.markdown(full_response + "▌")
-                                if full_response:
-                                    placeholder.markdown(full_response)
-                                    success = True
-                                    count_output_stats(full_response)
-                            except Exception:
-                                full_response = ""
-                    except Exception:
-                        pass
+                        pdf_data = StudyGenerator.generate_pdf("Study Guide", full_response)
+                        st.download_button("📄 PDF Guide", pdf_data, file_name="ExamHelp_Study.pdf", use_container_width=True)
+                    except: st.button("📄 PDF (unavailable)", disabled=True, use_container_width=True)
+                with col_doc:
+                    try:
+                        docx_data = StudyGenerator.generate_docx("Research Notes", full_response)
+                        st.download_button("📝 DOCX Note", docx_data, file_name="ExamHelp_Note.docx", use_container_width=True)
+                    except: st.button("📝 DOCX (unavailable)", disabled=True, use_container_width=True)
+                with col_ppt:
+                    try:
+                        ppt_data = StudyGenerator.generate_ppt("Slide Deck", full_response)
+                        st.download_button("📊 PPT Slides", ppt_data, file_name="ExamHelp_Slides.pptx", use_container_width=True)
+                    except: st.button("📊 PPT (unavailable)", disabled=True, use_container_width=True)
 
-                    # ── TIER 4: Gemini retry after cooldown reset ──
-                    if not success or not full_response:
-                        full_response = ""
-                        try:
-                            from ai.gemini_client import stream_chat_with_gemini
-                            from utils import gemini_key_manager as gkm
-                            gkm.reset_all_cooldowns()
-                            placeholder.info("🔁 Final retry with backup engines…", icon="🛡️")
-                            for chunk in stream_chat_with_gemini(
-                                history,
-                                context_text=st.session_state.context_text,
-                                persona_prompt=persona_prompt,
-                            ):
-                                full_response += chunk
-                                placeholder.markdown(full_response + "▌")
-                            placeholder.markdown(full_response)
-                            success = True
-                            count_output_stats(full_response)
-                        except Exception:
-                            pass
-
-            if not success or not full_response:
-                full_response = "⚠️ All AI engines are temporarily at capacity. Please tap **Send** again — keys refresh every 60 seconds and your next message will go through instantly."
-                placeholder.warning(full_response)
-
-        # ── Post-processing: Tabbed viewer ─────────────────────
-        st.divider()
-
-        from ai.reasoning_engine import humanize_text
-
-        images, caption, cleaned_text = [], "", full_response
-        if "VISUAL_MANIFEST:" in full_response:
-            try:
-                from ai.image_engine import process_visual_request
-                images, caption, cleaned_text = process_visual_request(full_response)
-            except Exception:
-                cleaned_text = full_response
-
-        chart_fig = None
-        if "CHART_MANIFEST:" in cleaned_text:
-            try:
-                import json, re
-                match = re.search(r'CHART_MANIFEST:\s*(\{.*?\})', cleaned_text, re.DOTALL)
-                if match:
-                    manifest = json.loads(match.group(1))
-                    from utils.graph_engine import generate_advanced_chart
-                    chart_fig, _ = generate_advanced_chart(
-                        data=manifest.get("data", {}),
-                        chart_type=manifest.get("type", "bar"),
-                        title=manifest.get("title", "Data Visualization")
-                    )
-                cleaned_text = re.sub(r'---?\s*CHART_MANIFEST:.*', '', cleaned_text, flags=re.DOTALL).strip()
-            except Exception as e:
-                import logging
-                logging.error(f"Chart manifest error: {e}")
-
-        math_fig = None
-        if "MATH_PLOT_MANIFEST:" in cleaned_text:
-            try:
-                import json, re
-                match = re.search(r'MATH_PLOT_MANIFEST:\s*(\{.*?\})', cleaned_text, re.DOTALL)
-                if match:
-                    m = json.loads(match.group(1))
-                    from utils.graph_engine import plot_2d_graph, plot_3d_graph, plot_polar_graph, plot_parametric_3d
-                    p_type = m.get("type", "2d")
-                    funcs = m.get("functions", [])
-                    
-                    if p_type == "2d" and funcs:
-                        math_fig, _ = plot_2d_graph(funcs, m.get("x_min",-10), m.get("x_max",10))
-                    elif p_type == "3d" and funcs:
-                        math_fig, _ = plot_3d_graph(funcs[0])
-                    elif p_type == "polar" and funcs:
-                        math_fig, _ = plot_polar_graph(funcs[0], 0, m.get("theta_max", 31.415))
-                    elif p_type == "parametric" and len(funcs) >= 3:
-                        math_fig, _ = plot_parametric_3d(funcs[0], funcs[1], funcs[2])
-                cleaned_text = re.sub(r'---?\s*MATH_PLOT_MANIFEST:.*', '', cleaned_text, flags=re.DOTALL).strip()
-            except Exception as e:
-                import logging
-                logging.error(f"Math plot error: {e}")
-
-        tab_exp, tab_res, tab_lab, tab_share = st.tabs(["🎓 Explanation","📚 Resources","🛠️ Study Lab","🔗 Share"])
-
-        with tab_exp:
-            st.markdown(cleaned_text)
-            if chart_fig: st.plotly_chart(chart_fig, use_container_width=True)
-            if math_fig: st.plotly_chart(math_fig, use_container_width=True)
-                
-            # Inline math rendering hint
-            if any(sym in cleaned_text for sym in ["$$","\\(","\\["]):
-                st.info("💡 This response contains LaTeX math. It renders automatically in Streamlit.")
-
-            # Browser-Native Text-to-Speech execution (If Voice Mode enabled)
-            if st.session_state.get("voice_mode"):
-                safe_speak = _safe_js_text(cleaned_text[:1500])
-                js_code = f'<script>window.speechSynthesis.cancel();const s=new SpeechSynthesisUtterance("{safe_speak}");s.rate=1.0;window.speechSynthesis.speak(s);</script>'
-                import streamlit.components.v1 as components
-                components.html(js_code, height=0)
-
-        with tab_res:
-            if images:
-                st.markdown(f"#### 🖼️ {caption}")
-                img_cols = st.columns(min(len(images),3))
-                for ci, img in enumerate(images[:3]):
-                    with img_cols[ci]:
-                        st.image(img, use_container_width=True)
-                st.divider()
-            st.markdown("#### 🔗 References")
-            if matched_sources:
-                for s in matched_sources[:5]:
-                    label = s.split("//")[-1][:40] if "//" in s else s[:40]
-                    st.markdown(f"- [{label}…]({s})")
-            else:
-                st.info("Direct AI knowledge used — no external links required.")
-
-        with tab_lab:
-            st.markdown("#### 📥 Export Study Material")
-            from utils.study_generator import StudyGenerator
-            col_pdf, col_doc, col_ppt = st.columns(3)
-            with col_pdf:
+            with tab_share:
+                st.markdown("#### 🔗 Share This Response")
                 try:
-                    pdf_data = StudyGenerator.generate_pdf("Study Guide", cleaned_text)
-                    st.download_button("📄 PDF Guide", pdf_data,
-                                       file_name="ExamHelp_Study.pdf", use_container_width=True)
-                except Exception:
-                    st.button("📄 PDF (unavailable)", disabled=True, use_container_width=True)
-            with col_doc:
-                try:
-                    docx_data = StudyGenerator.generate_docx("Research Notes", cleaned_text)
-                    st.download_button("📝 DOCX Note", docx_data,
-                                       file_name="ExamHelp_Note.docx", use_container_width=True)
-                except Exception:
-                    st.button("📝 DOCX (unavailable)", disabled=True, use_container_width=True)
-            with col_ppt:
-                try:
-                    ppt_data = StudyGenerator.generate_ppt("Slide Deck", cleaned_text)
-                    st.download_button("📊 PPT Slides", ppt_data,
-                                       file_name="ExamHelp_Slides.pptx", use_container_width=True)
-                except Exception:
-                    st.button("📊 PPT (unavailable)", disabled=True, use_container_width=True)
+                    share_msgs = [{"r":m["role"][0],"c":m["content"]} for m in st.session_state.messages[-8:]]
+                    compressed = base64.urlsafe_b64encode(zlib.compress(json.dumps(share_msgs).encode())).decode()
+                    st.text_input("Share Link", value=f"?chat={compressed}", label_visibility="collapsed")
+                    st.caption("📋 Copy the URL above to share this conversation.")
+                except: st.info("Sharing unavailable.")
 
-        with tab_share:
-            st.markdown("#### 🔗 Share This Response")
-            try:
-                share_msgs = [{"r":m["role"][0],"c":m["content"]} for m in st.session_state.messages[-10:]]
-                compressed = base64.urlsafe_b64encode(zlib.compress(json.dumps(share_msgs).encode())).decode()
-                share_url  = f"?chat={compressed}"
-                st.text_input("Share Link", value=share_url, label_visibility="collapsed")
-                st.caption("📋 Copy the URL above to share this conversation.")
-            except Exception:
-                st.info("Sharing unavailable for this session.")
-
-        # Add to history
-        st.session_state.messages.append({"role":"assistant","content":cleaned_text})
-
-        # TTS
-        if st.session_state.get("voice_mode") and success:
-            AppController.speak(cleaned_text[:600])
-
-        # Token tracking (approximate)
-        st.session_state.total_tokens_used += len(cleaned_text.split()) * 2
+        # Update stats
+        st.session_state.total_tokens_used += (len(full_response.split()) * 2) if (success and full_response) else 0

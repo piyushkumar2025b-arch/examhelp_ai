@@ -224,73 +224,98 @@ def _render_article_card(article: dict, idx):
 # ═══════════════════════════════════════════════════════════════
 
 def render_vit_map():
-    """Render VIT Chennai campus interactive map."""
+    """Render VIT Chennai campus interactive map with Leaflet markers."""
     import streamlit.components.v1 as components
-    
+    from map_engine import (
+        VIT_CHENNAI_LOCATIONS, VIT_CENTER_LAT, VIT_CENTER_LNG,
+        GOOGLE_MAPS_EMBED_KEY, get_vit_map_html, get_directions_url,
+        haversine_km, get_walk_time, NEARBY_FROM_VIT,
+    )
+
     st.markdown("""
 <style>
 .map-header{background:linear-gradient(135deg,#001a10 0%,#000d08 100%);border:1px solid #1a5a30;border-radius:16px;padding:28px 32px;margin-bottom:20px;}
 .map-title{font-size:2rem;font-weight:900;color:#34d399;margin:0 0 4px;}
 .map-sub{font-size:.9rem;color:#9090b8;}
-.loc-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);border-radius:8px;padding:6px 12px;font-size:.8rem;color:#34d399;margin:3px;cursor:pointer;transition:all .2s;}
-.loc-chip:hover{background:rgba(52,211,153,0.15);transform:translateY(-1px);}
+.loc-card{background:rgba(14,14,26,0.8);border:1px solid rgba(52,211,153,0.15);border-radius:12px;padding:12px;margin:4px 0;transition:border-color .2s;}
+.loc-card:hover{border-color:rgba(52,211,153,0.4);}
+.loc-highlight{border-color:#34d399 !important;background:rgba(52,211,153,0.08) !important;}
 </style>
 """, unsafe_allow_html=True)
 
     st.markdown("""
 <div class="map-header">
   <div class="map-title">🗺️ VIT Chennai Campus</div>
-  <div class="map-sub">Interactive campus map · Navigate buildings · Find facilities · Real-time location</div>
+  <div class="map-sub">Interactive campus map · Colored markers per category · Find facilities · Distance calculator</div>
 </div>
 """, unsafe_allow_html=True)
 
-    from map_engine import VIT_CHENNAI_LOCATIONS, VIT_CENTER_LAT, VIT_CENTER_LNG, GOOGLE_MAPS_EMBED_KEY
+    # ── Tabs ─────────────────────────────────────────────────────────────────
+    tab_map, tab_locations, tab_distance, tab_directions, tab_nearby = st.tabs([
+        "🗺️ Live Map", "📋 All Locations", "📏 Distance", "🧭 Directions", "🏕️ Weekend Trips"
+    ])
 
-    # Category selector
-    all_cats = list(VIT_CHENNAI_LOCATIONS.keys())
-    selected_cats = st.multiselect(
-        "Show categories",
-        all_cats,
-        default=all_cats,
-        key="vit_map_cats"
-    )
+    # ── TAB 1: LIVE MAP ───────────────────────────────────────────────────────
+    with tab_map:
+        all_cats = list(VIT_CHENNAI_LOCATIONS.keys())
+        selected_cats = st.multiselect(
+            "Show categories on map",
+            all_cats,
+            default=all_cats,
+            key="vit_map_cats"
+        )
 
-    # Map type
-    col_mt1, col_mt2, col_mt3 = st.columns(3)
-    with col_mt1:
-        map_mode = st.radio("Map Mode", ["🛰️ Satellite", "🗺️ Standard", "📍 Hybrid"], horizontal=False, key="vit_map_mode")
-    with col_mt2:
-        zoom = st.slider("Zoom Level", 14, 20, 17, key="vit_zoom")
-    with col_mt3:
-        st.markdown("<br>", unsafe_allow_html=True)
-        search_loc = st.text_input("Find location", placeholder="e.g. Library, MH1...", key="vit_search")
+        # Search box — now actually does something
+        search_loc = st.text_input(
+            "🔍 Search location",
+            placeholder="e.g. Library, MH1, canteen...",
+            key="vit_search"
+        )
 
-    maptype = "satellite" if "Satellite" in map_mode else ("roadmap" if "Standard" in map_mode else "hybrid")
-    
-    # Embedded Google Map
-    embed_url = f"https://www.google.com/maps/embed/v1/view?key={GOOGLE_MAPS_EMBED_KEY}&center={VIT_CENTER_LAT},{VIT_CENTER_LNG}&zoom={zoom}&maptype={maptype}"
-    
-    components.html(f"""
-<div style="border-radius:16px;overflow:hidden;border:1px solid rgba(52,211,153,0.3);box-shadow:0 8px 32px rgba(0,0,0,0.4);">
-<iframe 
-    width="100%" 
-    height="520" 
-    frameborder="0" 
-    style="border:0;display:block;" 
-    src="{embed_url}" 
-    allowfullscreen>
-</iframe>
+        # Render Leaflet map with selected categories
+        map_html = get_vit_map_html(selected_categories=selected_cats)
+        components.html(map_html, height=560, scrolling=False)
+
+        # Search results — shown below the map
+        if search_loc.strip():
+            q = search_loc.strip().lower()
+            found = []
+            for cat, locs in VIT_CHENNAI_LOCATIONS.items():
+                for loc in locs:
+                    if q in loc["name"].lower() or q in loc["desc"].lower():
+                        found.append((cat, loc))
+
+            if found:
+                st.success(f"Found {len(found)} location(s) matching **{search_loc}**")
+                for cat, loc in found:
+                    maps_url = f"https://www.google.com/maps/search/?api=1&query={loc['lat']},{loc['lng']}"
+                    st.markdown(f"""
+<div class="loc-card loc-highlight">
+  <div style="font-weight:600;font-size:.9rem;color:#34d399">{loc['name']}</div>
+  <div style="font-size:.78rem;color:#9090b8;margin:3px 0">{cat} · {loc['desc']}</div>
+  <a href="{maps_url}" target="_blank" style="font-size:.75rem;color:#7c6af7">📍 Open in Google Maps →</a>
 </div>
-<div style="background:#001a10;border:1px solid rgba(52,211,153,0.2);border-radius:8px;padding:10px;margin-top:8px;font-size:.75rem;color:#9090b8;">
-  📍 VIT Chennai, Vandalur–Kelambakkam Road, Chennai - 600127, Tamil Nadu, India
-</div>
-""", height=580)
+""", unsafe_allow_html=True)
+            else:
+                st.warning(f"No location found matching '{search_loc}'. Try: Library, MH1, Canteen, Sports...")
 
-    st.markdown("---")
-    
-    # Location cards
-    for cat in selected_cats:
-        if cat in VIT_CHENNAI_LOCATIONS:
+        # Colour legend
+        color_legend = {
+            "🟣 Academic": "#7c6af7", "🟢 Hostels": "#34d399", "🟡 Food": "#f59e0b",
+            "🔵 Library": "#60a5fa",  "🔴 Sports": "#f87171", "🟤 Services": "#c084fc",
+            "🟨 Transport": "#fbbf24"
+        }
+        st.markdown(
+            " &nbsp; ".join(
+                f'<span style="background:{c};color:#000;border-radius:4px;padding:2px 8px;font-size:.72rem;font-weight:600">{k}</span>'
+                for k, c in color_legend.items()
+            ),
+            unsafe_allow_html=True
+        )
+
+    # ── TAB 2: ALL LOCATIONS ──────────────────────────────────────────────────
+    with tab_locations:
+        for cat in list(VIT_CHENNAI_LOCATIONS.keys()):
             locations = VIT_CHENNAI_LOCATIONS[cat]
             st.markdown(f"### {cat}")
             cols = st.columns(3)
@@ -298,33 +323,143 @@ def render_vit_map():
                 with cols[i % 3]:
                     maps_url = f"https://www.google.com/maps/search/?api=1&query={loc['lat']},{loc['lng']}"
                     st.markdown(f"""
-<div style="background:var(--bg3-glass);border:1px solid var(--bd-glass);border-radius:12px;padding:12px;margin:4px 0;">
-  <div style="font-weight:600;font-size:.88rem;color:var(--text);">{loc['name']}</div>
-  <div style="font-size:.75rem;color:var(--text3);margin:4px 0;">{loc['desc']}</div>
-  <a href="{maps_url}" target="_blank" style="font-size:.72rem;color:var(--accent);">📍 Open in Maps →</a>
+<div class="loc-card">
+  <div style="font-weight:600;font-size:.88rem;color:#f0f0ff">{loc['name']}</div>
+  <div style="font-size:.75rem;color:#9090b8;margin:4px 0">{loc['desc']}</div>
+  <a href="{maps_url}" target="_blank" style="font-size:.72rem;color:#7c6af7">📍 Open in Maps →</a>
 </div>
 """, unsafe_allow_html=True)
 
-    # Directions helper
-    st.markdown("---")
-    st.markdown("### 🧭 Get Directions")
-    dir_col1, dir_col2 = st.columns(2)
-    with dir_col1:
-        from_loc = st.text_input("From", placeholder="Your current location or address", key="vit_from")
-    with dir_col2:
-        to_loc = st.selectbox("To", ["VIT Chennai Main Gate"] + [loc["name"] for cat in VIT_CHENNAI_LOCATIONS.values() for loc in cat], key="vit_to")
-    
-    if from_loc and st.button("🗺️ Get Directions", type="primary", use_container_width=True, key="vit_dir"):
-        # Find coordinates
-        dest_lat, dest_lng = VIT_CENTER_LAT, VIT_CENTER_LNG
-        for cat_locs in VIT_CHENNAI_LOCATIONS.values():
-            for loc in cat_locs:
-                if loc["name"] == to_loc:
-                    dest_lat, dest_lng = loc["lat"], loc["lng"]
-                    break
-        
-        dir_url = f"https://www.google.com/maps/dir/{from_loc.replace(' ','+')+',+Chennai'}/{dest_lat},{dest_lng}"
-        st.markdown(f'<a href="{dir_url}" target="_blank"><button style="background:linear-gradient(135deg,#34d399,#059669);color:white;border:none;padding:12px 24px;border-radius:10px;cursor:pointer;font-weight:600;">🗺️ Open Directions in Google Maps →</button></a>', unsafe_allow_html=True)
+    # ── TAB 3: DISTANCE CALCULATOR ────────────────────────────────────────────
+    with tab_distance:
+        st.markdown("### 📏 Distance Between Campus Locations")
+        st.caption("Straight-line distance + estimated walking time between any two points on campus.")
+
+        # Build flat list of all locations for selectors
+        all_locs_flat = [
+            (loc["name"], loc["lat"], loc["lng"])
+            for locs in VIT_CHENNAI_LOCATIONS.values()
+            for loc in locs
+        ]
+        loc_names = [l[0] for l in all_locs_flat]
+        loc_coord_map = {l[0]: (l[1], l[2]) for l in all_locs_flat}
+
+        d_col1, d_col2 = st.columns(2)
+        with d_col1:
+            loc_a = st.selectbox("From location", loc_names, index=0, key="dist_from")
+        with d_col2:
+            loc_b = st.selectbox("To location", loc_names, index=4, key="dist_to")
+
+        if loc_a and loc_b and loc_a != loc_b:
+            la, loa = loc_coord_map[loc_a]
+            lb, lob = loc_coord_map[loc_b]
+            km = haversine_km(la, loa, lb, lob)
+            walk = get_walk_time(km)
+            meters = int(km * 1000)
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Straight-line distance", f"{meters} m")
+            c2.metric("Walking time", walk)
+            c3.metric("By campus shuttle", "~5–10 min")
+
+            gm_url = f"https://www.google.com/maps/dir/{la},{loa}/{lb},{lob}"
+            st.markdown(
+                f'<a href="{gm_url}" target="_blank" style="color:#34d399;font-size:.85rem;">'
+                f'🗺️ View walking route on Google Maps →</a>',
+                unsafe_allow_html=True
+            )
+        elif loc_a == loc_b:
+            st.info("Select two different locations to calculate distance.")
+
+        # Quick reference table for common routes
+        st.markdown("---")
+        st.markdown("#### Common Routes")
+        common_routes = [
+            ("Main Gate", "Technology Tower (TT)"),
+            ("MH1 - Men's Hostel 1", "Central Library"),
+            ("Main Cafeteria", "Technology Tower (TT)"),
+            ("LH1 - Ladies Hostel 1", "Anna Auditorium"),
+            ("Bus Stand", "Central Library"),
+        ]
+        for a, b in common_routes:
+            if a in loc_coord_map and b in loc_coord_map:
+                la, loa = loc_coord_map[a]
+                lb, lob = loc_coord_map[b]
+                km = haversine_km(la, loa, lb, lob)
+                wt = get_walk_time(km)
+                st.markdown(
+                    f"**{a}** → **{b}** &nbsp; `{int(km*1000)} m` &nbsp; {wt}"
+                )
+
+    # ── TAB 4: DIRECTIONS ─────────────────────────────────────────────────────
+    with tab_directions:
+        st.markdown("### 🧭 Get Directions to VIT Campus")
+        st.caption("Enter where you are coming from — the app builds a direct Google Maps directions link.")
+
+        from_loc = st.text_input(
+            "Your starting location",
+            placeholder="e.g. Chennai Central Station, Tambaram, T. Nagar...",
+            key="vit_from"
+        )
+
+        to_options = ["VIT Chennai Main Gate"] + [
+            loc["name"]
+            for locs in VIT_CHENNAI_LOCATIONS.values()
+            for loc in locs
+        ]
+        to_loc = st.selectbox("Destination on campus", to_options, key="vit_to")
+
+        if from_loc.strip() and st.button("🗺️ Get Directions", type="primary", use_container_width=True, key="vit_dir"):
+            # Resolve destination coordinates
+            dest_lat, dest_lng = VIT_CENTER_LAT, VIT_CENTER_LNG
+            for locs in VIT_CHENNAI_LOCATIONS.values():
+                for loc in locs:
+                    if loc["name"] == to_loc:
+                        dest_lat, dest_lng = loc["lat"], loc["lng"]
+                        break
+
+            dir_url = get_directions_url(from_loc.strip(), dest_lat, dest_lng)
+            st.success(f"Directions from **{from_loc}** → **{to_loc}** ready!")
+            st.markdown(
+                f'<a href="{dir_url}" target="_blank">'
+                f'<button style="background:linear-gradient(135deg,#34d399,#059669);color:white;'
+                f'border:none;padding:12px 28px;border-radius:10px;cursor:pointer;font-size:.95rem;font-weight:600;">'
+                f'🗺️ Open Directions in Google Maps →</button></a>',
+                unsafe_allow_html=True
+            )
+            st.caption("Tip: Google Maps will auto-detect your live location if you allow it.")
+
+        st.markdown("---")
+        st.markdown("#### 🚌 Common Ways to Reach VIT Chennai")
+        routes_info = [
+            ("🚆 From Chennai Central", "Train to Vandalur / Guduvanchery → Auto to VIT (~₹80-120)", "~1.5 hr"),
+            ("🚌 From Tambaram",        "Bus 19C or 19D toward Kelambakkam → alight at VIT stop (~₹15)", "~45 min"),
+            ("🚕 From Chennai Airport", "Cab via OMR (~₹400-600) or Suburban train + auto", "~45 min"),
+            ("🚌 From T. Nagar",        "Bus 19B toward Kelambakkam — direct to VIT gate (~₹20)", "~1.5 hr"),
+            ("🚗 Self-drive",           "ECR → Kelambakkam junction → Vandalur-Kelambakkam Road", "~45 min from city"),
+        ]
+        for icon_route, detail, time_est in routes_info:
+            col1, col2, col3 = st.columns([2, 3, 1])
+            with col1: st.markdown(f"**{icon_route}**")
+            with col2: st.markdown(detail)
+            with col3: st.markdown(f"`{time_est}`")
+
+    # ── TAB 5: WEEKEND TRIPS ──────────────────────────────────────────────────
+    with tab_nearby:
+        st.markdown("### 🏕️ Weekend Trips from VIT Chennai")
+        st.caption("Student-friendly destinations reachable by public transport. No car needed.")
+
+        for dest in NEARBY_FROM_VIT:
+            with st.expander(f"📍 {dest['name']} — {dest['km']} km away"):
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.markdown(f"**{dest['desc']}**")
+                    st.markdown(f"🚌 **How to get there:** {dest['transport']}")
+                with c2:
+                    gm_dir = f"https://www.google.com/maps/dir/{VIT_CENTER_LAT},{VIT_CENTER_LNG}/{dest['lat']},{dest['lng']}"
+                    gm_view = f"https://www.google.com/maps/search/?api=1&query={dest['lat']},{dest['lng']}"
+                    st.markdown(f"[🗺️ Directions]({gm_dir})")
+                    st.markdown(f"[📍 View on Map]({gm_view})")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="vit_back"):
         st.session_state.app_mode = "chat"
@@ -385,24 +520,36 @@ def render_trip_planner():
             key="trip_interests"
         )
         
-        if st.button("🚀 Generate Trip Plan", type="primary", use_container_width=True, key="gen_trip",
-                     disabled=not (origin and destination)):
-            with st.spinner(f"Creating your {days}-day trip plan..."):
+        plan_key = f"trip_plan__{origin}__{destination}__{days}"
+
+        btn_col, clr_col = st.columns([4, 1])
+        with btn_col:
+            gen_btn = st.button(
+                "🚀 Generate Trip Plan", type="primary", use_container_width=True,
+                key="gen_trip", disabled=not (origin and destination)
+            )
+        with clr_col:
+            if st.button("🗑️ Clear", use_container_width=True, key="clear_trip"):
+                for k in list(st.session_state.keys()):
+                    if k.startswith("trip_plan__"):
+                        del st.session_state[k]
+                st.rerun()
+
+        if gen_btn:
+            with st.spinner(f"Creating your {days}-day trip plan to {destination}..."):
                 plan = get_india_trip_plan(
-                    origin=origin,
-                    destination=destination,
-                    days=days,
-                    budget=budget,
+                    origin=origin, destination=destination,
+                    days=days, budget=budget,
                     interests=[i.split(" ", 1)[1] if " " in i else i for i in interests]
                 )
-                st.session_state["trip_plan"] = plan
-        
-        if "trip_plan" in st.session_state:
-            st.markdown(st.session_state["trip_plan"])
+                st.session_state[plan_key] = plan
+
+        if plan_key in st.session_state:
+            st.markdown(st.session_state[plan_key])
             st.download_button(
                 "📥 Download Trip Plan",
-                st.session_state["trip_plan"],
-                file_name=f"india_trip_plan_{destination.split(',')[0].replace(' ','_')}.md",
+                st.session_state[plan_key],
+                file_name=f"trip_{destination.split(',')[0].replace(' ', '_')}.md",
                 mime="text/markdown",
                 use_container_width=True,
                 key="trip_dl"
@@ -410,28 +557,50 @@ def render_trip_planner():
 
     with tab_explore:
         st.markdown("### 🗺️ Explore India's Destinations")
-        
-        for cat, places in INDIA_DESTINATIONS.items():
-            st.markdown(f"#### {cat}")
-            cols = st.columns(4)
-            for i, place in enumerate(places):
-                with cols[i % 4]:
-                    maps_url = f"https://www.google.com/maps/search/?api=1&query={place['lat']},{place['lng']}"
-                    if st.button(f"📍 {place['name']}", key=f"dest_{cat}_{i}", use_container_width=True):
-                        st.session_state["selected_dest"] = place
-                        st.session_state["show_dest_map"] = True
-        
-        if st.session_state.get("show_dest_map") and st.session_state.get("selected_dest"):
-            place = st.session_state["selected_dest"]
-            st.markdown(f"### 📍 {place['name']}, {place['state']}")
-            st.markdown(f"*{place['desc']}*")
-            embed_url = f"https://www.google.com/maps/embed/v1/view?key={GOOGLE_MAPS_EMBED_KEY}&center={place['lat']},{place['lng']}&zoom=12&maptype=roadmap"
+
+        # Use selectbox + radio instead of buttons — stable across reruns
+        exp_cat = st.selectbox(
+            "Destination category",
+            list(INDIA_DESTINATIONS.keys()),
+            key="explore_cat"
+        )
+        places_in_cat = INDIA_DESTINATIONS[exp_cat]
+        place_labels = [f"{p['name']} — {p['state']}" for p in places_in_cat]
+
+        chosen_label = st.radio(
+            "Pick a destination",
+            place_labels,
+            key="explore_place",
+            horizontal=True
+        )
+
+        chosen = next(
+            (p for p in places_in_cat
+             if f"{p['name']} — {p['state']}" == chosen_label),
+            None
+        )
+
+        if chosen:
+            st.markdown(f"**{chosen['name']}, {chosen['state']}**")
+            st.caption(chosen["desc"])
+
+            embed_url = (
+                f"https://www.google.com/maps/embed/v1/view"
+                f"?key={GOOGLE_MAPS_EMBED_KEY}"
+                f"&center={chosen['lat']},{chosen['lng']}"
+                f"&zoom=12&maptype=roadmap"
+            )
             components.html(f"""
 <div style="border-radius:12px;overflow:hidden;border:1px solid rgba(245,158,11,0.3);">
-<iframe width="100%" height="380" frameborder="0" style="border:0;display:block;" src="{embed_url}" allowfullscreen></iframe>
+<iframe width="100%" height="380" frameborder="0" style="border:0;display:block;"
+  src="{embed_url}" allowfullscreen></iframe>
 </div>""", height=400)
-            gm_url = f"https://www.google.com/maps/search/?api=1&query={place['lat']},{place['lng']}"
-            st.markdown(f'<a href="{gm_url}" target="_blank" style="color:#f59e0b;font-size:.85rem;">🗺️ Open in Google Maps →</a>', unsafe_allow_html=True)
+
+            gm_url = f"https://www.google.com/maps/search/?api=1&query={chosen['lat']},{chosen['lng']}"
+            st.markdown(
+                f'[🗺️ Open in Google Maps →]({gm_url})',
+                unsafe_allow_html=False
+            )
 
     with tab_ask:
         st.markdown("### ❓ Ask Your Travel Expert")
