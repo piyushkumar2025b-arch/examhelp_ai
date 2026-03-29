@@ -122,6 +122,14 @@ def init_state():
         "solver_result": None, "solver_history": [],
         # ── Smart Notes
         "notes_result": None, "notes_history": [],
+        # ── Code Converter
+        "cc_converted": "", "cc_original": "", "cc_tokens": 0, "cc_chat_messages": [],
+        # ── Smart Shopping
+        "shop_wishlist": [], "shop_product_results": [], "shop_grocery_results": [], "shop_food_results": [],
+        # ── Context Focus (Deep Research)
+        "cf_research": None, "cf_followup_chat": [],
+        # ── Presentation Builder
+        "pres_slides": [],
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -1868,6 +1876,10 @@ with st.sidebar:
         ("🕵️", "Reverse Image Search", "AI vision lookup & deep analysis", "image_searcher"),
         ("📰", "AI News Hub",         "Live AI news & tool recommendations", "news_hub"),
         ("🗺️", "Campus & India Map",  "VIT Campus Guide & Trip Planner", "map_planner"),
+        ("🔀", "Code Converter",      "AI code translation + diff + zip",   "code_converter"),
+        ("🛒", "Smart Shopping",      "Compare prices across platforms",     "smart_shopping"),
+        ("🔬", "Context Focus",       "Deep internet research engine",      "context_focus"),
+        ("🎯", "Presentation AI",     "Generate slide decks with real data", "presentation_builder"),
     ]
     for icon, name, desc, mode in _power_tools:
         col_icon, col_info, col_btn = st.columns([1, 4, 2])
@@ -3494,6 +3506,26 @@ elif app_mode == "vit_academics":
 # ─── STUDY TOOLKIT ────────────────────────────────────────────────────────────
 elif app_mode == "study_toolkit":
     render_study_toolkit()
+
+# ─── CODE CONVERTER ──────────────────────────────────────────────────────────
+elif app_mode == "code_converter":
+    from utils.code_converter_engine import render_code_converter
+    render_code_converter()
+
+# ─── SMART SHOPPING ──────────────────────────────────────────────────────────
+elif app_mode == "smart_shopping":
+    from utils.shopping_engine import render_shopping_finder
+    render_shopping_finder()
+
+# ─── CONTEXT FOCUS (DEEP RESEARCH) ──────────────────────────────────────────
+elif app_mode == "context_focus":
+    from utils.context_focus_engine import render_context_focus
+    render_context_focus()
+
+# ─── PRESENTATION BUILDER ───────────────────────────────────────────────────
+elif app_mode == "presentation_builder":
+    from utils.presentation_engine import render_presentation_builder
+    render_presentation_builder()
 
 else:
 

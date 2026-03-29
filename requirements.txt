@@ -98,3 +98,7 @@ streamlit-quill==0.0.3
 # ── Engines ──
 qrcode[pil]>=7.4.2
 PyYAML>=6.0.1
+
+# ── Exotic Power Tools (Code Converter, Shopping, Context Focus, Presentations) ──
+trafilatura>=1.6.0
+lxml>=5.0.0

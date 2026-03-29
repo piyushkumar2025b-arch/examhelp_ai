@@ -8,7 +8,7 @@ from __future__ import annotations
 import streamlit as st
 import re
 import datetime
-from utils.groq_client import stream_chat_with_groq, chat_with_groq
+from utils import ai_engine
 
 # ─────────────────────────────────────────────
 # STORY DATA
@@ -177,14 +177,44 @@ NARRATIVE_TOOLS = {
     "🔚 Build to a cliffhanger": "End this section on a sharp, irresistible cliffhanger that demands a next chapter.",
 }
 
+STYLE_MIMICRY = {
+    "None (Original)": "",
+    "Haruki Murakami": "Write exactly like Haruki Murakami: dreamy detachment, mundane details elevated to the surreal, cats, jazz, loneliness as texture, simple sentences hiding oceanic depth. First-person alienation.",
+    "Stephen King": "Write exactly like Stephen King: conversational American voice, small-town characters with real speech patterns, creeping dread beneath the ordinary, pop culture references, long builds to visceral payoffs.",
+    "Fyodor Dostoevsky": "Write exactly like Dostoevsky: feverish psychological intensity, moral philosophy embedded in dialogue, characters arguing with their own souls, confessional tone, raw unfiltered consciousness.",
+    "Virginia Woolf": "Write exactly like Virginia Woolf: stream of consciousness, time dissolving, a single moment expanded into pages, luminous imagery, inner experience as the real story.",
+    "Cormac McCarthy": "Write exactly like Cormac McCarthy: no quotation marks, biblical cadence, sparse punctuation, violence rendered beautifully, landscape as character, dialogue that cuts like a blade.",
+    "Toni Morrison": "Write exactly like Toni Morrison: lyrical density, ancestral memory, community as chorus, metaphor as truth, sentences that demand re-reading, Black American experience as mythology.",
+    "Neil Gaiman": "Write exactly like Neil Gaiman: mythology made intimate and modern, fairytale logic, conversational warmth hiding dark truths, British wit in impossible situations.",
+    "Gabriel García Márquez": "Write exactly like García Márquez: magical realism, impossibly long sentences that breathe, family sagas across generations, matter-of-fact about miracles, lush tropical sensory detail.",
+    "Jane Austen": "Write exactly like Jane Austen: ironic social observation, dialogue as warfare, restrained emotion that simmers, moral clarity behind wit, the domestic as the epic.",
+    "Franz Kafka": "Write exactly like Kafka: bureaucratic nightmare rendered in flat declarative prose, absurdity treated as perfectly normal, protagonist trapped in incomprehensible systems, dark humor.",
+}
+
+COLLAB_MODES = {
+    "AI Leads": "The AI drives the narrative forward. The user can guide direction, but the AI makes creative decisions about plot, dialogue, and pacing.",
+    "Equal Partners": "User and AI alternate control. The user writes key moments; the AI fills in transitions, atmosphere, and develops what the user starts.",
+    "User Leads": "The user drives all major plot decisions. The AI expands, polishes, and adds literary quality to the user's raw narrative direction.",
+    "AI Ghost-Writer": "The user provides only bullet-point directions or summaries. The AI transforms them into fully realized literary prose.",
+}
+
 # ─────────────────────────────────────────────
 # STORY SYSTEM PROMPT BUILDER
 # ─────────────────────────────────────────────
 
-def build_story_system_prompt(genre_name: str, voice_name: str, pacing: str, extra_context: str = "") -> str:
+def build_story_system_prompt(genre_name: str, voice_name: str, pacing: str, extra_context: str = "", style_mimicry: str = "None (Original)", collab_mode: str = "AI Leads", characters: list = None) -> str:
     genre = GENRES.get(genre_name, GENRES["🏰 Fantasy"])
     voice = WRITING_VOICES.get(voice_name, WRITING_VOICES["📖 Classic Narrator"])
     pace_instruction = PACING_MODES.get(pacing, PACING_MODES["🌊 Natural Flow"])
+    mimicry_instruction = STYLE_MIMICRY.get(style_mimicry, "")
+    collab_instruction = COLLAB_MODES.get(collab_mode, COLLAB_MODES["AI Leads"])
+
+    character_block = ""
+    if characters:
+        char_lines = []
+        for c in characters:
+            char_lines.append(f"- {c.get('name', 'Unknown')}: {c.get('role', '')}. {c.get('traits', '')}. {c.get('arc', '')}")
+        character_block = f"\n\nESTABLISHED CHARACTERS (maintain consistency):\n" + "\n".join(char_lines)
 
     return f"""You are a master literary fiction author and collaborative story engine. Your knowledge spans the entire Western and world literary canon — from Homer and Shakespeare to contemporary fiction. You understand narrative structure (three-act, hero's journey, kishōtenketsu, in medias res), character psychology, prose craft, and genre conventions at a professional novelist level.
 
@@ -203,6 +233,12 @@ WRITING VOICE: {voice_name}
 
 PACING: {pacing}
 {pace_instruction}
+
+COLLABORATION MODE: {collab_mode}
+{collab_instruction}
+
+{f"STYLE MIMICRY: {mimicry_instruction}" if mimicry_instruction else ""}
+{character_block}
 
 ══════════════════════════════════
 CRAFT RULES — NON-NEGOTIABLE
@@ -253,6 +289,12 @@ def _init_story_state():
         "story_notes": "",      # author notes / world details
         "story_word_count": 0,
         "story_chapter": 1,
+        # ── New upgrades ──
+        "story_style_mimicry": "None (Original)",
+        "story_collab_mode": "AI Leads",
+        "story_characters": [],  # [{name, role, traits, arc}]
+        "story_branches": [],    # [full_text snapshots for branching]
+        "story_branch_labels": [],
     }
     for k, v in keys.items():
         if k not in st.session_state:
@@ -270,11 +312,8 @@ def _get_override_key():
 def _generate_title(seed: str, genre: str) -> str:
     """Generate an evocative title from the opening."""
     try:
-        msgs = [
-            {"role": "system", "content": f"You are a literary editor specialising in {genre} fiction. Generate ONE evocative, professional book title (3–6 words) for this story opening. Return ONLY the title, nothing else."},
-            {"role": "user", "content": seed[:500]},
-        ]
-        title = chat_with_groq(msgs, model="llama-3.1-8b-instant")
+        prompt = f"You are a literary editor specialising in {genre} fiction. Generate ONE evocative, professional book title (3–6 words) for this story opening. Return ONLY the title, nothing else.\n\n{seed[:500]}"
+        title = ai_engine.generate(prompt=prompt, model="llama-3.1-8b-instant", max_tokens=64, temperature=0.7)
         return title.strip().strip('"').strip("'")
     except Exception:
         return "Untitled Story"
@@ -518,6 +557,28 @@ def render_story_builder():
         if selected_length != st.session_state.story_length:
             st.session_state.story_length = selected_length
 
+        # ── Style Mimicry ───────────────────────
+        st.markdown('<div class="config-label">✨ Style Mimicry</div>', unsafe_allow_html=True)
+        mimicry_keys = list(STYLE_MIMICRY.keys())
+        selected_mimicry = st.selectbox(
+            "Style", mimicry_keys,
+            index=mimicry_keys.index(st.session_state.story_style_mimicry) if st.session_state.story_style_mimicry in mimicry_keys else 0,
+            label_visibility="collapsed",
+            key="mimicry_select_story",
+        )
+        st.session_state.story_style_mimicry = selected_mimicry
+
+        # ── Collaboration Mode ──────────────────
+        st.markdown('<div class="config-label">🤝 Collaboration</div>', unsafe_allow_html=True)
+        collab_keys = list(COLLAB_MODES.keys())
+        selected_collab = st.selectbox(
+            "Collab Mode", collab_keys,
+            index=collab_keys.index(st.session_state.story_collab_mode) if st.session_state.story_collab_mode in collab_keys else 0,
+            label_visibility="collapsed",
+            key="collab_select_story",
+        )
+        st.session_state.story_collab_mode = selected_collab
+
         # ── Narrative Tools ─────────────────────
         if st.session_state.story_started:
             st.markdown('<div class="config-label">🔧 Narrative Tool</div>', unsafe_allow_html=True)
@@ -531,6 +592,44 @@ def render_story_builder():
                 if st.button(label, key=f"ntool_{tool}", use_container_width=True):
                     st.session_state.story_tool = tool if not is_sel else None
                     st.rerun()
+
+        # ── Character Tracker ──────────────────
+        st.markdown('<div class="config-label">👤 Characters</div>', unsafe_allow_html=True)
+        if st.session_state.story_characters:
+            for i, ch in enumerate(st.session_state.story_characters):
+                with st.expander(f"{ch.get('name', 'Character')} — {ch.get('role', '')}", expanded=False):
+                    st.markdown(f"**Traits:** {ch.get('traits', '')}")
+                    st.markdown(f"**Arc:** {ch.get('arc', '')}")
+                    if st.button("✕ Remove", key=f"rm_char_{i}"):
+                        st.session_state.story_characters.pop(i)
+                        st.rerun()
+
+        with st.expander("➕ Add Character", expanded=not bool(st.session_state.story_characters)):
+            ch_name = st.text_input("Name", key="new_char_name", placeholder="e.g. Elena")
+            ch_role = st.text_input("Role", key="new_char_role", placeholder="e.g. protagonist, mentor")
+            ch_traits = st.text_input("Traits", key="new_char_traits", placeholder="e.g. stubborn, scarred, brilliant")
+            ch_arc = st.text_input("Arc", key="new_char_arc", placeholder="e.g. learns to trust again")
+            if st.button("Add Character", key="add_char_btn", use_container_width=True) and ch_name:
+                st.session_state.story_characters.append({
+                    "name": ch_name, "role": ch_role,
+                    "traits": ch_traits, "arc": ch_arc,
+                })
+                st.rerun()
+
+        # ── Branching Narratives ────────────────
+        if st.session_state.story_started and st.session_state.story_full_text:
+            st.markdown('<div class="config-label">🌿 Branches</div>', unsafe_allow_html=True)
+            if st.button("📌 Save Branch Point", use_container_width=True, key="save_branch"):
+                label = f"Ch{st.session_state.story_chapter} · {_word_count(st.session_state.story_full_text)}w"
+                st.session_state.story_branches.append(st.session_state.story_full_text)
+                st.session_state.story_branch_labels.append(label)
+                st.toast(f"Branch saved: {label}")
+            if st.session_state.story_branches:
+                for i, lbl in enumerate(st.session_state.story_branch_labels):
+                    if st.button(f"↩ {lbl}", key=f"load_branch_{i}", use_container_width=True):
+                        st.session_state.story_full_text = st.session_state.story_branches[i]
+                        st.session_state.story_word_count = _word_count(st.session_state.story_full_text)
+                        st.rerun()
 
         # ── Author Notes ────────────────────────
         st.markdown('<div class="config-label">📝 Author Notes</div>', unsafe_allow_html=True)
@@ -684,6 +783,9 @@ def render_story_builder():
                     st.session_state.story_voice,
                     st.session_state.story_pacing,
                     extra_context=st.session_state.story_notes,
+                    style_mimicry=st.session_state.story_style_mimicry,
+                    collab_mode=st.session_state.story_collab_mode,
+                    characters=st.session_state.story_characters,
                 )
 
                 # Keep only last 10 exchanges for context (saves tokens, maintains continuity)
@@ -693,10 +795,9 @@ def render_story_builder():
                 with st.spinner("✍️ Writing..."):
                     generated = ""
                     try:
-                        for chunk in stream_chat_with_groq(
-                            context_messages,
+                        for chunk in ai_engine.generate_stream(
+                            messages=context_messages,
                             context_text="",
-                            override_key=_get_override_key(),
                             model="llama-4-scout-17b-16e-instruct",
                             persona_prompt=sys_prompt,
                         ):
