@@ -6,8 +6,30 @@ Renders BEFORE main app when user is not authenticated.
 import streamlit as st
 from auth.supabase_auth import (
     sign_in, sign_up, reset_password, save_session,
-    get_google_oauth_url, is_logged_in, current_user
+    get_google_oauth_url, is_logged_in, current_user,
+    handle_supabase_callback
 )
+
+# ── Handle Supabase OAuth callback (hash fragment → query params) ─────────────
+HASH_EXTRACTOR_JS = """
+<script>
+(function() {
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+        const params = new URLSearchParams(hash.substring(1));
+        const access_token = params.get("access_token");
+        const refresh_token = params.get("refresh_token") || "";
+        if (access_token) {
+            window.location.replace(
+                window.location.pathname +
+                "?access_token=" + encodeURIComponent(access_token) +
+                "&refresh_token=" + encodeURIComponent(refresh_token)
+            );
+        }
+    }
+})();
+</script>
+"""
 
 
 # ── CSS ──────────────────────────────────────────────────────────────────────
@@ -138,6 +160,10 @@ def render_login_page() -> bool:
     Renders the full-screen auth UI.
     Returns True when the user successfully authenticates (triggers main app reload).
     """
+
+    # Inject JS to extract hash fragment tokens + handle callback
+    st.markdown(HASH_EXTRACTOR_JS, unsafe_allow_html=True)
+    handle_supabase_callback()
 
     st.markdown(AUTH_CSS, unsafe_allow_html=True)
 

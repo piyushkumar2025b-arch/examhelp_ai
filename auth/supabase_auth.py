@@ -185,3 +185,29 @@ def get_profile(access_token: str, user_id: str) -> Optional[dict]:
         return data[0] if data else {}
     except Exception:
         return {}
+
+
+def handle_supabase_callback():
+    """
+    Handles Supabase OAuth callback — reads access_token from URL query params
+    (?access_token=) which Supabase sends after Google login.
+    Call this BEFORE the auth gate in app.py.
+    """
+    import streamlit as st
+    params = st.query_params
+
+    # Supabase sometimes sends token as query param after redirect
+    access_token = params.get("access_token", "")
+    refresh_token = params.get("refresh_token", "")
+
+    if access_token:
+        # Get user info using the token
+        user = get_user(access_token)
+        if user:
+            st.session_state["sb_user"] = user
+            st.session_state["sb_access_token"] = access_token
+            st.session_state["sb_refresh_token"] = refresh_token
+            st.session_state["logged_in"] = True
+            # Clear tokens from URL
+            st.query_params.clear()
+            st.rerun()
