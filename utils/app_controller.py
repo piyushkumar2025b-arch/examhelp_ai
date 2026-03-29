@@ -12,12 +12,9 @@ try:
 except ImportError:
     sr = None
 try:
-    from ddgs import DDGS
+    from duckduckgo_search import DDGS
 except ImportError:
-    try:
-        from duckduckgo_search import DDGS
-    except ImportError:
-        DDGS = None
+    DDGS = None
 try:
     from sympy import sympify
 except ImportError:

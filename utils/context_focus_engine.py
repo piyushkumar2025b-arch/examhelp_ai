@@ -41,18 +41,6 @@ def _web_search(query: str, num_results: int = 10) -> list:
                     "url": r.get("href", r.get("link", "")),
                     "snippet": r.get("body", r.get("snippet", "")),
                 })
-    except ImportError:
-        try:
-            from ddgs import DDGS
-            ddgs = DDGS()
-            for r in ddgs.text(query, max_results=num_results):
-                results.append({
-                    "title": r.get("title", ""),
-                    "url": r.get("href", r.get("link", "")),
-                    "snippet": r.get("body", r.get("snippet", "")),
-                })
-        except Exception:
-            pass
     except Exception:
         pass
 

@@ -3434,6 +3434,16 @@ elif app_mode == "code_converter":
     from utils.code_converter_engine import render_code_converter
     render_code_converter()
 
+# ─── CALCULATOR (intent-routed) ──────────────────────────────────────────────
+elif app_mode == "calculator":
+    st.markdown("""<div class="page-header"><div class="page-header-title">🧮 Calculator</div><div class="page-header-sub">Full scientific calculator — open the sidebar widget</div></div>""", unsafe_allow_html=True)
+    st.session_state.calculator_open = True
+    st.info("The calculator is open in the sidebar. Use it there, or ask a math question in Chat.")
+    if st.button("💬 Back to Chat", key="calc_back_main"):
+        st.session_state.app_mode = "chat"
+        st.session_state.calculator_open = False
+        st.rerun()
+
 # ─── SMART SHOPPING ──────────────────────────────────────────────────────────
 elif app_mode == "smart_shopping":
     from utils.shopping_engine import render_shopping_finder
