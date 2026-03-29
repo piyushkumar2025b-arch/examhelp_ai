@@ -23,11 +23,15 @@ NEWS_SOURCES = [
     {"name": "Hugging Face", "url": "https://huggingface.co/blog/feed.xml", "type": "rss"},
 ]
 
-# SECURITY: Key loaded from .env / st.secrets — NEVER hardcoded
-GNEWS_API_KEY = get_service_key("GNEWS_API_KEY")
+# SECURITY: Key loaded lazily — not at import time (st.secrets not ready then)
+def _get_gnews_key() -> str:
+    return get_service_key("GNEWS_API_KEY")
 
 def fetch_gnews(query: str = "artificial intelligence", max_results: int = 20) -> List[Dict]:
     """Fetch news from GNews API (free tier)"""
+    gnews_key = _get_gnews_key()
+    if not gnews_key:
+        return []
     try:
         import requests
         url = f"https://gnews.io/api/v4/search"
@@ -36,7 +40,7 @@ def fetch_gnews(query: str = "artificial intelligence", max_results: int = 20) -
             "lang": "en",
             "country": "us",
             "max": min(max_results, 10),
-            "apikey": GNEWS_API_KEY,
+            "apikey": gnews_key,
             "sortby": "publishedAt",
         }
         resp = requests.get(url, params=params, timeout=10)

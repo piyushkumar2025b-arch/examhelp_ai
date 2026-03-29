@@ -143,11 +143,11 @@ def _call_gemini_debug(
     # Fallback to main gemini pool
     try:
         from utils import gemini_key_manager as gkm
-        key_obj = gkm.get_best_key()
-        if key_obj:
-            result = _gemini_request(key_obj.api_key, prompt, system, FALLBACK_MODEL)
+        key = gkm.get_key()
+        if key:
+            result = _gemini_request(key, prompt, system, FALLBACK_MODEL)
             if result:
-                gkm.record_request(key_obj)
+                gkm.mark_used(key)
                 return result
     except Exception:
         pass

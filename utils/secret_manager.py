@@ -159,16 +159,16 @@ def get_gemini_debug_keys() -> List[str]:
 def get_service_key(name: str) -> str:
     """
     Get any service key by env var name.
-    Examples:
-      get_service_key("GNEWS_API_KEY")
-      get_service_key("GOOGLE_MAPS_EMBED_KEY")
-      get_service_key("PEXELS_API_KEY")
-      get_service_key("PIXABAY_API_KEY")
+    Only caches non-empty values so keys added later are found.
     """
     with _lock:
-        if name not in _SERVICE_CACHE:
-            _SERVICE_CACHE[name] = _get_secret(name)
-        return _SERVICE_CACHE[name]
+        cached = _SERVICE_CACHE.get(name)
+        if cached:  # Only return cache if non-empty
+            return cached
+        val = _get_secret(name)
+        if val:  # Only cache non-empty values
+            _SERVICE_CACHE[name] = val
+        return val
 
 
 # ══════════════════════════════════════════════════════════════
@@ -237,7 +237,7 @@ def validate_all_keys() -> Dict[str, bool]:
 # ══════════════════════════════════════════════════════════════
 
 # Best Gemini models (ranked by capability, verified March 2026):
-GEMINI_BEST_MODEL   = "gemini-2.5-flash-preview-04-17"   # Highest capability, thinking
+GEMINI_BEST_MODEL   = "gemini-2.5-flash-preview-05-20"   # Highest capability, thinking
 GEMINI_FLASH_MODEL  = "gemini-2.0-flash"                 # Fast, 1M context
 GEMINI_LITE_MODEL   = "gemini-2.0-flash-lite"             # Fastest, cheapest
 

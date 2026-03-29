@@ -181,6 +181,9 @@ handle_google_oauth_callback()
 
 # ─────────────────────────────────────────────
 # AUTH GATE — show login page if not signed in
+# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# AUTH GATE — show login page if not signed in
 # Guest bypass: _guest_bypass flag skips auth entirely
 # ─────────────────────────────────────────────
 _guest_mode = st.session_state.get("_guest_bypass", False)
@@ -188,8 +191,9 @@ if not _guest_mode and not is_logged_in():
     render_login_page()
     st.stop()
 
-# Silently refresh token if needed
-try_refresh()
+# Silently refresh token if needed (skip for guests — they have no token)
+if not _guest_mode:
+    try_refresh()
 
 
 # ─────────────────────────────────────────────
@@ -1311,27 +1315,38 @@ with st.sidebar:
             st.rerun()
 
         # ── User profile chip + sign-out ───────────
+        _guest_mode_sidebar = st.session_state.get("_guest_bypass", False)
         _u = current_user() or {}
-        _uname = (_u.get("user_metadata") or {}).get("full_name") or _u.get("email","User")
-        _uemail = _u.get("email","")
+        if _guest_mode_sidebar:
+            _uname = "Guest"
+            _uemail = "No account · Direct Access"
+        else:
+            _uname = (_u.get("user_metadata") or {}).get("full_name") or _u.get("email", "User") or "User"
+            _uemail = _u.get("email", "")
         st.markdown(f'''
         <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
           border-radius:12px;padding:.5rem .8rem;display:flex;align-items:center;
           gap:.5rem;margin-bottom:.4rem;">
           <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7c6af7,#4f8ef7);
             display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;color:#fff;">
-            {_uname[0].upper() if _uname else "U"}
+            {_uname[0].upper() if _uname else "G"}
           </div>
           <div style="flex:1;overflow:hidden;">
             <div style="font-size:.78rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_uname}</div>
             <div style="font-size:.66rem;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_uemail}</div>
           </div>
         </div>''', unsafe_allow_html=True)
-        if st.button("🚪 Sign Out", key="signout_btn", use_container_width=True):
-            from auth.supabase_auth import sign_out, current_token
-            sign_out(current_token() or "")
-            clear_session()
-            st.rerun()
+        if _guest_mode_sidebar:
+            if st.button("🔑 Sign In / Create Account", key="signout_btn", use_container_width=True):
+                st.session_state.pop("_guest_bypass", None)
+                st.session_state.pop("_guest_user", None)
+                st.rerun()
+        else:
+            if st.button("🚪 Sign Out", key="signout_btn", use_container_width=True):
+                from auth.supabase_auth import sign_out, current_token
+                sign_out(current_token() or "")
+                clear_session()
+                st.rerun()
 
         # ── Google connect ──────────────────────────
         render_google_connect_button()

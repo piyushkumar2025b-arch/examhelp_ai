@@ -18,8 +18,19 @@ def _get_secret(key: str, default: str = "") -> str:
     except Exception:
         return os.getenv(key, default)
 
-PEXELS_API_KEY = _get_secret("PEXELS_API_KEY")
-PIXABAY_KEY    = _get_secret("PIXABAY_API_KEY")
+def _get_pexels_key() -> str:
+    try:
+        import streamlit as st
+        return st.secrets.get("PEXELS_API_KEY", "") or os.getenv("PEXELS_API_KEY", "")
+    except Exception:
+        return os.getenv("PEXELS_API_KEY", "")
+
+def _get_pixabay_key() -> str:
+    try:
+        import streamlit as st
+        return st.secrets.get("PIXABAY_API_KEY", "") or os.getenv("PIXABAY_API_KEY", "")
+    except Exception:
+        return os.getenv("PIXABAY_API_KEY", "")
 
 HEADERS = {
     "User-Agent": (
@@ -38,12 +49,13 @@ _UNSPLASH_FALLBACKS = [
 
 
 def _fetch_pexels(query: str, limit: int = 3) -> List[str]:
-    if not PEXELS_API_KEY:
+    key = _get_pexels_key()
+    if not key:
         return []
     try:
         resp = requests.get(
             f"https://api.pexels.com/v1/search?query={query}&per_page={limit}",
-            headers={"Authorization": PEXELS_API_KEY},
+            headers={"Authorization": key},
             timeout=4
         )
         if resp.status_code == 200:
@@ -54,9 +66,12 @@ def _fetch_pexels(query: str, limit: int = 3) -> List[str]:
 
 
 def _fetch_pixabay(query: str, limit: int = 3) -> List[str]:
+    key = _get_pixabay_key()
+    if not key:
+        return []
     try:
         resp = requests.get(
-            f"https://pixabay.com/api/?key={PIXABAY_KEY}&q={query.replace(' ', '+')}"
+            f"https://pixabay.com/api/?key={key}&q={query.replace(' ', '+')}"
             f"&image_type=photo&per_page={limit}&safesearch=true",
             timeout=4
         )
