@@ -1,7 +1,6 @@
 """
-ExamHelp AI — v3.0 Upgraded
-Full-featured AI study assistant with elite API key rotation,
-glassmorphic UI, multi-source RAG, and complete feature set.
+ExamHelp AI — v3.1
+Full-featured AI study assistant · Supabase Auth · Google Suite · Stripe
 """
 
 import datetime
@@ -12,6 +11,16 @@ import time
 import base64
 import zlib
 import streamlit as st
+
+# ── Auth + Integrations (loaded early, before page config) ──────────────────
+from auth.supabase_auth import is_logged_in, current_user, clear_session, try_refresh
+from auth.login_ui import render_login_page
+from integrations.google_ui import (
+    handle_google_oauth_callback, render_google_connect_button,
+    render_gmail_panel, render_drive_panel, render_calendar_panel, render_maps_panel,
+    is_google_connected,
+)
+from integrations.stripe_ui import render_pricing_page, render_upgrade_banner
 
 try:
     import pandas as pd
@@ -163,6 +172,22 @@ def init_state():
         st.session_state.vector_store = VectorStore()
 
 init_state()
+
+# ─────────────────────────────────────────────
+# GOOGLE OAUTH CALLBACK (catch ?code= redirect)
+# ─────────────────────────────────────────────
+handle_google_oauth_callback()
+
+# ─────────────────────────────────────────────
+# AUTH GATE — show login page if not signed in
+# ─────────────────────────────────────────────
+if not is_logged_in():
+    render_login_page()
+    st.stop()
+
+# Silently refresh token if needed
+try_refresh()
+
 
 # ─────────────────────────────────────────────
 # QUERY PARAM ACTIONS
@@ -1269,7 +1294,7 @@ with st.sidebar:
           </div>
           <div>
             <div class="eh-logo-title">ExamHelp</div>
-            <div class="eh-logo-sub">AI Study Assistant · v3.0</div>
+            <div class="eh-logo-sub">AI Study Assistant · v3.1</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -1281,6 +1306,35 @@ with st.sidebar:
         ):
             st.session_state.theme_mode = "light" if st.session_state.theme_mode == "dark" else "dark"
             st.rerun()
+
+        # ── User profile chip + sign-out ───────────
+        _u = current_user() or {}
+        _uname = (_u.get("user_metadata") or {}).get("full_name") or _u.get("email","User")
+        _uemail = _u.get("email","")
+        st.markdown(f'''
+        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+          border-radius:12px;padding:.5rem .8rem;display:flex;align-items:center;
+          gap:.5rem;margin-bottom:.4rem;">
+          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7c6af7,#4f8ef7);
+            display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;color:#fff;">
+            {_uname[0].upper() if _uname else "U"}
+          </div>
+          <div style="flex:1;overflow:hidden;">
+            <div style="font-size:.78rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_uname}</div>
+            <div style="font-size:.66rem;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{_uemail}</div>
+          </div>
+        </div>''', unsafe_allow_html=True)
+        if st.button("🚪 Sign Out", key="signout_btn", use_container_width=True):
+            from auth.supabase_auth import sign_out, current_token
+            sign_out(current_token() or "")
+            clear_session()
+            st.rerun()
+
+        # ── Google connect ──────────────────────────
+        render_google_connect_button()
+
+        # ── Upgrade nudge (free users) ──────────────
+        render_upgrade_banner()
 
         # ── Stats row ──────────────────────────────
         msg_count = len(st.session_state.messages)
@@ -1907,7 +1961,35 @@ with st.sidebar:
                 st.session_state.app_mode = mode
                 st.rerun()
 
-    st.markdown('<div class="poweredby">Powered by <span>Groq</span> · <span>Gemini</span> · <span>LLaMA</span></div>',
+    # ── Google Suite ────────────────────────────
+    st.markdown('<div class="section-label">🔗 Google Suite</div>', unsafe_allow_html=True)
+    _gsuite_tools = [
+        ("📧", "Gmail Send",        "Email your AI output",          "gmail_panel"),
+        ("📁", "Google Drive",      "Save files to your Drive",      "drive_panel"),
+        ("📅", "Google Calendar",   "Add study events",              "calendar_panel"),
+        ("🗺️", "Google Maps",       "Search places & directions",    "maps_panel"),
+    ]
+    for icon, name, desc, mode in _gsuite_tools:
+        col_icon, col_info, col_btn = st.columns([1, 4, 2])
+        with col_icon:
+            st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
+        with col_info:
+            st.markdown(
+                f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
+                f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
+                unsafe_allow_html=True)
+        with col_btn:
+            if st.button("Open", key=f"gsuite_{mode}", use_container_width=True):
+                st.session_state.app_mode = mode
+                st.rerun()
+
+    # ── Account ──────────────────────────────────
+    st.markdown('<div class="section-label">⚙️ Account</div>', unsafe_allow_html=True)
+    if st.button("💳 Plans & Pricing", key="nav_pricing", use_container_width=True):
+        st.session_state.app_mode = "pricing"
+        st.rerun()
+
+    st.markdown('<div class="poweredby">Powered by <span>Groq</span> · <span>Gemini</span> · <span>LLaMA</span> · <span>Supabase</span></div>',
                 unsafe_allow_html=True)
 
 
@@ -3639,6 +3721,15 @@ else:
                     st.text_input("Share Link", value=f"?chat={compressed}", label_visibility="collapsed")
                     st.caption("📋 Copy the URL above to share this conversation.")
                 except: st.info("Sharing unavailable.")
+                st.divider()
+                st.markdown("**Send via Google**")
+                col_gm, col_gd = st.columns(2)
+                with col_gm:
+                    if st.button("📧 Send via Gmail", key="quick_gmail", use_container_width=True):
+                        st.session_state.app_mode = "gmail_panel"; st.rerun()
+                with col_gd:
+                    if st.button("📁 Save to Drive", key="quick_drive", use_container_width=True):
+                        st.session_state.app_mode = "drive_panel"; st.rerun()
 
             # ── Chat Powerup: ratings + follow-up suggestions ──
             try:
@@ -3652,3 +3743,37 @@ else:
 
         # Update stats
         st.session_state.total_tokens_used += (len(full_response.split()) * 2) if (success and full_response) else 0
+
+# ─── GMAIL PANEL ──────────────────────────────────────────────────────────────
+elif app_mode == "gmail_panel":
+    st.markdown('<div class="page-header"><div class="page-header-title">📧 Gmail</div><div class="page-header-sub">Send your AI output directly to any email</div></div>', unsafe_allow_html=True)
+    last_ai = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "assistant"), "")
+    render_gmail_panel(prefill_body=last_ai[:3000] if last_ai else "")
+    if st.button("← Back to Chat", key="gmail_back"): st.session_state.app_mode = "chat"; st.rerun()
+
+# ─── DRIVE PANEL ──────────────────────────────────────────────────────────────
+elif app_mode == "drive_panel":
+    st.markdown('<div class="page-header"><div class="page-header-title">📁 Google Drive</div><div class="page-header-sub">Save files from ExamHelp to your Drive</div></div>', unsafe_allow_html=True)
+    last_ai = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "assistant"), "")
+    render_drive_panel(
+        default_filename="ExamHelp_Output.txt",
+        default_content=last_ai.encode() if last_ai else b""
+    )
+    if st.button("← Back to Chat", key="drive_back"): st.session_state.app_mode = "chat"; st.rerun()
+
+# ─── CALENDAR PANEL ───────────────────────────────────────────────────────────
+elif app_mode == "calendar_panel":
+    st.markdown('<div class="page-header"><div class="page-header-title">📅 Google Calendar</div><div class="page-header-sub">View & add study events to your calendar</div></div>', unsafe_allow_html=True)
+    render_calendar_panel()
+    if st.button("← Back to Chat", key="cal_back"): st.session_state.app_mode = "chat"; st.rerun()
+
+# ─── MAPS PANEL ───────────────────────────────────────────────────────────────
+elif app_mode == "maps_panel":
+    st.markdown('<div class="page-header"><div class="page-header-title">🗺️ Google Maps</div><div class="page-header-sub">Search locations & get directions</div></div>', unsafe_allow_html=True)
+    render_maps_panel()
+    if st.button("← Back to Chat", key="maps_back"): st.session_state.app_mode = "chat"; st.rerun()
+
+# ─── PRICING PAGE ─────────────────────────────────────────────────────────────
+elif app_mode == "pricing":
+    render_pricing_page()
+    if st.button("← Back to Chat", key="pricing_back"): st.session_state.app_mode = "chat"; st.rerun()

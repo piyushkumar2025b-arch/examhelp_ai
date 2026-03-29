@@ -1,0 +1,8 @@
+# Cloudflare Pages — _redirects
+# Handles SPA routing and /app redirect to Streamlit
+
+# Redirect /app to Streamlit deployment
+/app/*  https://your-app.streamlit.app/:splat  302
+
+# All other routes serve index.html (SPA fallback)
+/*  /index.html  200
