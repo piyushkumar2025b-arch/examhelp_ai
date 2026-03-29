@@ -3652,9 +3652,39 @@ else:
                 success = True
                 count_output_stats(full_response)
             except Exception as e:
-                placeholder.error(f"🚨 Engine Error: {e}")
-                st.session_state.last_error = str(e)
-                success = False
+                err_msg = str(e)
+                # Friendly user-facing message
+                if "exhausted" in err_msg.lower() or "gemini" in err_msg.lower():
+                    placeholder.warning("⏳ AI providers are busy right now. Retrying with backup engine...")
+                    # Direct Gemini retry as last resort
+                    try:
+                        from utils.secret_manager import call_gemini, GEMINI_FLASH_MODEL
+                        msgs_text = "\n\n".join(
+                            f"{m['role'].upper()}: {m['content']}"
+                            for m in history[-6:]  # last 3 turns
+                        )
+                        retry_text = call_gemini(
+                            prompt=msgs_text,
+                            system=full_system if 'full_system' in dir() else "You are a helpful AI assistant.",
+                            model=GEMINI_FLASH_MODEL,
+                        )
+                        if retry_text:
+                            full_response = retry_text
+                            placeholder.markdown(full_response)
+                            success = True
+                            count_output_stats(full_response)
+                        else:
+                            placeholder.error("🚨 All AI engines are currently rate-limited. Please wait 60 seconds and try again.")
+                            st.session_state.last_error = err_msg
+                            success = False
+                    except Exception as e2:
+                        placeholder.error(f"🚨 All AI engines busy. Wait ~60s and retry. ({type(e).__name__})")
+                        st.session_state.last_error = f"{err_msg} | retry: {e2}"
+                        success = False
+                else:
+                    placeholder.error(f"🚨 Engine Error: {e}")
+                    st.session_state.last_error = err_msg
+                    success = False
 
         if success and full_response:
             st.session_state.messages.append({"role": "assistant", "content": full_response})

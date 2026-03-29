@@ -582,15 +582,17 @@ def _call_gemini(
     """
     import requests as req
     
+    _pool._ensure_init()  # guarantee keys are loaded before we count them
     chosen_model = model or GEMINI_MODELS[0]
     tried: set = set()
     last_err = None
-    
-    for _attempt in range(len(_pool._gemini_keys) * len(GEMINI_MODELS)):
+
+    total_gemini = max(len(_pool._gemini_keys), 1)
+    for _attempt in range(total_gemini * len(GEMINI_MODELS)):
         ks = _pool.get_best_key("gemini", exclude=tried)
         if not ks:
             break
-        if ks.key in tried and len(tried) >= len(_pool._gemini_keys):
+        if ks.key in tried and len(tried) >= total_gemini:
             break
         tried.add(ks.key)
         
@@ -808,72 +810,82 @@ def generate_stream(
     
     tried_keys: set = set()
     last_err = None
-    
-    # Try Groq keys for streaming
-    for _attempt in range(len(_pool._groq_keys) * 2):
+
+    # Determine model priority list for Groq streaming
+    if model and model in GROQ_MODELS:
+        groq_models_to_try = [model] + [m for m in GROQ_MODELS if m != model]
+    else:
+        groq_models_to_try = list(GROQ_MODELS)
+
+    # ── Try ALL Groq keys with ALL model fallbacks ────────────
+    total_groq = max(len(_pool._groq_keys), 1)
+    for _attempt in range(total_groq * len(groq_models_to_try) * 2):
         ks = _pool.get_best_key("groq", exclude=tried_keys)
         if not ks:
             break
-        if ks.key in tried_keys and len(tried_keys) >= len(_pool._groq_keys):
+        if len(tried_keys) >= total_groq and ks.key in tried_keys:
             break
         tried_keys.add(ks.key)
-        
+
         try:
             from groq import Groq
             client = Groq(api_key=ks.key)
-            
-            use_model = model or GROQ_MODELS[0]
-            stream_obj = client.chat.completions.create(
-                stream=True,
-                model=use_model,
-                messages=[{"role": "system", "content": full_system}] + built_messages,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                top_p=0.9,
-            )
-            
-            total_tokens = 0
-            word_count = 0
-            
-            for chunk in stream_obj:
-                # Try to get usage from final chunk
+
+            streamed = False
+            for use_model in groq_models_to_try:
                 try:
-                    if chunk.usage:
-                        total_tokens = chunk.usage.total_tokens or total_tokens
-                except Exception:
-                    pass
-                
-                delta = chunk.choices[0].delta.content if chunk.choices else None
-                if delta:
-                    word_count += len(delta.split())
-                    yield delta
-            
-            # Estimate tokens if API didn't report
-            if total_tokens == 0:
-                total_tokens = int(word_count * 1.4)
-            
-            _pool.mark_success(ks, total_tokens)
-            return  # Stream complete!
-            
+                    stream_obj = client.chat.completions.create(
+                        stream=True,
+                        model=use_model,
+                        messages=[{"role": "system", "content": full_system}] + built_messages,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=0.9,
+                    )
+
+                    total_tokens = 0
+                    word_count = 0
+                    for chunk in stream_obj:
+                        try:
+                            if chunk.usage:
+                                total_tokens = chunk.usage.total_tokens or total_tokens
+                        except Exception:
+                            pass
+                        delta = chunk.choices[0].delta.content if chunk.choices else None
+                        if delta:
+                            word_count += len(delta.split())
+                            yield delta
+
+                    if total_tokens == 0:
+                        total_tokens = int(word_count * 1.4)
+                    _pool.mark_success(ks, total_tokens)
+                    return  # Stream complete!
+
+                except Exception as e:
+                    err_str = str(e)
+                    last_err = e
+                    etype = _classify_error(err_str)
+                    if etype == "rate_limit":
+                        _pool.mark_rate_limited(ks, _parse_retry_after(err_str))
+                        break  # rate limited → next key
+                    elif etype == "auth":
+                        _pool.mark_auth_failed(ks)
+                        break  # dead key → next key
+                    elif etype == "overload":
+                        _pool.mark_rate_limited(ks, 15.0)
+                        break  # overloaded → next key
+                    elif etype == "model_not_found":
+                        continue  # try next model on same key
+                    else:
+                        _pool.mark_error(ks)
+                        break  # unknown error → next key
+
         except Exception as e:
-            err_str = str(e)
             last_err = e
-            etype = _classify_error(err_str)
-            
-            if etype == "rate_limit":
-                _pool.mark_rate_limited(ks, _parse_retry_after(err_str))
-                continue  # INSTANT switch — no sleep!
-            elif etype == "auth":
-                _pool.mark_auth_failed(ks)
-                continue
-            elif etype == "overload":
-                _pool.mark_rate_limited(ks, 15.0)
-                continue
-            else:
-                _pool.mark_error(ks)
-                continue
-    
-    # All Groq keys exhausted — Gemini non-streaming fallback
+            _pool.mark_error(ks)
+            continue
+
+    # ── All Groq keys exhausted → Gemini fallback ────────────
     try:
         prompt_text = "\n\n".join(
             f"{m.get('role', 'user').upper()}: {m.get('content', '')}"
@@ -885,20 +897,21 @@ def generate_stream(
             max_tokens=max_tokens,
             temperature=temperature,
         )
-        # Simulate streaming by yielding in chunks
-        words = text.split()
-        chunk_size = 5
-        for i in range(0, len(words), chunk_size):
-            yield " ".join(words[i:i+chunk_size])
-            if i + chunk_size < len(words):
-                yield " "
-        return
+        if text:
+            # Simulate streaming — yield in word-chunks so UI feels live
+            words = text.split()
+            chunk_size = 6
+            for i in range(0, len(words), chunk_size):
+                yield " ".join(words[i:i + chunk_size])
+                if i + chunk_size < len(words):
+                    yield " "
+            return
     except Exception as e:
         last_err = e
-    
+
     if last_err:
         raise last_err
-    raise RuntimeError("All AI keys exhausted across Groq + Gemini. Wait ~60s for cooldowns to expire.")
+    raise RuntimeError("All AI providers exhausted (Groq + Gemini). Wait ~60s and retry.")
 
 
 # ══════════════════════════════════════════════════════════════
