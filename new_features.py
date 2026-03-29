@@ -1175,3 +1175,32 @@ def render_html_generator():
     if st.button("💬 Back to Chat", use_container_width=True, key="html_back"):
         st.session_state.app_mode = "chat"
         st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# PLACEHOLDER FEATURES (COMING SOON)
+# ═══════════════════════════════════════════════════════════════
+
+def render_coming_soon(feature_name):
+    st.markdown(f"""
+    <div style="background:rgba(124,106,247,0.05);border:1px solid rgba(124,106,247,0.2);border-radius:16px;padding:60px 20px;text-align:center;margin-top:40px;">
+        <h1 style="font-size:3rem;margin-bottom:10px;">🚧</h1>
+        <h2 style="color:var(--text);">{feature_name}</h2>
+        <p style="color:var(--text2);max-width:500px;margin:0 auto 24px;">We're working hard to bring this feature to ExamHelp v4.0. Stay tuned for the update!</p>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("← Back to Chat", key=f"back_{feature_name}"):
+        st.session_state.app_mode = "chat"
+        st.rerun()
+
+def render_citation_generator():
+    render_coming_soon("Citation Generator")
+
+def render_regex_tester():
+    render_coming_soon("Regex Tester")
+
+def render_vit_academics():
+    render_coming_soon("VIT Academics Hub")
+
+def render_study_toolkit():
+    render_coming_soon("Study Toolkit")

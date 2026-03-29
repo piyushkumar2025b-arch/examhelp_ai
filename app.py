@@ -43,9 +43,10 @@ from utils.ocr_handler import extract_text_from_image
 from utils.analytics import get_subject_mastery_radar, get_study_intensity_heatmap, estimate_required_velocity
 from utils.app_controller import AppController
 from new_features import (
-    render_vit_map, render_trip_planner, render_universal_converter, 
-    render_ai_humaniser, render_html_generator, render_citation_generator,
-    render_regex_tester, render_vit_academics, render_study_toolkit
+    render_news_hub, render_vit_map, render_trip_planner, 
+    render_universal_converter, render_ai_humaniser, render_html_generator, 
+    render_citation_generator, render_regex_tester, render_vit_academics, 
+    render_study_toolkit
 )
 from utils import ai_engine
 from dotenv import load_dotenv
