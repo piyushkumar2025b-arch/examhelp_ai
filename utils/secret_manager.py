@@ -237,8 +237,8 @@ def validate_all_keys() -> Dict[str, bool]:
 # ══════════════════════════════════════════════════════════════
 
 # Best Gemini models (ranked by capability, verified March 2026):
-GEMINI_BEST_MODEL   = "gemini-2.5-flash-preview-05-20"   # Highest capability, thinking
-GEMINI_FLASH_MODEL  = "gemini-2.0-flash"                 # Fast, 1M context
+GEMINI_BEST_MODEL   = "gemini-2.0-flash"                 # Fast, 1M context, most reliable
+GEMINI_FLASH_MODEL  = "gemini-1.5-flash"                 # Proven stable fallback
 GEMINI_LITE_MODEL   = "gemini-2.0-flash-lite"             # Fastest, cheapest
 
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"

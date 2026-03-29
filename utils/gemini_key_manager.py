@@ -69,7 +69,7 @@ DEAD_KEY_SECONDS   = 86_400.0
 WINDOW             = 60.0
 
 MAX_KEYS    = 10  # Expanded from 7
-MAX_RETRIES = 0
+MAX_RETRIES = 10  # Safe default — will be recalculated after keys load
 
 
 def _load_gemini_keys() -> list[str]:

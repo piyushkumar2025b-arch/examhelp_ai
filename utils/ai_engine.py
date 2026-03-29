@@ -60,9 +60,9 @@ GROQ_MODELS = [
 
 # Gemini model hierarchy (best → fallback)
 GEMINI_MODELS = [
-    "gemini-2.5-flash-preview-05-20",   # Best capability
-    "gemini-2.0-flash",                 # Fast, 1M context
-    "gemini-2.0-flash-lite",            # Fastest
+    "gemini-2.0-flash",                 # Fast, 1M context — most reliable free-tier
+    "gemini-1.5-flash",                 # Proven stable fallback
+    "gemini-2.0-flash-lite",            # Fastest, lowest quota
 ]
 
 # Groq limits per key

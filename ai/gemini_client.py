@@ -25,9 +25,9 @@ from typing import Generator, Optional
 
 from utils import gemini_key_manager as gkm
 
-FAST_MODEL    = "gemini-1.5-flash"
-FALLBACK_MODEL = "gemini-2.5-flash-lite" 
-VISION_MODEL  = "gemini-1.5-flash"
+FAST_MODEL    = "gemini-2.0-flash"
+FALLBACK_MODEL = "gemini-1.5-flash"
+VISION_MODEL  = "gemini-2.0-flash"
 _BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 SYSTEM_PROMPT = """\
@@ -142,53 +142,67 @@ def chat_with_gemini(
     model: Optional[str] = None,
     use_pro: bool = False,
 ) -> str:
-    chosen_model = model or FAST_MODEL
+    models_to_try = [model] if model else [FAST_MODEL, FALLBACK_MODEL]
     contents = _build_contents(messages, context_text)
     tried: set[str] = set()
     last_err: Optional[Exception] = None
 
-    for _attempt in range(gkm.MAX_RETRIES):
+    total = gkm.total_keys()
+    max_attempts = max(total * len(models_to_try) * 2, gkm.MAX_RETRIES)
+
+    for _attempt in range(max_attempts):
+        # Pick a key
         if not tried and override_key:
             key = override_key
         else:
             key = gkm.get_next_key(exclude_keys=tried) or gkm.get_key()
 
-        if not key: break
-        if key in tried and len(tried) >= gkm.total_keys(): break
+        if not key:
+            break
+        # All distinct keys exhausted — stop
+        if len(tried) >= max(total, 1) and key in tried:
+            break
         tried.add(key)
 
-        try:
-            resp = _call_gemini(key, chosen_model, contents, SYSTEM_PROMPT,
-                                json_mode=json_mode, stream=False,
-                                max_tokens=2048 if json_mode else 8192,
-                                temperature=0.3 if json_mode else 0.65)
+        # Try each model in priority order for this key
+        for chosen_model in models_to_try:
+            try:
+                resp = _call_gemini(key, chosen_model, contents, SYSTEM_PROMPT,
+                                    json_mode=json_mode, stream=False,
+                                    max_tokens=2048 if json_mode else 8192,
+                                    temperature=0.3 if json_mode else 0.65)
 
-            if resp.status_code == 200:
-                gkm.mark_used(key)
-                return _parse_text(resp.json())
+                if resp.status_code == 200:
+                    gkm.mark_used(key)
+                    return _parse_text(resp.json())
 
-            if resp.status_code == 429:
-                retry_after = _parse_retry_after(resp)
-                gkm.mark_rate_limited(key, retry_after=retry_after)
+                if resp.status_code == 429:
+                    retry_after = _parse_retry_after(resp)
+                    gkm.mark_rate_limited(key, retry_after=retry_after)
+                    break  # Rate limited — move to next key
+
+                if resp.status_code in (503, 529):
+                    gkm.mark_rate_limited(key, retry_after=15.0)
+                    break  # Overloaded — move to next key
+
+                if resp.status_code == 400:
+                    # Model may not exist — try next model in list
+                    last_err = ValueError(f"Gemini HTTP 400 on {chosen_model}")
+                    continue
+
+                if resp.status_code in (401, 403):
+                    gkm.mark_invalid(key)
+                    break  # Bad key — move to next key
+
+                last_err = ValueError(f"Gemini HTTP {resp.status_code}")
                 continue
 
-            if resp.status_code in (503, 529):
-                gkm.mark_rate_limited(key, retry_after=15.0)
+            except requests.exceptions.Timeout:
+                last_err = TimeoutError("Gemini timed out")
+                break
+            except Exception as e:
+                last_err = e
                 continue
-
-            if resp.status_code in (400, 401, 403):
-                gkm.mark_invalid(key)
-                continue
-
-            last_err = ValueError(f"Gemini HTTP {resp.status_code}")
-            continue
-
-        except requests.exceptions.Timeout:
-            last_err = TimeoutError("Gemini timed out")
-            continue
-        except Exception as e:
-            last_err = e
-            continue
 
     # All Gemini keys failed — raise so app.py's tiered fallback handles it
     if last_err:
@@ -206,68 +220,81 @@ def stream_chat_with_gemini(
     persona_prompt: str = "",
     use_pro: bool = False,
 ) -> Generator[str, None, None]:
-    chosen_model = model or FAST_MODEL
+    models_to_try = [model] if model else [FAST_MODEL, FALLBACK_MODEL]
     sys_prompt = SYSTEM_PROMPT + ("\n\n" + persona_prompt if persona_prompt else "")
     contents = _build_contents(history, context_text)
     tried: set[str] = set()
     last_err: Optional[Exception] = None
 
-    for _attempt in range(gkm.MAX_RETRIES):
+    total = gkm.total_keys()
+    max_attempts = max(total * len(models_to_try) * 2, gkm.MAX_RETRIES)
+
+    for _attempt in range(max_attempts):
+        # Pick a key
         if not tried and override_key:
             key = override_key
         else:
             key = gkm.get_next_key(exclude_keys=tried) or gkm.get_key()
 
-        if not key: break
-        if key in tried and len(tried) >= gkm.total_keys(): break
+        if not key:
+            break
+        if len(tried) >= max(total, 1) and key in tried:
+            break
         tried.add(key)
 
-        try:
-            resp = _call_gemini(key, chosen_model, contents, sys_prompt,
-                                json_mode=False, stream=True,
-                                max_tokens=8192, temperature=0.65)
+        # Try each model in priority order for this key
+        for chosen_model in models_to_try:
+            try:
+                resp = _call_gemini(key, chosen_model, contents, sys_prompt,
+                                    json_mode=False, stream=True,
+                                    max_tokens=8192, temperature=0.65)
 
-            if resp.status_code == 429:
-                retry_after = _parse_retry_after(resp)
-                gkm.mark_rate_limited(key, retry_after=retry_after)
+                if resp.status_code == 429:
+                    retry_after = _parse_retry_after(resp)
+                    gkm.mark_rate_limited(key, retry_after=retry_after)
+                    break  # Rate limited — move to next key
+
+                if resp.status_code in (503, 529):
+                    gkm.mark_rate_limited(key, retry_after=15.0)
+                    break  # Overloaded — move to next key
+
+                if resp.status_code == 400:
+                    # Model may not exist — try next model
+                    last_err = ValueError(f"Gemini HTTP 400 on {chosen_model}")
+                    continue
+
+                if resp.status_code in (401, 403):
+                    gkm.mark_invalid(key)
+                    break  # Bad key — move to next key
+
+                if resp.status_code != 200:
+                    last_err = ValueError(f"Gemini HTTP {resp.status_code}")
+                    continue
+
+                gkm.mark_used(key)
+                for raw_line in resp.iter_lines(decode_unicode=True):
+                    if not raw_line: continue
+                    if raw_line.startswith("data:"):
+                        json_str = raw_line[5:].strip()
+                        if json_str == "[DONE]": break
+                        try:
+                            chunk = json.loads(json_str)
+                            text = (chunk.get("candidates",[{}])[0]
+                                    .get("content",{}).get("parts",[{}])[0]
+                                    .get("text",""))
+                            if text: yield text
+                        except json.JSONDecodeError:
+                            continue
+                return  # success
+
+            except requests.exceptions.Timeout:
+                last_err = TimeoutError("Gemini stream timed out")
+                break
+            except GeneratorExit:
+                return
+            except Exception as e:
+                last_err = e
                 continue
-
-            if resp.status_code in (503, 529):
-                gkm.mark_rate_limited(key, retry_after=15.0)
-                continue
-
-            if resp.status_code in (400, 401, 403):
-                gkm.mark_invalid(key)
-                continue
-
-            if resp.status_code != 200:
-                last_err = ValueError(f"Gemini HTTP {resp.status_code}")
-                continue
-
-            gkm.mark_used(key)
-            for raw_line in resp.iter_lines(decode_unicode=True):
-                if not raw_line: continue
-                if raw_line.startswith("data:"):
-                    json_str = raw_line[5:].strip()
-                    if json_str == "[DONE]": break
-                    try:
-                        chunk = json.loads(json_str)
-                        text = (chunk.get("candidates",[{}])[0]
-                                .get("content",{}).get("parts",[{}])[0]
-                                .get("text",""))
-                        if text: yield text
-                    except json.JSONDecodeError:
-                        continue
-            return  # success
-
-        except requests.exceptions.Timeout:
-            last_err = TimeoutError("Gemini stream timed out")
-            continue
-        except GeneratorExit:
-            return
-        except Exception as e:
-            last_err = e
-            continue
 
     # All Gemini keys failed — raise so app.py's tiered fallback handles it
     if last_err:
