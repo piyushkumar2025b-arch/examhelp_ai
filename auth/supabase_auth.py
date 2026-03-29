@@ -1,30 +1,27 @@
 """
 auth/supabase_auth.py — Supabase Auth integration for ExamHelp AI
-Handles sign-up, sign-in, sign-out, password reset, Google OAuth,
-and session persistence via Streamlit session_state.
 """
 
 import os
 import streamlit as st
 from typing import Optional
 import httpx
-import json
 
 def _get_secret(key: str, default: str = "") -> str:
     try:
-        import streamlit as st
         return st.secrets.get(key, "") or default
     except Exception:
         return os.getenv(key, default)
 
-SUPABASE_URL = _get_secret("SUPABASE_URL")
+SUPABASE_URL     = _get_secret("SUPABASE_URL")
 SUPABASE_ANON_KEY = _get_secret("SUPABASE_ANON_KEY")
 
-_headers = lambda: {
-    "apikey": SUPABASE_ANON_KEY,
-    "Content-Type": "application/json",
-    "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-}
+def _headers():
+    return {
+        "apikey": SUPABASE_ANON_KEY,
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+    }
 
 def _auth_headers(access_token: str) -> dict:
     return {
@@ -34,22 +31,19 @@ def _auth_headers(access_token: str) -> dict:
     }
 
 
-# ── Core Auth Calls ──────────────────────────────────────────────────────────
+# ── Core Auth ────────────────────────────────────────────────────────────────
 
 def sign_up(email: str, password: str, full_name: str = "") -> dict:
-    """Register new user."""
     r = httpx.post(
         f"{SUPABASE_URL}/auth/v1/signup",
         headers=_headers(),
-        json={"email": email, "password": password,
-              "data": {"full_name": full_name}},
+        json={"email": email, "password": password, "data": {"full_name": full_name}},
         timeout=10,
     )
     return r.json()
 
 
 def sign_in(email: str, password: str) -> dict:
-    """Sign in with email + password."""
     r = httpx.post(
         f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
         headers=_headers(),
@@ -60,20 +54,14 @@ def sign_in(email: str, password: str) -> dict:
 
 
 def sign_out(access_token: str) -> bool:
-    """Invalidate the current session on Supabase."""
     try:
-        httpx.post(
-            f"{SUPABASE_URL}/auth/v1/logout",
-            headers=_auth_headers(access_token),
-            timeout=10,
-        )
+        httpx.post(f"{SUPABASE_URL}/auth/v1/logout", headers=_auth_headers(access_token), timeout=10)
     except Exception:
         pass
     return True
 
 
 def refresh_token(refresh_tok: str) -> dict:
-    """Exchange refresh token for new access token."""
     r = httpx.post(
         f"{SUPABASE_URL}/auth/v1/token?grant_type=refresh_token",
         headers=_headers(),
@@ -84,49 +72,44 @@ def refresh_token(refresh_tok: str) -> dict:
 
 
 def reset_password(email: str) -> bool:
-    """Send password reset email."""
     try:
-        httpx.post(
-            f"{SUPABASE_URL}/auth/v1/recover",
-            headers=_headers(),
-            json={"email": email},
-            timeout=10,
-        )
+        httpx.post(f"{SUPABASE_URL}/auth/v1/recover", headers=_headers(), json={"email": email}, timeout=10)
         return True
     except Exception:
         return False
 
 
 def get_user(access_token: str) -> Optional[dict]:
-    """Get current user profile from Supabase."""
     try:
-        r = httpx.get(
-            f"{SUPABASE_URL}/auth/v1/user",
-            headers=_auth_headers(access_token),
-            timeout=10,
-        )
+        r = httpx.get(f"{SUPABASE_URL}/auth/v1/user", headers=_auth_headers(access_token), timeout=10)
         return r.json() if r.status_code == 200 else None
     except Exception:
         return None
 
 
+# ── Google OAuth URL ─────────────────────────────────────────────────────────
+
 def get_google_oauth_url() -> str:
-    """Return Google OAuth redirect URL (configured in Supabase dashboard)."""
+    """
+    Build the Supabase Google OAuth URL.
+    redirect_to must point back to the app so Supabase sends the session there.
+    """
+    base = _get_secret("SUPABASE_REDIRECT_URL", "http://localhost:8501")
     return (
         f"{SUPABASE_URL}/auth/v1/authorize"
         f"?provider=google"
-        f"&redirect_to={_get_secret('SUPABASE_REDIRECT_URL', 'http://localhost:8501')}"
+        f"&redirect_to={base}"
         f"&scopes=openid%20email%20profile"
     )
 
 
-# ── Session helpers ──────────────────────────────────────────────────────────
+# ── Session ──────────────────────────────────────────────────────────────────
 
 def save_session(data: dict):
-    st.session_state["sb_user"] = data.get("user")
-    st.session_state["sb_access_token"] = data.get("access_token")
+    st.session_state["sb_user"]          = data.get("user")
+    st.session_state["sb_access_token"]  = data.get("access_token")
     st.session_state["sb_refresh_token"] = data.get("refresh_token")
-    st.session_state["logged_in"] = True
+    st.session_state["logged_in"]        = True
 
 
 def clear_session():
@@ -147,7 +130,6 @@ def current_token() -> Optional[str]:
 
 
 def try_refresh():
-    """Silently refresh if token is about to expire."""
     rt = st.session_state.get("sb_refresh_token")
     if rt:
         data = refresh_token(rt)
@@ -155,17 +137,48 @@ def try_refresh():
             save_session(data)
 
 
-# ── Profile helpers (Supabase DB table: user_profiles) ──────────────────────
+# ── THE REAL CALLBACK HANDLER ────────────────────────────────────────────────
+
+def handle_supabase_callback():
+    """
+    After Google login, Supabase redirects back to the app with the session
+    encoded as a URL hash fragment: #access_token=...&refresh_token=...
+    
+    Browsers don't send hash fragments to the server, so we use a JS redirect
+    to convert the hash into query params (?access_token=...) that Streamlit
+    can read server-side.
+    
+    This function checks for ?access_token= in the URL and logs the user in.
+    It must be called AFTER st.markdown(HASH_REDIRECT_JS) has been rendered.
+    """
+    params = st.query_params
+    access_token  = params.get("access_token", "")
+    refresh_tok   = params.get("refresh_token", "")
+
+    if not access_token:
+        return
+
+    # Validate token by fetching user
+    user = get_user(access_token)
+    if user and user.get("id"):
+        st.session_state["sb_user"]          = user
+        st.session_state["sb_access_token"]  = access_token
+        st.session_state["sb_refresh_token"] = refresh_tok
+        st.session_state["logged_in"]        = True
+        st.query_params.clear()
+        st.rerun()
+    else:
+        # Token invalid — clear URL silently
+        st.query_params.clear()
+
+
+# ── Profile ──────────────────────────────────────────────────────────────────
 
 def upsert_profile(access_token: str, user_id: str, updates: dict) -> bool:
-    """Upsert extra profile data to user_profiles table."""
     try:
         r = httpx.post(
             f"{SUPABASE_URL}/rest/v1/user_profiles",
-            headers={
-                **_auth_headers(access_token),
-                "Prefer": "resolution=merge-duplicates",
-            },
+            headers={**_auth_headers(access_token), "Prefer": "resolution=merge-duplicates"},
             json={"id": user_id, **updates},
             timeout=10,
         )
@@ -185,29 +198,3 @@ def get_profile(access_token: str, user_id: str) -> Optional[dict]:
         return data[0] if data else {}
     except Exception:
         return {}
-
-
-def handle_supabase_callback():
-    """
-    Handles Supabase OAuth callback — reads access_token from URL query params
-    (?access_token=) which Supabase sends after Google login.
-    Call this BEFORE the auth gate in app.py.
-    """
-    import streamlit as st
-    params = st.query_params
-
-    # Supabase sometimes sends token as query param after redirect
-    access_token = params.get("access_token", "")
-    refresh_token = params.get("refresh_token", "")
-
-    if access_token:
-        # Get user info using the token
-        user = get_user(access_token)
-        if user:
-            st.session_state["sb_user"] = user
-            st.session_state["sb_access_token"] = access_token
-            st.session_state["sb_refresh_token"] = refresh_token
-            st.session_state["logged_in"] = True
-            # Clear tokens from URL
-            st.query_params.clear()
-            st.rerun()

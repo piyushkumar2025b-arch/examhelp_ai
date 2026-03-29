@@ -13,7 +13,7 @@ import zlib
 import streamlit as st
 
 # ── Auth + Integrations (loaded early, before page config) ──────────────────
-from auth.supabase_auth import is_logged_in, current_user, clear_session, try_refresh, handle_supabase_callback
+from auth.supabase_auth import is_logged_in, current_user, clear_session, try_refresh
 from auth.login_ui import render_login_page
 from integrations.google_ui import (
     handle_google_oauth_callback, render_google_connect_button,
@@ -177,7 +177,6 @@ init_state()
 # ─────────────────────────────────────────────
 # GOOGLE OAUTH CALLBACK (catch ?code= redirect)
 # ─────────────────────────────────────────────
-handle_supabase_callback()  # Handle Supabase Google OAuth token from URL
 handle_google_oauth_callback()
 
 # ─────────────────────────────────────────────
