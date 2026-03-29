@@ -116,15 +116,11 @@ def _fetch_page_content(url: str, max_chars: int = 5000) -> dict:
     return {"text": "", "og_image": "", "success": False}
 
 
-def _summarize_source(text: str, max_words: int = 200) -> str:
-    if len(text.split()) <= max_words:
+def _summarize_source(text: str, max_words: int = 300) -> str:
+    words = text.split()
+    if len(words) <= max_words:
         return text
-    prompt = f"Summarize this text in {max_words} words or less. Preserve key facts, statistics, and quotes:\n\n{text[:3000]}"
-    try:
-        return ai_engine.generate(prompt=prompt, model="llama-3.1-8b-instant", max_tokens=512, temperature=0.1)
-    except Exception:
-        words = text.split()[:max_words]
-        return " ".join(words)
+    return " ".join(words[:max_words]) + "..."
 
 
 def run_research(query: str, context_type: str, output_format: str, depth: str, date_filter: str, custom_format: str = "") -> dict:

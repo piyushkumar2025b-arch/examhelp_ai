@@ -8,6 +8,7 @@ from __future__ import annotations
 import streamlit as st
 import re
 import datetime
+import json
 from utils import ai_engine
 
 # ─────────────────────────────────────────────
@@ -658,13 +659,37 @@ def render_story_builder():
         with a2:
             if st.session_state.story_full_text:
                 st.download_button(
-                    "📥 Export",
+                    "📝 .txt Export",
                     data=_export_story(),
-                    file_name=f"{(st.session_state.story_title or 'story').replace(' ','_')}.md",
-                    mime="text/markdown",
+                    file_name=f"{(st.session_state.story_title or 'story').replace(' ','_')}.txt",
+                    mime="text/plain",
                     use_container_width=True,
-                    key="story_export",
+                    key="story_export_txt",
                 )
+                
+                try:
+                    import docx
+                    from io import BytesIO
+                    doc = docx.Document()
+                    doc.add_heading(st.session_state.story_title or "Untitled", 0)
+                    doc.add_paragraph(st.session_state.story_full_text)
+                    bio = BytesIO()
+                    doc.save(bio)
+                    st.download_button("📄 .docx Export", data=bio.getvalue(), file_name=f"{(st.session_state.story_title or 'story').replace(' ','_')}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="story_export_docx")
+                except ImportError:
+                    pass
+                    
+                try:
+                    from fpdf import FPDF
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_font("Arial", size=12)
+                    pdf.multi_cell(0, 10, txt=(st.session_state.story_title or "Untitled").encode('latin-1', 'replace').decode('latin-1'))
+                    pdf.multi_cell(0, 10, txt=st.session_state.story_full_text.encode('latin-1', 'replace').decode('latin-1'))
+                    pdf_bytes = pdf.output(dest='S').encode('latin-1')
+                    st.download_button("📕 .pdf Export", data=pdf_bytes, file_name=f"{(st.session_state.story_title or 'story').replace(' ','_')}.pdf", mime="application/pdf", use_container_width=True, key="story_export_pdf")
+                except ImportError:
+                    pass
 
         # ── Back to study ───────────────────────
         st.markdown("---")
@@ -834,6 +859,18 @@ def render_story_builder():
 
                         # Update word count
                         st.session_state.story_word_count = _word_count(st.session_state.story_full_text)
+
+                        # Continuity Check
+                        if st.session_state.story_characters:
+                            st.toast("Checking continuity against character sheets...")
+                            char_sheet = json.dumps(st.session_state.story_characters)
+                            cont_prompt = f"Check this new text for contradictions against the character sheet. If there is a major contradiction (e.g. eye color changed, dead character alive), explain it briefly. If none, reply 'OK'.\n\nCHARACTERS: {char_sheet}\n\nNEW TEXT: {generated}"
+                            try:
+                                cont_res = ai_engine.generate(cont_prompt, model="llama-3.1-8b-instant", max_tokens=150, temperature=0.1)
+                                if "OK" not in cont_res[:10]:
+                                    st.warning(f"⚠️ Continuity Warning: {cont_res}")
+                            except Exception:
+                                pass
 
                     except Exception as e:
                         st.error(f"Story generation failed: {e}")

@@ -1,26 +1,13 @@
-# ============================================================
-#  SECRET FILES — NEVER COMMIT THESE
-# ============================================================
-.env
 .streamlit/secrets.toml
-
-# ── Gemini keys (extra safety net) ───────────────────────
-# These patterns catch any file that might accidentally store Gemini keys
-*gemini*secret*
-*secret*gemini*
-*.keys
-
-# ── Python cache ─────────────────────────────────────────
+.env
+.env.local
+.env.production
+*.env
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-
-# ── OS junk ──────────────────────────────────────────────
 .DS_Store
-Thumbs.db
-
-# ── IDEs ─────────────────────────────────────────────────
-.vscode/
-.idea/
-*.swp
+sessions.json
+*.log
+.gemini/
+node_modules/

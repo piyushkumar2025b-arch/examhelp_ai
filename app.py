@@ -130,6 +130,13 @@ def init_state():
         "cf_research": None, "cf_followup_chat": [],
         # ── Presentation Builder
         "pres_slides": [],
+        # ── Powerup Variables ──
+        "quiz_v2_data": [], "quiz_v2_timer": None, "quiz_v2_adaptive_scores": {},
+        "story_characters": {}, "story_world": "", "story_branches": {},
+        "message_ratings": {}, "chat_followups": [],
+        "shopping_wishlist": [], "shopping_cache": {},
+        "research_cache": {}, "presentation_slides": [],
+        "service_availability": {},
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -144,6 +151,11 @@ def init_state():
                     st.session_state.persistent_sessions = json.load(f)
             except Exception:
                 pass
+
+    # Validate keys
+    if not st.session_state.service_availability:
+        from utils.secret_manager import validate_all_keys
+        st.session_state.service_availability = validate_all_keys()
 
     # Vector store
     from memory.vector_store import VectorStore
@@ -1932,219 +1944,15 @@ app_mode = st.session_state.get("app_mode", "chat")
 # FLASHCARD MODE
 # ─────────────────────────────────────────────
 if app_mode == "flashcards":
-    st.subheader("🃏 Flashcard Generator")
-    lang = st.session_state.get("selected_language","English")
-
-    if not st.session_state.context_text:
-        st.warning("📄 Upload study material first to generate flashcards.")
-    else:
-        col_gen, col_cnt = st.columns([3,1])
-        with col_gen:
-            if st.button("🪄 Generate Flashcards", use_container_width=True):
-                with st.spinner(f"Creating {lang} deck…"):
-                    cards = AppController.generate_flashcards(
-                        st.session_state.context_text, lang, _get_override_key())
-                    if cards:
-                        st.session_state.flashcards   = cards
-                        st.session_state.current_card = 0
-                        st.session_state.card_mastery = {}
-                        st.rerun()
-                    else:
-                        st.error("⚠️ Generation failed. Check your API keys.")
-        with col_cnt:
-            if st.session_state.flashcards:
-                st.markdown(
-                    f'<div style="text-align:center;font-size:.8rem;color:var(--text3);padding-top:8px;">'
-                    f'{len(st.session_state.flashcards)} cards</div>',
-                    unsafe_allow_html=True)
-
-        if st.session_state.flashcards:
-            cards = st.session_state.flashcards
-            idx   = st.session_state.current_card
-
-            if idx >= len(cards):
-                # Mastery summary
-                mastery    = st.session_state.get("card_mastery", {})
-                passes     = sum(1 for v in mastery.values() if v == "pass")
-                score_pct  = int(passes / len(cards) * 100)
-                if score_pct >= 80:
-                    emoji = "🌟"
-                elif score_pct >= 60:
-                    emoji = "👍"
-                else:
-                    emoji = "📖"
-
-                st.success(f"### {emoji} Deck Complete! **{passes}/{len(cards)}** correct ({score_pct}%)")
-                if px and len(mastery) > 0:
-                    fig = px.pie(
-                        values=[passes, len(cards)-passes],
-                        names=["✅ Pass","❌ Review"],
-                        hole=0.55,
-                        color_discrete_sequence=["#4ade80","#f87171"],
-                    )
-                    fig.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        font_color="var(--text)" if st.session_state.theme_mode == "dark" else "#1c1917",
-                        margin=dict(t=10,b=10,l=10,r=10),
-                        showlegend=True,
-                        legend=dict(orientation="h",yanchor="bottom",y=-0.25),
-                    )
-                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar":False})
-
-                ca, cb = st.columns(2)
-                with ca:
-                    if st.button("🔁 Retry Missed", use_container_width=True):
-                        missed = [c for i,c in enumerate(cards) if mastery.get(i) != "pass"]
-                        st.session_state.flashcards   = missed if missed else cards
-                        st.session_state.current_card = 0
-                        st.session_state.card_mastery = {}
-                        st.rerun()
-                with cb:
-                    if st.button("🔄 Restart All", use_container_width=True):
-                        st.session_state.current_card = 0
-                        st.session_state.card_mastery = {}
-                        st.rerun()
-            else:
-                card = cards[idx]
-                progress_pct = int(idx / len(cards) * 100)
-                st.markdown(
-                    f'<div class="prog-wrap"><div class="prog-label">'
-                    f'<span>Card {idx+1}/{len(cards)}</span><span>{progress_pct}%</span></div>'
-                    f'<div class="prog-bar"><div class="prog-fill" style="width:{progress_pct}%;"></div></div></div>',
-                    unsafe_allow_html=True)
-
-                difficulty = card.get("difficulty","medium")
-                diff_color = {"easy":"var(--green)","medium":"var(--accent)","hard":"var(--red)"}.get(difficulty,"var(--text3)")
-                subject    = card.get("subject","")
-
-                st.markdown(
-                    f'<div style="display:flex;gap:8px;margin-bottom:.6rem;">'
-                    f'<span style="font-size:.72rem;background:var(--bg3);border:1px solid var(--border);'
-                    f'border-radius:8px;padding:2px 10px;color:var(--text3);">{subject}</span>'
-                    f'<span style="font-size:.72rem;background:var(--bg3);border:1px solid var(--border);'
-                    f'border-radius:8px;padding:2px 10px;color:{diff_color};">{difficulty}</span></div>',
-                    unsafe_allow_html=True)
-
-                # Show Q, reveal A on toggle
-                flip_key = f"flip_{idx}"
-                if flip_key not in st.session_state: st.session_state[flip_key] = False
-
-                q_text = card.get("q","Question not found")
-                a_text = card.get("a","Answer not found")
-
-                st.markdown(
-                    f'<div class="flashcard"><div style="font-size:1rem;font-weight:600;">'
-                    f'❓ {q_text}</div></div>', unsafe_allow_html=True)
-
-                if st.session_state[flip_key]:
-                    st.markdown(
-                        f'<div class="flashcard" style="margin-top:.5rem;border-color:var(--accent-bd);">'
-                        f'<div style="font-size:.95rem;">💡 {a_text}</div></div>',
-                        unsafe_allow_html=True)
-
-                flip_col, pass_col, fail_col = st.columns(3)
-                with flip_col:
-                    if st.button("👁️ Reveal Answer", use_container_width=True, key=f"flip_btn_{idx}"):
-                        st.session_state[flip_key] = not st.session_state[flip_key]; st.rerun()
-                with pass_col:
-                    if st.button("✅ Got It", use_container_width=True, key=f"pass_{idx}"):
-                        st.session_state.card_mastery[idx] = "pass"
-                        st.session_state[flip_key] = False
-                        st.session_state.current_card += 1; st.rerun()
-                with fail_col:
-                    if st.button("❌ Review", use_container_width=True, key=f"fail_{idx}"):
-                        st.session_state.card_mastery[idx] = "fail"
-                        st.session_state[flip_key] = False
-                        st.session_state.current_card += 1; st.rerun()
+    from utils.flashcard_engine import render_flashcards
+    render_flashcards()
 
 # ─────────────────────────────────────────────
 # QUIZ MODE
 # ─────────────────────────────────────────────
 elif app_mode == "quiz":
-    st.subheader("📝 Smart Quiz Mode")
-    lang = st.session_state.get("selected_language","English")
-
-    if not st.session_state.context_text:
-        st.warning("📄 Upload study material first to generate a quiz.")
-    else:
-        if not st.session_state.quiz_data:
-            if st.button("🪄 Generate Quiz (5 Questions)", use_container_width=True):
-                with st.spinner("Creating quiz…"):
-                    q = AppController.generate_quiz(
-                        st.session_state.context_text, lang, _get_override_key())
-                    if q:
-                        st.session_state.quiz_data    = q
-                        st.session_state.quiz_current = 0
-                        st.session_state.quiz_score   = 0
-                        st.session_state.quiz_feedback = None
-                        st.rerun()
-                    else:
-                        st.error("⚠️ Quiz generation failed.")
-        else:
-            quiz = st.session_state.quiz_data
-            qi   = st.session_state.quiz_current
-
-            if qi >= len(quiz):
-                # Score screen
-                score_pct = int(st.session_state.quiz_score / len(quiz) * 100)
-                if score_pct >= 80: grade, gcolor = "A 🌟", "var(--green)"
-                elif score_pct >= 60: grade, gcolor = "B 👍", "var(--accent)"
-                else: grade, gcolor = "C 📖", "var(--red)"
-
-                st.markdown(
-                    f'<div style="text-align:center;padding:2rem;">'
-                    f'<div style="font-size:3rem;">{grade.split()[1]}</div>'
-                    f'<div style="font-size:2rem;font-weight:800;color:{gcolor};">{score_pct}%</div>'
-                    f'<div style="color:var(--text2);margin-top:.5rem;">'
-                    f'{st.session_state.quiz_score}/{len(quiz)} correct</div></div>',
-                    unsafe_allow_html=True)
-
-                if st.button("🔄 Try Again", use_container_width=True):
-                    st.session_state.quiz_current = 0
-                    st.session_state.quiz_score   = 0
-                    st.session_state.quiz_data    = []
-                    st.session_state.quiz_feedback = None
-                    st.rerun()
-            else:
-                q_item = quiz[qi]
-                q_text = q_item.get("q","")
-                opts   = q_item.get("options", [])
-                correct = q_item.get("correct","")
-                expl   = q_item.get("explanation","")
-
-                st.markdown(
-                    f'<div class="prog-wrap"><div class="prog-label">'
-                    f'<span>Q {qi+1}/{len(quiz)}</span>'
-                    f'<span>Score: {st.session_state.quiz_score}/{qi}</span></div>'
-                    f'<div class="prog-bar"><div class="prog-fill" style="width:{qi/len(quiz)*100:.0f}%;"></div></div></div>',
-                    unsafe_allow_html=True)
-
-                st.markdown(f"**{qi+1}. {q_text}**")
-
-                if st.session_state.quiz_feedback is None:
-                    for j, opt in enumerate(opts):
-                        if st.button(opt, key=f"opt_{qi}_{j}", use_container_width=True):
-                            is_correct = (opt == correct or opt.lstrip("ABCD. ") == correct.lstrip("ABCD. "))
-                            if is_correct:
-                                st.session_state.quiz_score += 1
-                                st.session_state.quiz_feedback = ("✅ Correct!", "green", expl)
-                            else:
-                                st.session_state.quiz_feedback = (f"❌ Wrong — Correct: **{correct}**", "red", expl)
-                            st.rerun()
-                else:
-                    msg, color, exp = st.session_state.quiz_feedback
-                    color_map = {"green":"var(--green)","red":"var(--red)"}
-                    st.markdown(
-                        f'<div style="color:{color_map.get(color,"var(--text)")};font-weight:600;'
-                        f'padding:.7rem;background:var(--bg3);border-radius:8px;margin:.5rem 0;">{msg}</div>',
-                        unsafe_allow_html=True)
-                    if exp:
-                        st.markdown(f"💡 *{exp}*")
-                    if st.button("Next Question →", use_container_width=True):
-                        st.session_state.quiz_current += 1
-                        st.session_state.quiz_feedback = None
-                        st.rerun()
+    from utils.quiz_engine import render_quiz
+    render_quiz()
 
 # ─────────────────────────────────────────────
 # MIND MAP MODE
@@ -2414,15 +2222,29 @@ elif app_mode == "debugger":
         st.session_state.debug_mode = debug_mode
 
     # ── Code input ───────────────────────────────────────────────
-    lang_icon = SUPPORTED_LANGUAGES.get(sel_lang, {}).get("icon", "💻")
-    code_input = st.text_area(
-        f"{lang_icon} Paste your {sel_lang} code here",
-        value=st.session_state.get("debug_code_input", ""),
-        height=280,
-        placeholder=f"# Paste your {sel_lang} code here...",
-        key="debug_code_area",
-    )
-    st.session_state.debug_code_input = code_input
+    try:
+        from streamlit_ace import st_ace
+        ace_lang = {"Python": "python", "C": "c_cpp", "C++": "c_cpp", "Java": "java", "JavaScript": "javascript", "TypeScript": "typescript", "Go": "golang", "Rust": "rust", "HTML/CSS": "html", "SQL": "sql", "Bash/Shell": "sh", "PHP": "php", "Ruby": "ruby"}.get(sel_lang, "text")
+        lang_icon = SUPPORTED_LANGUAGES.get(sel_lang, {}).get("icon", "💻")
+        st.markdown(f"**{lang_icon} {sel_lang} Source Code**")
+        code_input = st_ace(
+            value=st.session_state.get("debug_code_input", ""),
+            language=ace_lang,
+            theme="twilight" if st.session_state.get("theme_mode") == "dark" else "textmate",
+            height=280,
+            key="debug_ace_editor"
+        )
+        st.session_state.debug_code_input = code_input
+    except ImportError:
+        lang_icon = SUPPORTED_LANGUAGES.get(sel_lang, {}).get("icon", "💻")
+        code_input = st.text_area(
+            f"{lang_icon} Paste your {sel_lang} code here",
+            value=st.session_state.get("debug_code_input", ""),
+            height=280,
+            placeholder=f"# Paste your {sel_lang} code here...",
+            key="debug_code_area",
+        )
+        st.session_state.debug_code_input = code_input
 
     # Auto-detect
     if code_input.strip():
@@ -2521,6 +2343,23 @@ elif app_mode == "debugger":
         st.markdown('<div class="debug-result-box">', unsafe_allow_html=True)
         st.markdown(result)
         st.markdown('</div>', unsafe_allow_html=True)
+
+        ca, cb = st.columns(2)
+        with ca:
+            if st.button("🔨 Run Original Code (Piston API)", use_container_width=True):
+                with st.spinner("Executing via Piston..."):
+                    from utils.debugger_engine import execute_code_piston
+                    out = execute_code_piston(code_input, sel_lang)
+                    st.code(out.get('run', {}).get('output', 'No output'), language='bash')
+        with cb:
+            # Extract fixed block to apply
+            import re
+            m = re.search(r'```[\w]*\n(.*?)```', result, re.DOTALL)
+            fixed_code = m.group(1).strip() if m else None
+            
+            if fixed_code and st.button("✨ Apply Fix to Editor", use_container_width=True):
+                st.session_state.debug_code_input = fixed_code
+                st.rerun()
 
         # Export
         col_copy, col_dl = st.columns(2)
@@ -3529,6 +3368,13 @@ elif app_mode == "presentation_builder":
 
 else:
 
+    # ── Chat Powerup: returning user memory banner ──
+    try:
+        from utils.chat_powerup import render_returning_user_memory
+        render_returning_user_memory()
+    except Exception:
+        pass
+
     # ── Empty state ────────────────────────────────
     if not st.session_state.messages:
         st.markdown("""
@@ -3582,6 +3428,18 @@ else:
                         AppController.speak(msg["content"][:1500])
                         st.toast("Reading aloud...")
 
+    # ── Chat Powerup: file uploader in chat ──
+    try:
+        from utils.chat_powerup import render_chat_file_uploader
+        chat_file_text, chat_file_type = render_chat_file_uploader()
+        if chat_file_text and "_chat_file_injected" not in st.session_state:
+            st.session_state["_chat_file_injected"] = True
+            prefix = "[Image content]" if chat_file_type and chat_file_type.startswith("image") else "[PDF content]"
+            st.session_state.context_text = (st.session_state.get("context_text","") + "\n\n" + prefix + ":\n" + chat_file_text).strip()
+            st.toast("📎 File content added to chat context!")
+    except Exception:
+        pass
+
     # ── Input Area ────────────────────────────────
     audio_val = None
     try:
@@ -3627,10 +3485,30 @@ else:
 
     # ── Main query processing ──────────────────────
     elif user_input:
+        from utils.ai_engine import generate
         st.session_state.messages.append({"role":"user","content":user_input})
         with st.chat_message("user", avatar="👤"):
             st.markdown(f'<span class="user-msg-hook" style="display:none"></span>', unsafe_allow_html=True)
             st.markdown(user_input)
+
+        # 8B fast intent classifier
+        try:
+            route_prompt = f"Categorize this user query into ONE of these specific tool intents if applicable, or 'chat' if it's general: 'web_search' (they want latest info, news, or deep internet research), 'code_debug' (they are asking to fix or explain code), 'math_calc' (they are asking a pure math calculation), 'chat' (general question, summary, writing). Reply with ONLY the category word.\n\nQuery: {user_input}"
+            intent_cls = generate(route_prompt, model="llama-3.1-8b-instant", max_tokens=10, temperature=0.0).strip().lower()
+            
+            if "web_search" in intent_cls:
+                st.session_state.app_mode = "context_focus"
+                st.session_state.cf_query = user_input
+                st.rerun()
+            elif "code_debug" in intent_cls or "debug" in intent_cls:
+                st.session_state.app_mode = "debugger"
+                st.session_state.debug_code_input = user_input
+                st.rerun()
+            elif "math_calc" in intent_cls:
+                st.session_state.app_mode = "calculator"
+                st.rerun()
+        except:
+            pass
 
         from utils.query_engine import QueryEngine
         try:
@@ -3679,6 +3557,25 @@ else:
 
         if success and full_response:
             st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+            # ── Chat Powerup: persist topic to cross-session memory ──
+            try:
+                from utils.chat_powerup import update_memory_with_topic
+                update_memory_with_topic(user_input)
+            except Exception:
+                pass
+
+            # ── Chat Powerup: auto web search trigger ──
+            try:
+                from utils.chat_powerup import check_auto_web_search_trigger, auto_web_search_and_append
+                if check_auto_web_search_trigger(full_response):
+                    web_results = auto_web_search_and_append(user_input)
+                    if web_results:
+                        st.session_state.messages.append({"role": "assistant", "content": web_results})
+                        full_response += web_results
+            except Exception:
+                pass
+
             st.divider()
 
             # Visualization Logic
@@ -3742,6 +3639,16 @@ else:
                     st.text_input("Share Link", value=f"?chat={compressed}", label_visibility="collapsed")
                     st.caption("📋 Copy the URL above to share this conversation.")
                 except: st.info("Sharing unavailable.")
+
+            # ── Chat Powerup: ratings + follow-up suggestions ──
+            try:
+                from utils.chat_powerup import render_rating_buttons, generate_followup_suggestions, render_followup_pills
+                msg_idx = len(st.session_state.messages) - 1
+                render_rating_buttons(msg_idx, full_response)
+                suggestions = generate_followup_suggestions(full_response, user_input)
+                render_followup_pills(suggestions, msg_idx)
+            except Exception:
+                pass
 
         # Update stats
         st.session_state.total_tokens_used += (len(full_response.split()) * 2) if (success and full_response) else 0

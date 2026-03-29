@@ -1,5 +1,7 @@
 """
-presentation_engine.py — AI Presentation Builder
+presentation_engine.py — AI Presentation Builder (Powerup v2)
+Per-slide internet data via DuckDuckGo, Unsplash images embedded in PPTX,
+parallel enrichment via concurrent.futures, per-slide improve, PDF/MD export.
 """
 
 import streamlit as st
@@ -7,6 +9,8 @@ import io
 import re
 import json
 import requests
+import concurrent.futures
+import hashlib
 from utils import ai_engine
 
 THEMES = {
@@ -98,6 +102,55 @@ Return ONLY the JSON array."""
     basic.append({"slide_number": num_slides + 1, "type": "summary", "title": "Summary", "bullets": ["Key takeaways"], "speaker_notes": "Let me summarize.", "image_keyword": "summary"})
     basic.append({"slide_number": num_slides + 2, "type": "qna", "title": "Questions?", "bullets": ["Thank you for your attention"], "speaker_notes": "Open floor for Q&A.", "image_keyword": "questions"})
     return basic
+
+
+def fetch_slide_internet_data(slide_title: str, topic: str) -> str:
+    cache_key = f"_pres_web_{__import__('hashlib').md5((slide_title+topic).encode()).hexdigest()[:10]}"
+    cached = st.session_state.get(cache_key)
+    if cached:
+        return cached
+    try:
+        from duckduckgo_search import DDGS
+        query = f"{topic} {slide_title} statistics facts"
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=3))
+        if results:
+            snippet = results[0].get("body", "")[:300]
+            st.session_state[cache_key] = snippet
+            return snippet
+    except Exception:
+        pass
+    return ""
+
+
+def parallel_enrich_all_slides(slides: list, topic: str) -> list:
+    import concurrent.futures
+    def _enrich_one(args):
+        idx, slide = args
+        enriched = enrich_slide(slide, topic)
+        if slide.get("type") not in ("title", "qna"):
+            web_fact = fetch_slide_internet_data(slide.get("title", ""), topic)
+            if web_fact:
+                enriched["speaker_notes"] = enriched.get("speaker_notes", "") + f"\n\n📰 Live: {web_fact[:200]}"
+                enriched["_web_snippet"] = web_fact
+        return idx, enriched
+
+    result = list(slides)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+        for idx, enriched in ex.map(_enrich_one, enumerate(slides)):
+            result[idx] = enriched
+    return result
+
+
+def download_image_bytes(keyword: str) -> bytes:
+    try:
+        url = f"https://source.unsplash.com/800x600/?{keyword.replace(' ', '+')}"
+        r = requests.get(url, timeout=8, allow_redirects=True)
+        if r.status_code == 200 and r.content:
+            return r.content
+    except Exception:
+        pass
+    return b""
 
 
 def enrich_slide(slide: dict, topic: str) -> dict:
@@ -258,6 +311,115 @@ def generate_pptx(slides: list, theme_name: str, footer_text: str = "") -> bytes
     return buf.read()
 
 
+def generate_pptx_with_images(slides: list, theme_name: str, footer_text: str = "", embed_images: bool = True) -> bytes:
+    """Generate PPTX with Unsplash images downloaded and embedded per slide."""
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pptx.dml.color import RGBColor
+    from pptx.enum.text import PP_ALIGN
+    import io as _io
+
+    theme = THEMES.get(theme_name, THEMES["Professional"])
+    prs = Presentation()
+    prs.slide_width = Inches(13.333)
+    prs.slide_height = Inches(7.5)
+
+    bg_rgb = _hex_to_rgb(theme["bg_color"])
+    title_rgb = _hex_to_rgb(theme["title_color"])
+    text_rgb = _hex_to_rgb(theme["text_color"])
+    accent_rgb = _hex_to_rgb(theme["accent"])
+
+    for slide_data in slides:
+        slide_layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(slide_layout)
+
+        bg = slide.background
+        fill = bg.fill
+        fill.solid()
+        fill.fore_color.rgb = RGBColor(*bg_rgb)
+
+        slide_type = slide_data.get("type", "content")
+        title = slide_data.get("title", "")
+        bullets = slide_data.get("bullets", [])
+        notes = slide_data.get("speaker_notes", "")
+        img_keyword = slide_data.get("image_keyword", "")
+
+        img_embedded = False
+        content_width = Inches(11)
+
+        if embed_images and img_keyword and slide_type in ("content", "agenda", "summary"):
+            img_bytes = download_image_bytes(img_keyword)
+            if img_bytes:
+                try:
+                    img_stream = _io.BytesIO(img_bytes)
+                    slide.shapes.add_picture(img_stream, Inches(9.5), Inches(1.5), Inches(3.5), Inches(2.6))
+                    img_embedded = True
+                    content_width = Inches(8.5)
+                except Exception:
+                    pass
+
+        if slide_type == "title":
+            txBox = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(11), Inches(2))
+            tf = txBox.text_frame
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.text = title
+            p.font.size = Pt(44)
+            p.font.bold = True
+            p.font.color.rgb = RGBColor(*title_rgb)
+            p.font.name = theme["font"]
+            p.alignment = PP_ALIGN.CENTER
+            if bullets:
+                sub = tf.add_paragraph()
+                sub.text = " · ".join(bullets[:3])
+                sub.font.size = Pt(18)
+                sub.font.color.rgb = RGBColor(*text_rgb)
+                sub.font.name = theme["font"]
+                sub.alignment = PP_ALIGN.CENTER
+        else:
+            txBox = slide.shapes.add_textbox(Inches(0.8), Inches(0.5), content_width, Inches(1))
+            tf = txBox.text_frame
+            p = tf.paragraphs[0]
+            p.text = title
+            p.font.size = Pt(32)
+            p.font.bold = True
+            p.font.color.rgb = RGBColor(*title_rgb)
+            p.font.name = theme["font"]
+
+            accent_line = slide.shapes.add_shape(1, Inches(0.8), Inches(1.4), Inches(2), Inches(0.04))
+            accent_line.fill.solid()
+            accent_line.fill.fore_color.rgb = RGBColor(*accent_rgb)
+            accent_line.line.fill.background()
+
+            content_box = slide.shapes.add_textbox(Inches(0.8), Inches(1.7), content_width, Inches(5))
+            ctf = content_box.text_frame
+            ctf.word_wrap = True
+            for j, bullet in enumerate(bullets):
+                p2 = ctf.paragraphs[0] if j == 0 else ctf.add_paragraph()
+                p2.text = f"• {bullet}"
+                p2.font.size = Pt(18)
+                p2.font.color.rgb = RGBColor(*text_rgb)
+                p2.font.name = theme["font"]
+                p2.space_after = Pt(8)
+
+        if footer_text:
+            ft = slide.shapes.add_textbox(Inches(0.5), Inches(7), Inches(12), Inches(0.4))
+            fp = ft.text_frame.paragraphs[0]
+            fp.text = footer_text
+            fp.font.size = Pt(9)
+            fp.font.color.rgb = RGBColor(150, 150, 150)
+            fp.font.name = theme["font"]
+            fp.alignment = PP_ALIGN.RIGHT
+
+        if notes:
+            slide.notes_slide.notes_text_frame.text = notes
+
+    buf = _io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
 def generate_markdown_outline(slides: list) -> str:
     lines = ["# Presentation Outline\n"]
     for s in slides:
@@ -345,12 +507,10 @@ def render_presentation_builder():
                 st.session_state.pres_slides = slides
 
             if enrich:
-                progress = st.progress(0, text="Enriching slides with real data...")
-                for i, slide in enumerate(st.session_state.pres_slides):
-                    progress.progress((i + 1) / len(st.session_state.pres_slides),
-                                      text=f"Enriching slide {i+1}/{len(st.session_state.pres_slides)}...")
-                    st.session_state.pres_slides[i] = enrich_slide(slide, topic)
-                progress.empty()
+                with st.spinner("⚡ Enriching all slides in parallel with live internet data..."):
+                    st.session_state.pres_slides = parallel_enrich_all_slides(
+                        st.session_state.pres_slides, topic
+                    )
 
             st.success(f"✅ Generated {len(st.session_state.pres_slides)} slides!")
             st.rerun()
@@ -419,11 +579,17 @@ def render_presentation_builder():
 
             e1, e2, e3 = st.columns(3)
 
+            embed_imgs = st.checkbox("🖼️ Embed Unsplash images in slides", value=True, key="pres_embed_imgs")
+
             with e1:
                 try:
-                    pptx_bytes = generate_pptx(slides, theme_name, footer_text)
+                    if embed_imgs:
+                        with st.spinner("Downloading slide images..."):
+                            pptx_bytes = generate_pptx_with_images(slides, theme_name, footer_text, embed_images=True)
+                    else:
+                        pptx_bytes = generate_pptx(slides, theme_name, footer_text)
                     st.download_button(
-                        "📥 Download .PPTX",
+                        "📥 Download .PPTX" + (" (with images)" if embed_imgs else ""),
                         pptx_bytes,
                         file_name="presentation.pptx",
                         mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",

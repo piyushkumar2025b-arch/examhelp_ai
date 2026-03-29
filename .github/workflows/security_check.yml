@@ -1,0 +1,20 @@
+name: Security Check
+on: [push, pull_request]
+jobs:
+  secret_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check for exposed secrets
+        run: |
+          if grep -r "gsk_" . --include="*.py" --exclude-dir=".git"; then
+            echo "EXPOSED GROQ KEY FOUND"; exit 1
+          fi
+          if grep -r "AIza" . --include="*.py" --exclude-dir=".git"; then
+            echo "EXPOSED GEMINI KEY FOUND"; exit 1
+          fi
+          if grep -rE "api_key\s*=\s*['\"][a-zA-Z0-9_-]{20,}" . \
+            --include="*.py" --exclude-dir=".git"; then
+            echo "HARDCODED API KEY PATTERN FOUND"; exit 1
+          fi
+          echo "No exposed secrets found"

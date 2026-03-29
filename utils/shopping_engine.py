@@ -167,12 +167,24 @@ def _scrape_platform(query: str, platform_name: str, platform_info: dict, catego
 
 
 def _ai_search_fallback(query: str, platform: str, domain: str, category: str) -> list:
+    search_query = f"site:{domain} {query} price"
+    search_context = ""
+    try:
+        from duckduckgo_search import DDGS
+        results = DDGS().text(search_query, max_results=5)
+        search_context = "\n".join([f"[{r['title']}] {r['body']}" for r in results])
+    except Exception:
+        search_context = "No live search results available."
+
     prompt = f"""Search for "{query}" on {platform} ({domain}).
-Return a JSON array of up to 5 products. Each object must have:
+Here are live search results from DuckDuckGo:
+{search_context}
+
+Return a JSON array of up to 5 products extracted from the search results. Each object must have:
 - "name": product name
 - "price": price string with ₹ or $ symbol
 - "rating": rating string like "4.2"
-- "url": a real product URL on {domain} (use search URL if exact not known: https://www.{domain}/search?q={quote_plus(query)})
+- "url": a real product URL on {domain}
 - "image": empty string
 
 Return ONLY the JSON array."""

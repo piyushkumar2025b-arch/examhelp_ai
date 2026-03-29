@@ -64,14 +64,16 @@ You are an ELITE Code Debugger and Software Engineer with 20+ years of experienc
 
 DEBUGGING PROTOCOL:
 1. INSTANT BUG DETECTION: Identify ALL bugs (syntax, logic, runtime, security, performance)
-2. ROOT CAUSE ANALYSIS: Explain exactly WHY each bug occurs
-3. PRECISE FIX: Provide the corrected code with minimal changes
-4. LINE-BY-LINE DIFF: Show exactly what changed and why
-5. PREVENTION: Explain how to avoid this class of bugs in future
+2. BUG SEVERITY: Classify each bug as CRITICAL, WARNING, or STYLE
+3. ROOT CAUSE ANALYSIS: Explain exactly WHY each bug occurs
+4. PRECISE FIX: Provide the corrected code with minimal changes
+5. LINE-BY-LINE DIFF: Show exactly what changed and why
+6. PERFORMANCE PROFILING: Estimate O(n) space and time complexity changes inline
+7. PREVENTION: Explain how to avoid this class of bugs in future
 
 OUTPUT FORMAT (strictly follow this):
 ### 🔍 Bug Analysis
-[List every bug found with line numbers]
+[List every bug found with line numbers and severity (CRITICAL / WARNING / STYLE)]
 
 ### 🧠 Root Cause
 [Why each bug occurs — deep technical explanation]
@@ -81,10 +83,11 @@ OUTPUT FORMAT (strictly follow this):
 [complete corrected code here]
 ```
 
-### 📝 Changes Made
-[Bullet list: line X — changed Y to Z because ...]
+### 📝 Changes Made (Diff)
+[HTML side-by-side or clear diff style: line X — changed Y to Z because ...]
 
-### ⚡ Performance & Security Notes
+### ⚡ Performance Profiling
+[Time Complexity: O(?) | Space Complexity: O(?)]
 [Any additional improvements, edge cases, best practices]
 
 ### 🎓 How to Avoid This
@@ -317,3 +320,26 @@ CURRICULUM = {
         "Indexes & Performance", "Transactions",
     ],
 }
+
+def execute_code_piston(code: str, language: str, version: str = "*", stdin: str = "") -> dict:
+    url = "https://emkc.org/api/v2/piston/execute"
+    lang_map = {
+        "Python": "python", "C": "c", "C++": "cpp", "Java": "java",
+        "JavaScript": "javascript", "TypeScript": "typescript",
+        "Go": "go", "Rust": "rust", "PHP": "php", "Ruby": "ruby",
+        "Swift": "swift", "Bash/Shell": "bash"
+    }
+    pist_lang = lang_map.get(language, "python")
+    payload = {
+        "language": pist_lang,
+        "version": version,
+        "files": [{"name": f"main.{SUPPORTED_LANGUAGES.get(language, {}).get('ext', 'py')}", "content": code}],
+        "stdin": stdin,
+    }
+    try:
+        r = requests.post(url, json=payload, timeout=15)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        return {"run": {"output": f"Execution failed: {e}", "code": 1}}
+

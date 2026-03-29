@@ -102,3 +102,9 @@ PyYAML>=6.0.1
 # ── Exotic Power Tools (Code Converter, Shopping, Context Focus, Presentations) ──
 trafilatura>=1.6.0
 lxml>=5.0.0
+
+# ── Feature Powerup Additions ──
+genanki>=0.13.0
+streamlit-ace>=0.1.1
+streamlit-autorefresh>=0.0.1
+duckduckgo-search>=6.0.0
