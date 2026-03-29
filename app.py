@@ -181,8 +181,10 @@ handle_google_oauth_callback()
 
 # ─────────────────────────────────────────────
 # AUTH GATE — show login page if not signed in
+# Guest bypass: _guest_bypass flag skips auth entirely
 # ─────────────────────────────────────────────
-if not is_logged_in():
+_guest_mode = st.session_state.get("_guest_bypass", False)
+if not _guest_mode and not is_logged_in():
     render_login_page()
     st.stop()
 

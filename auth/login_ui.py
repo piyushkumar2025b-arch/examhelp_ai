@@ -55,20 +55,38 @@ AUTH_CSS = """
     margin-bottom: .3rem;
 }
 .auth-tagline { text-align:center; color:rgba(255,255,255,0.4); font-size:.8rem; margin-bottom:1.5rem; }
-.google-btn {
+.google-btn-disabled {
     display: flex; align-items: center; justify-content: center; gap: .6rem;
-    width: 100%; padding: .75rem; border-radius: 12px; margin-bottom: 1rem;
-    background: white; color: #333; font-weight: 600; font-size: .9rem;
-    text-decoration: none; border: none;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    transition: box-shadow .2s;
+    width: 100%; padding: .75rem; border-radius: 12px; margin-bottom: 0.4rem;
+    background: rgba(200,200,200,0.12); color: rgba(255,255,255,0.3); font-weight: 600; font-size: .9rem;
+    text-decoration: none; border: 1px solid rgba(255,255,255,0.08);
+    cursor: not-allowed; pointer-events: none;
 }
-.google-btn:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.4); color: #111; }
+.construction-badge {
+    display: flex; align-items: center; justify-content: center; gap: .4rem;
+    font-size: .72rem; color: #f0a500; background: rgba(240,165,0,0.1);
+    border: 1px solid rgba(240,165,0,0.3); border-radius: 8px;
+    padding: .3rem .7rem; margin-bottom: 1rem; text-align: center;
+}
+.guest-btn {
+    display: flex; align-items: center; justify-content: center; gap: .6rem;
+    width: 100%; padding: .85rem; border-radius: 12px; margin-top: 1rem;
+    background: linear-gradient(135deg, rgba(124,106,247,0.25), rgba(79,142,247,0.25));
+    color: #c8b8ff; font-weight: 700; font-size: .95rem;
+    border: 1.5px solid rgba(124,106,247,0.5);
+    cursor: pointer; text-align: center; letter-spacing: .02em;
+    box-shadow: 0 0 18px rgba(124,106,247,0.15);
+}
 .divider {
     display:flex; align-items:center; gap:.6rem; margin:.5rem 0 1rem;
     color:rgba(255,255,255,0.3); font-size:.78rem;
 }
 .divider::before,.divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.1); }
+.or-divider {
+    display:flex; align-items:center; gap:.6rem; margin:.8rem 0;
+    color:rgba(255,255,255,0.25); font-size:.75rem;
+}
+.or-divider::before,.or-divider::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.08); }
 .stTextInput input {
     background: rgba(255,255,255,0.07) !important;
     border: 1px solid rgba(255,255,255,0.15) !important;
@@ -94,11 +112,14 @@ GOOGLE_ICON = """<svg width="20" height="20" viewBox="0 0 18 18">
 def render_login_page() -> bool:
 
     # ── STEP 1: inject JS to convert hash → query param ──────────────────
-    # height=0 keeps it invisible; runs in iframe but accesses window.parent
     components.html(HASH_TO_PARAM_JS, height=0)
 
     # ── STEP 2: if token now in query params, log the user in ─────────────
     handle_supabase_callback()
+
+    # ── STEP 2b: Guest bypass — set flag and rerun ────────────────────────
+    if st.session_state.get("_guest_bypass"):
+        return True
 
     # ── STEP 3: render login UI ───────────────────────────────────────────
     st.markdown(AUTH_CSS, unsafe_allow_html=True)
@@ -111,13 +132,22 @@ def render_login_page() -> bool:
             <div class="auth-tagline">Your intelligent study companion · v3.0</div>
         </div>""", unsafe_allow_html=True)
 
+        # ── Guest / Direct Access bypass button ───────────────────────────
+        st.markdown('<div class="or-divider">quick access</div>', unsafe_allow_html=True)
+        if st.button("⚡ Enter Without Login  →  Direct Access", key="guest_btn", use_container_width=True):
+            st.session_state["_guest_bypass"] = True
+            st.session_state["_guest_user"] = True
+            st.rerun()
+        st.markdown('<div class="or-divider">or sign in below</div>', unsafe_allow_html=True)
+
         tab1, tab2 = st.tabs(["🔑 Sign In", "✨ Sign Up"])
 
         with tab1:
-            google_url = get_google_oauth_url()
+            # Google — disabled, under construction
             st.markdown(
-                f'<a href="{google_url}" target="_self" class="google-btn">'
-                f'{GOOGLE_ICON} Continue with Google</a>',
+                f'<div class="google-btn-disabled">'
+                f'{GOOGLE_ICON} Continue with Google</div>'
+                f'<div class="construction-badge">🚧 Google Sign-In is currently under construction and unavailable</div>',
                 unsafe_allow_html=True
             )
             st.markdown('<div class="divider">or use email</div>', unsafe_allow_html=True)
@@ -136,10 +166,11 @@ def render_login_page() -> bool:
                         st.error(res.get("error_description") or res.get("msg") or "Sign-in failed.")
 
         with tab2:
-            google_url = get_google_oauth_url()
+            # Google — disabled, under construction
             st.markdown(
-                f'<a href="{google_url}" target="_self" class="google-btn">'
-                f'{GOOGLE_ICON} Sign up with Google</a>',
+                f'<div class="google-btn-disabled">'
+                f'{GOOGLE_ICON} Sign up with Google</div>'
+                f'<div class="construction-badge">🚧 Google Sign-Up is currently under construction and unavailable</div>',
                 unsafe_allow_html=True
             )
             st.markdown('<div class="divider">or use email</div>', unsafe_allow_html=True)
