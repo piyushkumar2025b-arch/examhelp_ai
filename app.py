@@ -1325,25 +1325,25 @@ with st.sidebar:
             st.rerun()
 
         # ── User profile chip ───────────────────────
-        st.markdown('''
-        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
-          border-radius:12px;padding:.5rem .8rem;display:flex;align-items:center;
-          gap:.5rem;margin-bottom:.4rem;">
-          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7c6af7,#4f8ef7);
-            display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;color:#fff;">
-            S
-          </div>
-          <div style="flex:1;overflow:hidden;">
-            <div style="font-size:.78rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Student</div>
-            <div style="font-size:.66rem;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ExamHelp AI · Direct Access</div>
-          </div>
-        </div>''', unsafe_allow_html=True)
+        # st.markdown('''
+        # <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+        #   border-radius:12px;padding:.5rem .8rem;display:flex;align-items:center;
+        #   gap:.5rem;margin-bottom:.4rem;">
+        #   <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7c6af7,#4f8ef7);
+        #     display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;color:#fff;">
+        #     S
+        #   </div>
+        #   <div style="flex:1;overflow:hidden;">
+        #     <div style="font-size:.78rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Student</div>
+        #     <div style="font-size:.66rem;color:rgba(255,255,255,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ExamHelp AI · Direct Access</div>
+        #   </div>
+        # </div>''', unsafe_allow_html=True)
 
         # ── Google connect ──────────────────────────
-        render_google_connect_button()
+        # render_google_connect_button()
 
         # ── Upgrade nudge (free users) ──────────────
-        render_upgrade_banner()
+        # render_upgrade_banner()
 
         # ── Stats row ──────────────────────────────
         msg_count = len(st.session_state.messages)
@@ -1362,22 +1362,22 @@ with st.sidebar:
         st.divider()
 
         # ── API Key health ─────────────────────────
-        st.markdown(_key_health_html(), unsafe_allow_html=True)
+        # st.markdown(_key_health_html(), unsafe_allow_html=True)
 
         # ── Manual key input ───────────────────────
-        with st.expander("🔑 Override API Key"):
-            manual_key = st.text_input(
-                "Groq API Key", type="password", placeholder="gsk_…",
-                help="Overrides rotation. Leave blank to use the pool.",
-                key="api_key_input", label_visibility="collapsed",
-            )
-            if manual_key:
-                st.session_state.manual_api_key = manual_key.strip()
-                st.success("Key set!", icon="✅")
-            else:
-                st.session_state.pop("manual_api_key", None)
+        # with st.expander("🔑 Override API Key"):
+        #     manual_key = st.text_input(
+        #         "Groq API Key", type="password", placeholder="gsk_…",
+        #         help="Overrides rotation. Leave blank to use the pool.",
+        #         key="api_key_input", label_visibility="collapsed",
+        #     )
+        #     if manual_key:
+        #         st.session_state.manual_api_key = manual_key.strip()
+        #         st.success("Key set!", icon="✅")
+        #     else:
+        #         st.session_state.pop("manual_api_key", None)
 
-        st.divider()
+        # st.divider()
 
         # ── AI Persona ─────────────────────────────
         st.markdown('<div class="section-label">🎭 AI Persona</div>', unsafe_allow_html=True)

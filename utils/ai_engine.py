@@ -46,6 +46,7 @@ import os, time, threading, math, re, json
 from collections import deque
 from typing import Optional, Generator, Dict, Any, List, Tuple
 from dataclasses import dataclass, field
+from utils.key_protector import scrub_sensitive_data
 
 # ══════════════════════════════════════════════════════════════
 # CONFIGURATION
@@ -60,8 +61,8 @@ GROQ_MODELS = [
 
 # Gemini model hierarchy (best → fallback)
 GEMINI_MODELS = [
-    "gemini-2.0-flash",                 # Fast, 1M context — most reliable free-tier
-    "gemini-1.5-flash",                 # Proven stable fallback
+    "gemini-2.5-flash",                 # Fast, 1M context — most reliable free-tier
+    "gemini-2.0-flash",                 # Proven stable fallback
     "gemini-2.0-flash-lite",            # Fastest, lowest quota
 ]
 
@@ -559,7 +560,7 @@ def _call_groq(
                     break
     
     if last_err:
-        raise last_err
+        raise RuntimeError(scrub_sensitive_data(str(last_err))) from None
     raise RuntimeError("All Groq keys exhausted")
 
 
@@ -661,7 +662,7 @@ def _call_gemini(
                     continue
     
     if last_err:
-        raise last_err
+        raise RuntimeError(scrub_sensitive_data(str(last_err))) from None
     raise RuntimeError("All Gemini keys exhausted")
 
 
