@@ -1963,7 +1963,7 @@ with st.sidebar:
         ("🛒", "Smart Shopping",      "Compare prices across platforms",     "smart_shopping"),
         ("🔬", "Context Focus",       "Deep internet research engine",      "context_focus"),
         ("🎯", "Presentation AI",     "Generate slide decks with real data", "presentation_builder"),
-        ("💗", "AI Companion",         "Chat with Aria – your AI companion", "ai_companion"),
+        ("🔥", "AI Companion",         "Nova · Luna · Zara — personas, scenarios & stories", "ai_companion"),
         ("📎", "Doc Analyser",         "Review any file: what\u2019s good, what to add", "doc_analyser"),
         ("🎵", "Sound Library",        "50+ ambient background sounds for focus", "bg_sounds"),
     ]
