@@ -46,7 +46,7 @@ Source code:
     try:
         result = ai_engine.generate(
             prompt=prompt,
-            model="llama-4-scout-17b-16e-instruct",
+            model="llama-3.3-70b-versatile",
             json_mode=True,
             max_tokens=8192,
             temperature=0.2,
@@ -165,7 +165,7 @@ User question: {question}
 Answer concisely, referencing specific lines when relevant."""
 
     try:
-        return ai_engine.generate(prompt=prompt, model="llama-4-scout-17b-16e-instruct", max_tokens=2048, temperature=0.4)
+        return ai_engine.generate(prompt=prompt, model="llama-3.3-70b-versatile", max_tokens=2048, temperature=0.4)
     except Exception as e:
         return f"Chat unavailable: {e}"
 

@@ -49,7 +49,7 @@ def _web_search(query: str, num_results: int = 10) -> list:
             prompt = f"""Search the web for: "{query}"
 Return a JSON array of {num_results} results. Each object: {{"title": "...", "url": "...", "snippet": "..."}}
 Return ONLY real URLs from real websites. Never make up URLs."""
-            raw = ai_engine.generate(prompt=prompt, model="llama-4-scout-17b-16e-instruct",
+            raw = ai_engine.generate(prompt=prompt, model="llama-3.3-70b-versatile",
                                      json_mode=True, max_tokens=2048, temperature=0.1)
             data = json.loads(raw) if isinstance(raw, str) else raw
             if isinstance(data, list):
@@ -193,7 +193,7 @@ RULES:
     try:
         response = ai_engine.generate(
             prompt=prompt,
-            model="llama-4-scout-17b-16e-instruct",
+            model="llama-3.3-70b-versatile",
             max_tokens=8192,
             temperature=0.3,
         )
@@ -226,7 +226,7 @@ Follow-up question: {question}
 Answer using the research context. If the question requires new information not in the sources, say so clearly."""
 
     try:
-        return ai_engine.generate(prompt=prompt, model="llama-4-scout-17b-16e-instruct",
+        return ai_engine.generate(prompt=prompt, model="llama-3.3-70b-versatile",
                                   max_tokens=4096, temperature=0.4)
     except Exception as e:
         return f"Follow-up failed: {e}"

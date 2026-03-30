@@ -33,7 +33,7 @@ from utils import key_manager
 
 # ── Model routing ─────────────────────────────────────────────────────────────
 # BEST MODEL: llama-4-scout → 30K TPM, 500K TPD, 131K context (highest limits)
-MODEL_PRIMARY   = "llama-4-scout-17b-16e-instruct"   # 30 RPM, 30K TPM, 500K TPD — BEST
+MODEL_PRIMARY   = "llama-3.3-70b-versatile"   # 30 RPM, 30K TPM, 500K TPD — BEST
 MODEL_FAST      = "llama-3.1-8b-instant"              # 30 RPM, 6K TPM, 500K TPD
 MODEL_FALLBACK  = "llama-3.1-8b-instant"              # fallback if scout fails
 MODEL_VERSATILE = "llama-3.3-70b-versatile"           # secondary fallback (12K TPM, 100K TPD)

@@ -28,7 +28,7 @@ def generate_quiz_batch(context_text: str, is_pyq: bool = False, pyq_text: str =
     
     resp = generate(
         messages=[{"role": "user", "content": prompt}],
-        context_text="", model="llama-4-scout-17b-16e-instruct", max_tokens=3000
+        context_text="", model="llama-3.3-70b-versatile", max_tokens=3000
     )
     
     import re

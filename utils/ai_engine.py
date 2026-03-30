@@ -53,7 +53,7 @@ from dataclasses import dataclass, field
 
 # Groq model hierarchy (best → fallback)
 GROQ_MODELS = [
-    "llama-4-scout-17b-16e-instruct",  # 30K TPM, 500K TPD — BEST
+    "llama-3.3-70b-versatile",  # 30K TPM, 500K TPD — BEST
     "llama-3.3-70b-versatile",          # 12K TPM — secondary
     "llama-3.1-8b-instant",             # 6K TPM — fast fallback
 ]

@@ -11,6 +11,13 @@ import time
 import base64
 import zlib
 import streamlit as st
+import ssl
+
+try:
+    ssl._create_default_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+
 
 # ── Auth + Integrations — MASKED (Supabase/Google/Stripe disabled for direct access) ──
 # All functions below are safe no-ops so the app runs without any external auth.
@@ -104,7 +111,7 @@ def init_state():
         "calculator_open": False,
         "chat_history_open": False,
         "vector_store": None,
-        "model_choice": "llama-4-scout-17b-16e-instruct",
+        "model_choice": "llama-3.3-70b-versatile",
         "study_goals": [],
         "exam_date": datetime.date.today() + datetime.timedelta(days=30),
         "last_context_hash": None,
@@ -1425,7 +1432,7 @@ with st.sidebar:
         )
         st.session_state.model_choice = (
             "llama-3.1-8b-instant" if "Fast" in model_choice
-            else "llama-4-scout-17b-16e-instruct"
+            else "llama-3.3-70b-versatile"
         )
 
         # ── Voice mode ─────────────────────────────
@@ -3636,7 +3643,7 @@ else:
                 lang = st.session_state.selected_language
                 persona_prompt = f"\n\nCRITICAL: Answer STRICTLY in {lang}. All explanations, headers, bullets in {lang}."
 
-            chosen_model = st.session_state.get("model_choice","llama-4-scout-17b-16e-instruct")
+            chosen_model = st.session_state.get("model_choice","llama-3.3-70b-versatile")
 
             try:
                 for chunk in ai_engine.generate_stream(

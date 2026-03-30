@@ -823,7 +823,7 @@ def render_story_builder():
                         for chunk in ai_engine.generate_stream(
                             messages=context_messages,
                             context_text="",
-                            model="llama-4-scout-17b-16e-instruct",
+                            model="llama-3.3-70b-versatile",
                             persona_prompt=sys_prompt,
                         ):
                             generated += chunk

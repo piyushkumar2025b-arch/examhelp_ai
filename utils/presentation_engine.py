@@ -82,7 +82,7 @@ Return ONLY the JSON array."""
     try:
         result = ai_engine.generate(
             prompt=prompt,
-            model="llama-4-scout-17b-16e-instruct",
+            model="llama-3.3-70b-versatile",
             json_mode=True,
             max_tokens=4096,
             temperature=0.4,
@@ -169,7 +169,7 @@ Keep each bullet under 20 words. Include source references where possible."""
     try:
         result = ai_engine.generate(
             prompt=prompt,
-            model="llama-4-scout-17b-16e-instruct",
+            model="llama-3.3-70b-versatile",
             json_mode=True,
             max_tokens=1024,
             temperature=0.3,
@@ -198,7 +198,7 @@ Return a JSON object: {{"title": "...", "bullets": [...], "speaker_notes": "..."
     try:
         result = ai_engine.generate(
             prompt=prompt,
-            model="llama-4-scout-17b-16e-instruct",
+            model="llama-3.3-70b-versatile",
             json_mode=True,
             max_tokens=1024,
             temperature=0.5,

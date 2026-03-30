@@ -493,7 +493,7 @@ def _render_toolkit():
                     [{"role": "user", "content":
                       f"Answer based on this document:\n\nQ: {q}\n\nDOCUMENT:\n{cx[:8000]}"}],
                     override_key=st.session_state.get("manual_api_key"),
-                    model="llama-4-scout-17b-16e-instruct")
+                    model="llama-3.3-70b-versatile")
                 st.info(answer)
             except Exception as e:
                 st.error(f"❌ {e}")
@@ -622,7 +622,7 @@ def _render_toolkit():
                       f"Return clean HTML tags (<b>, <i>, <p>, <ul>, <li>). "
                       f"Text:\n{cx[:6000]}"}],
                     override_key=st.session_state.get("manual_api_key"),
-                    model="llama-4-scout-17b-16e-instruct")
+                    model="llama-3.3-70b-versatile")
                 cleaned = result.replace("```html", "").replace("```", "").strip()
                 st.session_state.doc_content = cleaned
                 st.success(f"✅ Rewritten as {persona}!")
@@ -914,7 +914,7 @@ def _run_ai_edit(prompt: str, content: str) -> str:
             result = chat_with_groq(
                 [{"role": "user", "content": full_msg}],
                 override_key=st.session_state.get("manual_api_key") or None,
-                model="llama-4-scout-17b-16e-instruct")
+                model="llama-3.3-70b-versatile")
             return result.replace("```html", "").replace("```", "").strip()
         except Exception as e:
             st.error(f"❌ AI edit failed: {e}")
