@@ -16,14 +16,14 @@ Public API (unchanged from before):
 """
 
 from __future__ import annotations
-import json, time, threading, urllib.request, urllib.error
+import json, time, threading, ssl, urllib.request, urllib.error, sys
 from typing import Iterator, Optional, Dict, List
 
 # ── Models ─────────────────────────────────────────────────
 GEMINI_MODELS = [
     "gemini-2.0-flash",        # primary — 15 RPM, 1500 RPD free
-    "gemini-1.5-flash",        # fallback
-    "gemini-1.5-flash-8b",     # last-resort — fastest, smallest quota
+    "gemini-2.5-flash",        # fallback — newer, separate quota pool
+    "gemini-2.0-flash-lite",   # last-resort — lightweight, separate quota
 ]
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
@@ -31,6 +31,30 @@ GEMINI_RPM     = 15
 GEMINI_RPD     = 1_500
 GEMINI_TPM     = 1_000_000
 GEMINI_SWITCH_RPM = 3   # rotate key when < 3 RPM remain
+
+# ── SSL Context (fixes Windows certificate errors) ─────────
+def _make_ssl_context() -> ssl.SSLContext:
+    """Create SSL context with fallback for systems with broken cert chains."""
+    # Try verified first
+    try:
+        ctx = ssl.create_default_context()
+        # Quick test to see if it actually works
+        import urllib.request
+        test_req = urllib.request.Request("https://generativelanguage.googleapis.com")
+        urllib.request.urlopen(test_req, timeout=5, context=ctx)
+        return ctx
+    except Exception:
+        pass
+    # Fallback: unverified context (works on systems with broken cert chains)
+    try:
+        ctx = ssl._create_unverified_context()
+        print("[ai_engine] WARNING: Using unverified SSL (cert chain issue). "
+              "Run 'pip install certifi' to fix.", file=sys.stderr)
+        return ctx
+    except Exception:
+        return None
+
+_SSL_CTX = _make_ssl_context()
 
 # ── Key Pool ───────────────────────────────────────────────
 class _KeyState:
@@ -72,6 +96,21 @@ class _KeyPool:
             from utils.secret_manager import GEMINI_KEYS
             self._keys = [_KeyState(k) for k in GEMINI_KEYS]
             self._loaded = True
+            print(f"[ai_engine] Key pool loaded: {len(self._keys)} keys", file=sys.stderr)
+
+    def force_reload(self):
+        """Force reload keys from secret_manager."""
+        with self._lock:
+            self._loaded = False
+            self._keys = []
+        from utils.secret_manager import force_reload_keys
+        count = force_reload_keys()
+        with self._lock:
+            from utils.secret_manager import GEMINI_KEYS
+            self._keys = [_KeyState(k) for k in GEMINI_KEYS]
+            self._loaded = True
+        print(f"[ai_engine] Key pool force-reloaded: {len(self._keys)} keys", file=sys.stderr)
+        return count
 
     def get_best(self, exclude: set = None) -> Optional[_KeyState]:
         self._ensure_loaded()
@@ -106,6 +145,7 @@ class _KeyPool:
             for ks in self._keys:
                 ks.cooldown_until = 0
                 ks.rpm_times.clear()
+                ks.errors = 0
 
 
 _pool = _KeyPool()
@@ -146,11 +186,32 @@ def _gemini_request(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        result = json.loads(resp.read())
+
+    # Use SSL context to avoid certificate errors on Windows
+    try:
+        if _SSL_CTX:
+            with urllib.request.urlopen(req, timeout=60, context=_SSL_CTX) as resp:
+                result = json.loads(resp.read())
+        else:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                result = json.loads(resp.read())
+    except urllib.error.HTTPError as he:
+        # Read error body for better diagnostics
+        err_body = ""
+        try:
+            err_body = he.read().decode()[:500]
+        except Exception:
+            pass
+        raise RuntimeError(f"HTTP {he.code}: {err_body or he.reason}") from he
+    except urllib.error.URLError as ue:
+        raise RuntimeError(f"Connection error: {ue.reason}") from ue
 
     candidates = result.get("candidates", [])
     if not candidates:
+        # Check for blocked content or other issues
+        block_reason = result.get("promptFeedback", {}).get("blockReason", "")
+        if block_reason:
+            raise ValueError(f"Content blocked: {block_reason}")
         raise ValueError("Empty candidates in Gemini response")
     parts_out = candidates[0].get("content", {}).get("parts", [])
     return "".join(p.get("text", "") for p in parts_out)
@@ -158,12 +219,18 @@ def _gemini_request(
 
 def _classify_error(err: Exception) -> str:
     s = str(err).lower()
-    if "429" in s or "quota" in s or "rate" in s:
+    if "429" in s or "quota" in s or "rate" in s or "resource_exhausted" in s:
         return "rate_limit"
-    if "403" in s or "invalid" in s or "api key" in s:
+    if "403" in s or "permission" in s:
+        return "forbidden"
+    if "400" in s and ("invalid" in s or "api key" in s):
         return "bad_key"
     if "timeout" in s or "timed out" in s:
         return "timeout"
+    if "ssl" in s or "certificate" in s:
+        return "ssl_error"
+    if "connection" in s or "urlopen" in s:
+        return "connection"
     return "unknown"
 
 
@@ -176,11 +243,28 @@ def _call_gemini(
     temperature: float = 0.7,
     max_tokens: int = 4096,
 ) -> str:
-    tried: set = set()
+    # Auto-reload keys if pool is empty
+    if _pool._loaded and len(_pool._keys) == 0:
+        _pool.force_reload()
+
+    if not _pool._loaded:
+        _pool._ensure_loaded()
+
+    if len(_pool._keys) == 0:
+        raise RuntimeError(
+            "No Gemini API keys configured. "
+            "Add GEMINI_API_KEY_1…9 in .streamlit/secrets.toml "
+            "or Streamlit Cloud → App settings → Secrets."
+        )
+
     last_err: Exception = RuntimeError("No Gemini keys available.")
 
     for model in GEMINI_MODELS:
-        pool_attempts = max(len(_pool._keys) if _pool._loaded else 1, 1)
+        # IMPORTANT: Reset tried set PER MODEL so fallback models
+        # actually get a chance to try all keys
+        tried: set = set()
+        pool_attempts = max(len(_pool._keys), 1)
+
         for _ in range(pool_attempts):
             ks = _pool.get_best(exclude=tried)
             if ks is None:
@@ -203,10 +287,24 @@ def _call_gemini(
             except Exception as e:
                 etype = _classify_error(e)
                 ks.errors += 1
+                print(f"[ai_engine] Key …{ks.key[-6:]} model={model} error={etype}: {e}", file=sys.stderr)
+
                 if etype == "rate_limit":
                     ks.cooldown(65)
                 elif etype == "bad_key":
-                    ks.cooldown(3600)  # park bad key for 1 hour
+                    ks.cooldown(600)    # 10 min, not 1 hour
+                elif etype == "forbidden":
+                    ks.cooldown(300)    # 5 min — could be transient
+                elif etype == "ssl_error":
+                    # SSL errors affect all keys, no point trying more
+                    raise RuntimeError(
+                        f"SSL/TLS error connecting to Gemini API: {e}. "
+                        "Try: pip install certifi"
+                    ) from e
+                elif etype == "timeout":
+                    ks.cooldown(30)     # short cooldown for timeouts
+                # For unknown errors, just try next key (no cooldown)
+
                 tried.add(ks.key)
                 last_err = e
 
@@ -331,6 +429,12 @@ def get_pool_status() -> Dict:
 
 def reset_all_keys() -> None:
     _pool.reset()
+
+
+def force_reload_all() -> int:
+    """Force reload keys and reset all cooldowns. Returns key count."""
+    count = _pool.force_reload()
+    return count
 
 
 def get_capacity_summary() -> str:

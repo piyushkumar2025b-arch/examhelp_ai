@@ -271,7 +271,7 @@ def _image_to_text(data: bytes, ext: str) -> bytes:
         b64 = base64.b64encode(data).decode()
         mime = {"jpg":"image/jpeg","jpeg":"image/jpeg","png":"image/png","webp":"image/webp"}.get(ext,"image/png")
         resp = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}",
             json={"contents":[{"parts":[{"inline_data":{"mime_type":mime,"data":b64}},{"text":"Extract all text visible in this image. Return only raw text."}]}]},
             timeout=30)
         result = resp.json()
