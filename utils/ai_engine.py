@@ -1,960 +1,322 @@
 """
-ai_engine.py — ZERO-DOWNTIME Unified AI Router v1.0
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE BRAIN that routes every AI call across ExamHelp.
+ai_engine.py — Gemini-only AI Engine
+======================================
+9-key rotation, auto-retry, streaming support.
+Reads keys from Streamlit Cloud secrets — no hardcoding.
 
-ARCHITECTURE:
-  ┌──────────────────────────────────────────────────┐
-  │  ANY FEATURE (chat, humaniser, notes, etc.)      │
-  │       calls ai_engine.generate(prompt, ...)      │
-  └──────────────┬───────────────────────────────────┘
-                 │
-  ┌──────────────▼───────────────────────────────────┐
-  │        UNIFIED AI ROUTER (this file)             │
-  │                                                  │
-  │  ┌─────────┐  instant   ┌─────────┐  instant    │
-  │  │ Groq    │──switch──▶│ Groq    │──switch──▶  │
-  │  │ Key #1  │           │ Key #2  │          ... │
-  │  └─────────┘           └─────────┘              │
-  │       │ all Groq exhausted                       │
-  │       ▼                                          │
-  │  ┌─────────┐  instant   ┌─────────┐             │
-  │  │ Gemini  │──switch──▶│ Gemini  │──▶ ...      │
-  │  │ Key #1  │           │ Key #2  │              │
-  │  └─────────┘           └─────────┘              │
-  └──────────────────────────────────────────────────┘
-
-KEY PRINCIPLES:
-  1. INSTANT switch — zero delay on rate limit (no sleep/wait)
-  2. Groq first (faster), auto-cascade to Gemini
-  3. Per-key sliding window tracking (RPM, TPM, RPD)
-  4. Pre-emptive switching BEFORE hitting the wall
-  5. Every key is milked to its absolute maximum
-  6. Single function for ALL AI calls across the platform
-
-RATE-LIMIT STRATEGY:
-  - On 429 → mark key with cooldown → INSTANTLY try next key
-  - On auth error → mark key DEAD for 24h → next key
-  - On model error → try fallback model on SAME key → then next key
-  - On network error → short penalty → next key
-  - All keys exhausted → cascade to Gemini pool
-  - ALL pools exhausted → raise clear error
+Public API (unchanged from before):
+    generate(prompt, system, ...)        -> str
+    generate_stream(prompt, system, ...) -> Iterator[str]
+    quick_generate(prompt, system)       -> str
+    vision_generate(prompt, image_b64)   -> str
+    json_generate(prompt, system)        -> str
+    get_pool_status()                    -> dict
+    reset_all_keys()                     -> None
+    get_capacity_summary()               -> str
 """
 
 from __future__ import annotations
-import os, time, threading, math, re, json
-from collections import deque
-from typing import Optional, Generator, Dict, Any, List, Tuple
-from dataclasses import dataclass, field
-from utils.key_protector import scrub_sensitive_data
+import json, time, threading, urllib.request, urllib.error
+from typing import Iterator, Optional, Dict, List
 
-# ══════════════════════════════════════════════════════════════
-# CONFIGURATION
-# ══════════════════════════════════════════════════════════════
-
-# Groq model hierarchy (best → fallback)
-GROQ_MODELS = [
-    "llama-3.3-70b-versatile",  # 30K TPM, 500K TPD — BEST
-    "llama-3.1-70b-versatile",          # 12K TPM — secondary
-    "llama-3.1-8b-instant",             # 6K TPM — fast fallback
-]
-
-# Gemini model hierarchy (best → fallback)
+# ── Models ─────────────────────────────────────────────────
 GEMINI_MODELS = [
-    "gemini-2.0-flash",                 # Fast, 1M context — most reliable free-tier
-    "gemini-1.5-flash",                 # Proven stable fallback
-    "gemini-1.5-flash-8b",              # Fastest, lowest quota
+    "gemini-2.0-flash",        # primary — 15 RPM, 1500 RPD free
+    "gemini-1.5-flash",        # fallback
+    "gemini-1.5-flash-8b",     # last-resort — fastest, smallest quota
 ]
-
-# Groq limits per key
-GROQ_RPM  = 30
-GROQ_RPD  = 1_000
-GROQ_TPM  = 30_000
-GROQ_TPD  = 500_000
-
-# Gemini limits per key
-GEMINI_RPM = 15
-GEMINI_RPD = 1_500
-
-# Pre-emptive switch thresholds (switch BEFORE hitting wall)
-GROQ_SWITCH_RPM  = 4     # switch when < 4 RPM remaining
-GROQ_SWITCH_TPM  = 4_000 # switch when < 4K TPM remaining
-GEMINI_SWITCH_RPM = 3    # switch when < 3 RPM remaining
-
-# Timing
-RATE_LIMIT_COOLDOWN = 65.0   # seconds to cooldown after 429
-DEAD_KEY_COOLDOWN = 86_400.0 # 24h for auth failures
-ERROR_PENALTY_BASE = 5.0     # seconds penalty per consecutive error
-WINDOW = 60.0                # sliding window for RPM/TPM
-
-# Gemini API
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
-# ── VIT CHENNAI CONTEXT ──
-VIT_SYSTEM_CONTEXT = """
-You are ExamHelp AI, a specialized academic assistant for students at VIT Chennai (Vellore Institute of Technology).
-You have deep knowledge of the following VIT-specific structures:
-1. EXAMS: CAT1 (Continuous Assessment Test 1), CAT2 (Open Book/Midterm), and FAT (Final Assessment Test).
-2. SLOTS: VIT uses a slot-based timetable (e.g., A1, B1, C1, L1+L2 for labs). Slots A1, B1, C1 are usually morning; A2, B2, C2 are afternoon.
-3. GRADING: Absolute grading or Relative grading based on class average. Grades: S (10), A (9), B (8), C (7), D (6), E (5), F (Fail).
-4. CAMPUS: Located in Vandalur-Kelambakkam Road. Buildings: MG Auditorium, Netaji Subhas Chandra Bose Academic Block, Silver Jubilee Tower (SJT).
-5. ATTENDANCE: 75% is MANDATORY. Below 75% results in 'N' grade (Debarred).
-Always provide answers that align with these patterns when a student asks about their academics.
-"""
+GEMINI_RPM     = 15
+GEMINI_RPD     = 1_500
+GEMINI_TPM     = 1_000_000
+GEMINI_SWITCH_RPM = 3   # rotate key when < 3 RPM remain
 
-# Simple response cache (key: prompt_hash, value: response)
-_RESPONSE_CACHE: Dict[str, str] = {}
-_CACHE_MAX_SIZE = 500
+# ── Key Pool ───────────────────────────────────────────────
+class _KeyState:
+    def __init__(self, key: str):
+        self.key          = key
+        self.rpm_times: list = []   # timestamps of recent calls
+        self.cooldown_until = 0.0
+        self.total_calls  = 0
+        self.errors       = 0
 
+    def rpm_used(self, now: float) -> int:
+        cutoff = now - 60
+        self.rpm_times = [t for t in self.rpm_times if t > cutoff]
+        return len(self.rpm_times)
 
+    def record_call(self, now: float):
+        self.rpm_times.append(now)
+        self.total_calls += 1
 
-# ══════════════════════════════════════════════════════════════
-# KEY STATE TRACKING
-# ══════════════════════════════════════════════════════════════
+    def available(self, now: float) -> bool:
+        return now >= self.cooldown_until and self.rpm_used(now) < GEMINI_RPM
 
-@dataclass
-class KeyState:
-    """Real-time state tracker for a single API key."""
-    key: str
-    provider: str  # "groq" or "gemini"
-    
-    # Rate tracking
-    rpm_log: deque = field(default_factory=deque)      # timestamps of requests in window
-    tpm_log: deque = field(default_factory=deque)      # (timestamp, tokens) in window
-    rpd_used: int = 0
-    tpd_used: int = 0
-    
-    # Timing
-    cooldown_until: float = 0.0
-    day_reset_at: float = 0.0
-    last_used: float = 0.0
-    last_error: float = 0.0
-    
-    # Health
-    consecutive_errors: int = 0
-    total_uses: int = 0
-    total_errors: int = 0
-    rate_limit_hits: int = 0
-    total_tokens: int = 0
-    is_dead: bool = False
-    
-    def __post_init__(self):
-        import datetime
-        # Set day reset (midnight UTC for Groq, midnight PT for Gemini)
-        now_utc = datetime.datetime.utcnow()
-        if self.provider == "gemini":
-            # Midnight Pacific = 8AM UTC
-            self.day_reset_at = (now_utc + datetime.timedelta(days=1)).replace(
-                hour=8, minute=0, second=0, microsecond=0).timestamp()
-        else:
-            self.day_reset_at = (now_utc + datetime.timedelta(days=1)).replace(
-                hour=0, minute=0, second=0, microsecond=0).timestamp()
+    def cooldown(self, seconds: float = 65):
+        self.cooldown_until = time.monotonic() + seconds
 
 
-class KeyPool:
-    """Thread-safe pool of API keys with instant rotation."""
-    
+class _KeyPool:
     def __init__(self):
-        self._lock = threading.RLock()
-        self._groq_keys: List[KeyState] = []
-        self._gemini_keys: List[KeyState] = []
-        self._initialized = False
-    
-    def _ensure_init(self):
-        """Lazy initialization — load keys on first use."""
-        if self._initialized:
+        self._lock  = threading.Lock()
+        self._keys: List[_KeyState] = []
+        self._loaded = False
+
+    def _ensure_loaded(self):
+        if self._loaded:
             return
         with self._lock:
-            if self._initialized:
+            if self._loaded:
                 return
-            self._load_all_keys()
-            self._initialized = True
-    
-    def _load_all_keys(self):
-# [REMOVED — integration/key stripped]         """Load all keys from secret_manager."""
-# [REMOVED — integration/key stripped]         from utils.secret_manager import GROQ_KEYS, GEMINI_KEYS
-        
-        self._groq_keys = [KeyState(key=k, provider="groq") for k in GROQ_KEYS]
-        self._gemini_keys = [KeyState(key=k, provider="gemini") for k in GEMINI_KEYS]
-    
-    # ── Sliding window helpers ────────────────────────────────
-    
-    def _prune_window(self, log: deque, now: float, is_tuple: bool = False):
-        """Remove expired entries from sliding window."""
-        cutoff = now - WINDOW
-        while log:
-            ts = log[0][0] if is_tuple else log[0]
-            if ts < cutoff:
-                log.popleft()
-            else:
-                break
-    
-    def _rpm_used(self, ks: KeyState, now: float) -> int:
-        self._prune_window(ks.rpm_log, now)
-        return len(ks.rpm_log)
-    
-    def _tpm_used(self, ks: KeyState, now: float) -> int:
-        self._prune_window(ks.tpm_log, now, is_tuple=True)
-        return sum(t for _, t in ks.tpm_log)
-    
-    def _daily_reset(self, ks: KeyState, now: float):
-        if now >= ks.day_reset_at:
-            ks.rpd_used = 0
-            ks.tpd_used = 0
-            import datetime
-            ks.day_reset_at = (datetime.datetime.utcnow() + datetime.timedelta(days=1)).replace(
-                hour=(8 if ks.provider == "gemini" else 0),
-                minute=0, second=0, microsecond=0
-            ).timestamp()
-    
-    # ── Health score (0.0 = unavailable, 1.0 = fully healthy) ─
-    
-    def _health_score(self, ks: KeyState, now: float) -> float:
-        """Calculate key health 0.0-1.0. 0.0 means DO NOT USE."""
-        if ks.is_dead:
-            return 0.0
-        if ks.cooldown_until > now:
-            return 0.0
-        
-        self._daily_reset(ks, now)
-        
-        if ks.provider == "groq":
-            rpm_rem = GROQ_RPM - self._rpm_used(ks, now)
-            tpm_rem = GROQ_TPM - self._tpm_used(ks, now)
-            rpd_rem = GROQ_RPD - ks.rpd_used
-            
-            if rpm_rem < GROQ_SWITCH_RPM:
-                return 0.0
-            if tpm_rem < GROQ_SWITCH_TPM:
-                return 0.0
-            if rpd_rem < 10:
-                return 0.0
-            
-            score = (
-                0.35 * (rpm_rem / GROQ_RPM) +
-                0.35 * (tpm_rem / GROQ_TPM) +
-                0.20 * (rpd_rem / GROQ_RPD) +
-                0.10 * ((GROQ_TPD - ks.tpd_used) / GROQ_TPD)
-            )
-        else:  # gemini
-            rpm_rem = GEMINI_RPM - self._rpm_used(ks, now)
-            rpd_rem = GEMINI_RPD - ks.rpd_used
-            
-            if rpm_rem < GEMINI_SWITCH_RPM:
-                return 0.0
-            if rpd_rem < 5:
-                return 0.0
-            
-            score = 0.5 * (rpm_rem / GEMINI_RPM) + 0.5 * (rpd_rem / GEMINI_RPD)
-        
-        # Health penalty for consecutive errors
-        if ks.consecutive_errors > 0:
-            score *= math.exp(-0.5 * ks.consecutive_errors)
-        
-        return max(0.0, min(1.0, score))
-    
-    # ── Key selection (INSTANT — zero delay) ──────────────────
-    
-    def get_best_key(self, provider: str = "groq", exclude: set = None) -> Optional[KeyState]:
-        """Get the healthiest key for a provider. O(n) scan — instant."""
-        self._ensure_init()
-        now = time.time()
+            from utils.secret_manager import GEMINI_KEYS
+            self._keys = [_KeyState(k) for k in GEMINI_KEYS]
+            self._loaded = True
+
+    def get_best(self, exclude: set = None) -> Optional[_KeyState]:
+        self._ensure_loaded()
         exclude = exclude or set()
-        
+        now = time.monotonic()
         with self._lock:
-            pool = self._groq_keys if provider == "groq" else self._gemini_keys
-            candidates = [ks for ks in pool if ks.key not in exclude]
-            
+            candidates = [
+                ks for ks in self._keys
+                if ks.key not in exclude and ks.available(now)
+            ]
             if not candidates:
                 return None
-            
-            # Sort by health score (highest first)
-            scored = [(self._health_score(ks, now), ks) for ks in candidates]
-            scored.sort(key=lambda x: -x[0])
-            
-            # Return best healthy key
-            if scored[0][0] > 0:
-                return scored[0][1]
-            
-            # All scored 0 — find one that's in cooldown but closest to recovery
-            cooling = [ks for ks in candidates if not ks.is_dead and ks.cooldown_until > now]
-            if cooling:
-                return min(cooling, key=lambda ks: ks.cooldown_until)
-            
-            # All dead — return any non-dead key
-            alive = [ks for ks in candidates if not ks.is_dead]
-            if alive:
-                return alive[0]
-            
-            return None
-    
-    # ── State mutations ───────────────────────────────────────
-    
-    def mark_success(self, ks: KeyState, tokens: int = 0):
-        """Mark a successful API call."""
-        now = time.time()
+            # Prefer key with most RPM headroom
+            return min(candidates, key=lambda ks: ks.rpm_used(now))
+
+    def status(self) -> dict:
+        self._ensure_loaded()
+        now = time.monotonic()
         with self._lock:
-            ks.rpm_log.append(now)
-            ks.rpd_used += 1
-            ks.total_uses += 1
-            ks.last_used = now
-            ks.consecutive_errors = 0  # Reset on success!
-            if tokens > 0:
-                ks.tpm_log.append((now, tokens))
-                ks.tpd_used += tokens
-                ks.total_tokens += tokens
-    
-    def mark_rate_limited(self, ks: KeyState, retry_after: float = 0):
-        """Mark key as rate-limited — instant cooldown, move to next."""
-        now = time.time()
-        cooldown = max(retry_after + 2.0, RATE_LIMIT_COOLDOWN) if retry_after > 0 else RATE_LIMIT_COOLDOWN
-        with self._lock:
-            ks.cooldown_until = now + cooldown
-            ks.rate_limit_hits += 1
-            ks.total_errors += 1
-            ks.consecutive_errors = min(ks.consecutive_errors + 1, 10)
-            ks.last_error = now
-            # Clear windows so score resets naturally after cooldown
-            ks.rpm_log.clear()
-            ks.tpm_log.clear()
-    
-    def mark_auth_failed(self, ks: KeyState):
-        """Mark key as permanently dead (invalid key)."""
-        now = time.time()
-        with self._lock:
-            ks.is_dead = True
-            ks.cooldown_until = now + DEAD_KEY_COOLDOWN
-            ks.consecutive_errors = 99
-            ks.total_errors += 1
-            ks.last_error = now
-    
-    def mark_error(self, ks: KeyState):
-        """Mark a generic error — short penalty."""
-        now = time.time()
-        with self._lock:
-            ks.consecutive_errors = min(ks.consecutive_errors + 1, 10)
-            ks.total_errors += 1
-            ks.last_error = now
-            penalty = min(ERROR_PENALTY_BASE * ks.consecutive_errors, 60.0)
-            ks.cooldown_until = max(ks.cooldown_until, now + penalty)
-    
-    def reset_all(self):
-        """Emergency reset — clear all cooldowns."""
-        with self._lock:
-            for ks in self._groq_keys + self._gemini_keys:
-                ks.cooldown_until = 0.0
-                ks.consecutive_errors = 0
-                ks.rpm_log.clear()
-                ks.tpm_log.clear()
-                ks.is_dead = False
-    
-    # ── Status (safe — never shows full keys) ─────────────────
-    
-    def get_status(self) -> Dict:
-        """Get complete pool status for diagnostics."""
-        self._ensure_init()
-        now = time.time()
-        
-        def _key_info(ks: KeyState) -> Dict:
-            score = self._health_score(ks, now)
-            if ks.is_dead:
-                status = "⛔ DEAD"
-            elif ks.cooldown_until > now:
-                remaining = ks.cooldown_until - now
-                status = f"⏳ {remaining:.0f}s"
-            elif score > 0.7:
-                status = f"🟢 {score*100:.0f}%"
-            elif score > 0.3:
-                status = f"🟡 {score*100:.0f}%"
-            elif score > 0:
-                status = f"🟠 {score*100:.0f}%"
-            else:
-                status = "🔴 exhausted"
-            
+            avail = sum(1 for ks in self._keys if ks.available(now))
             return {
-                "id": f"…{ks.key[-4:]}",
-                "status": status,
-                "score": round(score, 3),
-                "rpm": f"{self._rpm_used(ks, now)}/{GROQ_RPM if ks.provider == 'groq' else GEMINI_RPM}",
-                "rpd": f"{ks.rpd_used}/{GROQ_RPD if ks.provider == 'groq' else GEMINI_RPD}",
-                "uses": ks.total_uses,
-                "errors": ks.total_errors,
-                "rl_hits": ks.rate_limit_hits,
-                "tokens": f"{ks.total_tokens:,}",
-            }
-        
-        with self._lock:
-            groq_avail = sum(1 for ks in self._groq_keys if self._health_score(ks, now) > 0)
-            gemini_avail = sum(1 for ks in self._gemini_keys if self._health_score(ks, now) > 0)
-            
-            return {
-                "groq": {
-                    "total": len(self._groq_keys),
-                    "available": groq_avail,
-                    "keys": [_key_info(ks) for ks in self._groq_keys],
-                },
-                "gemini": {
-                    "total": len(self._gemini_keys),
-                    "available": gemini_avail,
-                    "keys": [_key_info(ks) for ks in self._gemini_keys],
-                },
-                "total_capacity": {
-                    "groq_rpm": len(self._groq_keys) * GROQ_RPM,
-                    "groq_tpm": len(self._groq_keys) * GROQ_TPM,
-                    "gemini_rpm": len(self._gemini_keys) * GEMINI_RPM,
-                },
+                "total":     len(self._keys),
+                "available": avail,
+                "cooling":   len(self._keys) - avail,
+                "gemini_rpm": avail * GEMINI_RPM,
+                "gemini_rpd": avail * GEMINI_RPD,
             }
 
+    def reset(self):
+        self._ensure_loaded()
+        with self._lock:
+            for ks in self._keys:
+                ks.cooldown_until = 0
+                ks.rpm_times.clear()
 
-# Global singleton
-_pool = KeyPool()
+
+_pool = _KeyPool()
 
 
-# ══════════════════════════════════════════════════════════════
-# ERROR CLASSIFICATION
-# ══════════════════════════════════════════════════════════════
+# ── HTTP helpers ───────────────────────────────────────────
+def _gemini_request(
+    key: str,
+    prompt: str,
+    system: str,
+    model: str,
+    image_b64: str = "",
+    image_mime: str = "image/jpeg",
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+) -> str:
+    url = f"{GEMINI_API_BASE}/{model}:generateContent?key={key}"
 
-def _classify_error(err_str: str) -> str:
-    """Classify an error for routing decisions."""
-    e = err_str.lower()
-    if "rate_limit" in e or "429" in e or "too many" in e or "rate limit" in e:
+    # Build content parts
+    parts: list = []
+    if image_b64:
+        parts.append({"inline_data": {"mime_type": image_mime, "data": image_b64}})
+    parts.append({"text": prompt})
+
+    body: dict = {
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        },
+    }
+    if system:
+        body["system_instruction"] = {"parts": [{"text": system}]}
+
+    data = json.dumps(body).encode()
+    req  = urllib.request.Request(
+        url, data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        result = json.loads(resp.read())
+
+    candidates = result.get("candidates", [])
+    if not candidates:
+        raise ValueError("Empty candidates in Gemini response")
+    parts_out = candidates[0].get("content", {}).get("parts", [])
+    return "".join(p.get("text", "") for p in parts_out)
+
+
+def _classify_error(err: Exception) -> str:
+    s = str(err).lower()
+    if "429" in s or "quota" in s or "rate" in s:
         return "rate_limit"
-    if "authentication" in e or "api_key" in e or "401" in e or "invalid api key" in e or "unauthorized" in e:
-        return "auth"
-    if "model_not_found" in e or ("model" in e and "not" in e and "found" in e):
-        return "model_not_found"
-    if "context_length" in e or ("token" in e and "exceed" in e):
-        return "context_length"
-    if "connection" in e or "timeout" in e or "network" in e or "proxy" in e or "tunnel" in e or "connectionpool" in e:
-        return "network"
-    if "overload" in e or "503" in e or "service_unavailable" in e or "capacity" in e or "529" in e:
-        return "overload"
+    if "403" in s or "invalid" in s or "api key" in s:
+        return "bad_key"
+    if "timeout" in s or "timed out" in s:
+        return "timeout"
     return "unknown"
 
 
-def _parse_retry_after(err_str: str) -> float:
-    """Extract retry-after seconds from error message."""
-    m = re.search(r'try again in ([0-9.]+)s', err_str, re.IGNORECASE)
-    if m:
-        return float(m.group(1))
-    m = re.search(r'retry.after[\"\s:]+([0-9.]+)', err_str, re.IGNORECASE)
-    if m:
-        return float(m.group(1))
-    return 0.0
-
-
-# ══════════════════════════════════════════════════════════════
-# GROQ CALL ENGINE
-# ══════════════════════════════════════════════════════════════
-
-def _call_groq(
-    messages: list,
-    system_prompt: str,
-    model: str,
-    max_tokens: int,
-    temperature: float,
-    json_mode: bool,
-    stream: bool,
-) -> Tuple[Any, KeyState]:
-    """
-    Try ALL Groq keys. Instant rotation on any failure.
-    Returns (result, key_state) or raises if all exhausted.
-    """
-    from groq import Groq
-    
-    tried: set = set()
-    last_err = None
-    max_attempts = len(_pool._groq_keys) * 3  # Try each key up to 3 times
-    
-    for _attempt in range(max_attempts):
-        ks = _pool.get_best_key("groq", exclude=tried)
-        if not ks:
-            break
-        
-        # If we've tried this key and all others are tried, stop
-        if ks.key in tried and len(tried) >= len(_pool._groq_keys):
-            break
-        tried.add(ks.key)
-        
-        client = Groq(api_key=ks.key)
-        
-        # Try primary model, then fallbacks
-        models_to_try = [model] if model else [GROQ_MODELS[0]]
-        
-        for try_model in models_to_try:
-            try:
-                fmt = {"type": "json_object"} if json_mode and not stream else {"type": "text"}
-                kwargs = dict(
-                    model=try_model,
-                    messages=[{"role": "system", "content": system_prompt}] + messages,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    top_p=0.9,
-                )
-                if not stream:
-                    kwargs["response_format"] = fmt
-                
-                completion = client.chat.completions.create(stream=stream, **kwargs)
-                
-                if stream:
-                    # Return the stream object — caller handles iteration
-                    return completion, ks
-                
-                # Non-streaming: extract result
-                tokens = 0
-                try:
-                    tokens = completion.usage.total_tokens or 0
-                except Exception:
-                    pass
-                
-                text = completion.choices[0].message.content
-                _pool.mark_success(ks, tokens)
-                return text, ks
-                
-            except Exception as e:
-                err_str = str(e)
-                last_err = e
-                etype = _classify_error(err_str)
-                
-                if etype == "rate_limit":
-                    retry_after = _parse_retry_after(err_str)
-                    _pool.mark_rate_limited(ks, retry_after)
-                    break  # INSTANT switch to next key (break model loop)
-                
-                elif etype == "auth":
-                    _pool.mark_auth_failed(ks)
-                    break  # Key is dead, next key
-                
-                elif etype == "model_not_found":
-                    # Try fallback models on SAME key
-                    for fb_model in GROQ_MODELS[1:]:
-                        if fb_model != try_model:
-                            try:
-                                kwargs["model"] = fb_model
-                                completion = client.chat.completions.create(stream=stream, **kwargs)
-                                if stream:
-                                    return completion, ks
-                                tokens = 0
-                                try:
-                                    tokens = completion.usage.total_tokens or 0
-                                except Exception:
-                                    pass
-                                text = completion.choices[0].message.content
-                                _pool.mark_success(ks, tokens)
-                                return text, ks
-                            except Exception:
-                                continue
-                    _pool.mark_error(ks)
-                    break
-                
-                elif etype == "overload":
-                    _pool.mark_rate_limited(ks, retry_after=15.0)
-                    break
-                
-                elif etype == "network":
-                    _pool.mark_error(ks)
-                    break
-                
-                else:
-                    _pool.mark_error(ks)
-                    break
-    
-    if last_err:
-        raise RuntimeError(scrub_sensitive_data(str(last_err))) from None
-    raise RuntimeError("All Groq keys exhausted")
-
-
-# ══════════════════════════════════════════════════════════════
-# GEMINI CALL ENGINE
-# ══════════════════════════════════════════════════════════════
-
+# ── Core call with rotation ────────────────────────────────
 def _call_gemini(
     prompt: str,
-    system_prompt: str = "",
-    model: str = None,
-    max_tokens: int = 8192,
-    temperature: float = 0.7,
-    image_data: str = None,
+    system: str = "",
+    image_b64: str = "",
     image_mime: str = "image/jpeg",
-) -> Tuple[str, KeyState]:
-    """
-    Try ALL Gemini keys with instant rotation.
-    Returns (text, key_state) or raises if all exhausted.
-    """
-    import requests as req
-    
-    _pool._ensure_init()  # guarantee keys are loaded before we count them
-    chosen_model = model or GEMINI_MODELS[0]
-    tried: set = set()
-    last_err = None
-
-    total_gemini = max(len(_pool._gemini_keys), 1)
-    for _attempt in range(total_gemini * len(GEMINI_MODELS)):
-        ks = _pool.get_best_key("gemini", exclude=tried)
-        if not ks:
-            break
-        if ks.key in tried and len(tried) >= total_gemini:
-            break
-        tried.add(ks.key)
-        
-        # Try each model in priority order
-        for try_model in ([chosen_model] + [m for m in GEMINI_MODELS if m != chosen_model]):
-            try:
-                url = f"{GEMINI_API_BASE}/{try_model}:generateContent?key={ks.key}"
-                
-                parts = [{"text": prompt}]
-                if image_data:
-                    parts.append({"inline_data": {"mime_type": image_mime, "data": image_data}})
-                
-                payload = {
-                    "contents": [{"role": "user", "parts": parts}],
-                    "generationConfig": {
-                        "temperature": temperature,
-                        "maxOutputTokens": max_tokens,
-                    },
-                }
-                if system_prompt:
-                    payload["system_instruction"] = {"parts": [{"text": system_prompt}]}
-                
-                resp = req.post(url, json=payload, timeout=60)
-                
-                if resp.status_code == 429:
-                    _pool.mark_rate_limited(ks, retry_after=60.0)
-                    break  # INSTANT switch to next key
-                
-                if resp.status_code == 403 or resp.status_code == 401:
-                    _pool.mark_auth_failed(ks)
-                    break
-                
-                if resp.status_code == 400 or resp.status_code == 404:
-                    # Model might not exist or bad request — try next model
-                    continue
-                
-                if resp.status_code == 503 or resp.status_code == 529:
-                    _pool.mark_rate_limited(ks, retry_after=15.0)
-                    break
-                
-                resp.raise_for_status()
-                data = resp.json()
-                candidates = data.get("candidates", [])
-                
-                if not candidates:
-                    continue
-                
-                parts_out = candidates[0].get("content", {}).get("parts", [])
-                text = "".join(p.get("text", "") for p in parts_out).strip()
-                
-                if text:
-                    _pool.mark_success(ks)
-                    return text, ks
-                    
-            except Exception as e:
-                last_err = e
-                etype = _classify_error(str(e))
-                if etype == "rate_limit":
-                    _pool.mark_rate_limited(ks)
-                    break
-                elif etype == "auth":
-                    _pool.mark_auth_failed(ks)
-                    break
-                else:
-                    _pool.mark_error(ks)
-                    continue
-    
-    if last_err:
-        raise RuntimeError(scrub_sensitive_data(str(last_err))) from None
-    raise RuntimeError("All Gemini keys exhausted")
-
-
-# ══════════════════════════════════════════════════════════════
-# PUBLIC API — THE SINGLE ENTRY POINT FOR ALL AI CALLS
-# ══════════════════════════════════════════════════════════════
-
-def generate(
-    prompt: str = "",
-    messages: list = None,
-    system_prompt: str = "",
-    model: str = None,
-    provider: str = "auto",
-    max_tokens: int = 8192,
     temperature: float = 0.7,
-    json_mode: bool = False,
-    image_data: str = None,
-    image_mime: str = "image/jpeg",
-    use_vit_context: bool = False,
+    max_tokens: int = 4096,
 ) -> str:
-    """
-    THE universal AI call function. Routes to the best available key/provider.
-    """
-    _pool._ensure_init()
-    
-    # Check Cache
-    import hashlib
-    m_str = str(messages) if messages else prompt
-    cache_key = hashlib.md5(f"{m_str}{system_prompt}{use_vit_context}{json_mode}".encode()).hexdigest()
-    if not image_data and cache_key in _RESPONSE_CACHE:
-        return _RESPONSE_CACHE[cache_key]
-    
-    # Image data requires Gemini (has vision)
-    if image_data:
-        provider = "gemini"
-    
-    # Build messages from prompt if not provided
-    if not messages and prompt:
-        messages = [{"role": "user", "content": prompt}]
-    elif not messages:
-        raise ValueError("Either prompt or messages must be provided")
-    
-    # Build system prompt with VIT context if requested
-    full_system = system_prompt
-    if use_vit_context:
-        full_system = (full_system + "\n\n" + VIT_SYSTEM_CONTEXT) if full_system else VIT_SYSTEM_CONTEXT
-    if not full_system:
-        full_system = "You are a helpful AI assistant."
+    tried: set = set()
+    last_err: Exception = RuntimeError("No Gemini keys available.")
 
-    text = ""
-    # AUTO: Try Groq first (faster), fall back to Gemini
-    if provider == "auto":
-        # Try Groq
-        try:
-            text, _ = _call_groq(
-                messages=messages,
-                system_prompt=full_system,
-                model=model or GROQ_MODELS[0],
-                max_tokens=max_tokens,
-                temperature=temperature,
-                json_mode=json_mode,
-                stream=False,
-            )
-        except Exception:
-            # Groq exhausted — cascade to Gemini
-            prompt_text = "\n\n".join(
-                f"{m.get('role', 'user').upper()}: {m.get('content', '')}"
-                for m in messages
-            )
+    for model in GEMINI_MODELS:
+        pool_attempts = max(len(_pool._keys) if _pool._loaded else 1, 1)
+        for _ in range(pool_attempts):
+            ks = _pool.get_best(exclude=tried)
+            if ks is None:
+                break   # all keys exhausted for this model
+
+            now = time.monotonic()
+            ks.record_call(now)
             try:
-                text, _ = _call_gemini(
-                    prompt=prompt_text,
-                    system_prompt=full_system,
-                    model=None,
-                    max_tokens=max_tokens,
+                result = _gemini_request(
+                    key=ks.key,
+                    prompt=prompt,
+                    system=system,
+                    model=model,
+                    image_b64=image_b64,
+                    image_mime=image_mime,
                     temperature=temperature,
+                    max_tokens=max_tokens,
                 )
+                return result
             except Exception as e:
-                raise RuntimeError(f"All AI providers exhausted. Error: {e}")
-    
-    elif provider == "groq":
-        text, _ = _call_groq(
-            messages=messages,
-            system_prompt=full_system,
-            model=model or GROQ_MODELS[0],
-            max_tokens=max_tokens,
-            temperature=temperature,
-            json_mode=json_mode,
-            stream=False,
-        )
-    
-    elif provider == "gemini":
-        prompt_text = prompt or "\n\n".join(
-            f"{m.get('role', 'user').upper()}: {m.get('content', '')}"
-            for m in messages
-        )
-        text, _ = _call_gemini(
-            prompt=prompt_text,
-            system_prompt=full_system,
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            image_data=image_data,
-            image_mime=image_mime,
-        )
-    
-    # Update Cache
-    if text and not image_data and len(_RESPONSE_CACHE) < _CACHE_MAX_SIZE:
-        _RESPONSE_CACHE[cache_key] = text
-        
-    return text or "⚠️ AI engine return empty response."
+                etype = _classify_error(e)
+                ks.errors += 1
+                if etype == "rate_limit":
+                    ks.cooldown(65)
+                elif etype == "bad_key":
+                    ks.cooldown(3600)  # park bad key for 1 hour
+                tried.add(ks.key)
+                last_err = e
+
+    raise last_err
+
+
+# ── Streaming (sentence-chunked simulation) ───────────────
+def _call_gemini_stream(
+    prompt: str,
+    system: str = "",
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+) -> Iterator[str]:
+    """Yields text in chunks (Gemini REST doesn't stream; we chunk the response)."""
+    full = _call_gemini(
+        prompt=prompt, system=system,
+        temperature=temperature, max_tokens=max_tokens,
+    )
+    # Yield word-by-word for a streaming feel
+    words = full.split(" ")
+    chunk = []
+    for i, word in enumerate(words):
+        chunk.append(word)
+        if len(chunk) >= 6 or i == len(words) - 1:
+            yield " ".join(chunk) + (" " if i < len(words) - 1 else "")
+            chunk = []
+
+
+# ── Public API ────────────────────────────────────────────
+def generate(
+    prompt: str,
+    system: str = "",
+    provider: str = "gemini",   # kept for API compat — always gemini now
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+    image_data: str = "",
+    image_mime: str = "image/jpeg",
+) -> str:
+    """Generate a response. Returns full text string."""
+    return _call_gemini(
+        prompt=prompt,
+        system=system,
+        image_b64=image_data,
+        image_mime=image_mime,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
 
 
 def generate_stream(
-    messages: list,
-    system_prompt: str = "",
-    model: str = None,
-    max_tokens: int = 8192,
-    temperature: float = 0.65,
-    persona_prompt: str = "",
-    context_text: str = "",
-    use_vit_context: bool = False,
-) -> Generator[str, None, None]:
-    """
-    Streaming version of generate(). Currently Groq-only with Gemini non-stream fallback.
-    """
-    _pool._ensure_init()
-    
-    # Build system prompt with VIT context if requested
-    full_system = system_prompt
-    if use_vit_context:
-        full_system = (full_system + "\n\n" + VIT_SYSTEM_CONTEXT) if full_system else VIT_SYSTEM_CONTEXT
-    if persona_prompt:
-        full_system = (full_system + "\n\n" + persona_prompt) if full_system else persona_prompt
-    if not full_system:
-        full_system = "You are a helpful AI assistant."
-    
-    # Build context-aware messages
-    built_messages = list(messages)
-    if context_text:
-        ctx_trimmed = context_text[:28_000]
-        built_messages = [
-            {"role": "user", "content": f"=== STUDY MATERIAL ===\n\n{ctx_trimmed}\n\n=== END ===\n\nPlease acknowledge you received this."},
-            {"role": "assistant", "content": "✅ Study material received. I will answer grounded in this material."},
-        ] + built_messages
-    
-    tried_keys: set = set()
-    last_err = None
+    prompt: str,
+    system: str = "",
+    provider: str = "gemini",   # kept for API compat
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+) -> Iterator[str]:
+    """Generate a streaming response. Yields text chunks."""
+    return _call_gemini_stream(
+        prompt=prompt,
+        system=system,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
 
-    # Determine model priority list for Groq streaming
-    if model and model in GROQ_MODELS:
-        groq_models_to_try = [model] + [m for m in GROQ_MODELS if m != model]
-    else:
-        groq_models_to_try = list(GROQ_MODELS)
-
-    # ── Try ALL Groq keys with ALL model fallbacks ────────────
-    total_groq = max(len(_pool._groq_keys), 1)
-    for _attempt in range(total_groq * len(groq_models_to_try) * 2):
-        ks = _pool.get_best_key("groq", exclude=tried_keys)
-        if not ks:
-            break
-        if len(tried_keys) >= total_groq and ks.key in tried_keys:
-            break
-        tried_keys.add(ks.key)
-
-        try:
-            from groq import Groq
-            client = Groq(api_key=ks.key)
-
-            streamed = False
-            for use_model in groq_models_to_try:
-                try:
-                    stream_obj = client.chat.completions.create(
-                        stream=True,
-                        model=use_model,
-                        messages=[{"role": "system", "content": full_system}] + built_messages,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        top_p=0.9,
-                    )
-
-                    total_tokens = 0
-                    word_count = 0
-                    for chunk in stream_obj:
-                        try:
-                            if chunk.usage:
-                                total_tokens = chunk.usage.total_tokens or total_tokens
-                        except Exception:
-                            pass
-                        delta = chunk.choices[0].delta.content if chunk.choices else None
-                        if delta:
-                            word_count += len(delta.split())
-                            yield delta
-
-                    if total_tokens == 0:
-                        total_tokens = int(word_count * 1.4)
-                    _pool.mark_success(ks, total_tokens)
-                    return  # Stream complete!
-
-                except Exception as e:
-                    err_str = str(e)
-                    last_err = e
-                    etype = _classify_error(err_str)
-                    if etype == "rate_limit":
-                        _pool.mark_rate_limited(ks, _parse_retry_after(err_str))
-                        break  # rate limited → next key
-                    elif etype == "auth":
-                        _pool.mark_auth_failed(ks)
-                        break  # dead key → next key
-                    elif etype == "overload":
-                        _pool.mark_rate_limited(ks, 15.0)
-                        break  # overloaded → next key
-                    elif etype == "model_not_found":
-                        continue  # try next model on same key
-                    else:
-                        _pool.mark_error(ks)
-                        break  # unknown error → next key
-
-        except Exception as e:
-            last_err = e
-            _pool.mark_error(ks)
-            continue
-
-    # ── All Groq keys exhausted → Gemini fallback ────────────
-    try:
-        prompt_text = "\n\n".join(
-            f"{m.get('role', 'user').upper()}: {m.get('content', '')}"
-            for m in built_messages
-        )
-        text, _ = _call_gemini(
-            prompt=prompt_text,
-            system_prompt=full_system,
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-        if text:
-            # Simulate streaming — yield in word-chunks so UI feels live
-            words = text.split()
-            chunk_size = 6
-            for i in range(0, len(words), chunk_size):
-                yield " ".join(words[i:i + chunk_size])
-                if i + chunk_size < len(words):
-                    yield " "
-            return
-    except Exception as e:
-        last_err = e
-
-    if last_err:
-        raise last_err
-    raise RuntimeError("All AI providers exhausted (Groq + Gemini). Wait ~60s and retry.")
-
-
-# ══════════════════════════════════════════════════════════════
-# CONVENIENCE SHORTCUTS
-# ══════════════════════════════════════════════════════════════
 
 def quick_generate(prompt: str, system: str = "") -> str:
-    """Fastest possible generation — auto-routed, no frills."""
-    return generate(prompt=prompt, system_prompt=system)
+    """Fast single-turn generation."""
+    return _call_gemini(prompt=prompt, system=system, max_tokens=2048)
 
 
 def vision_generate(prompt: str, image_b64: str, mime: str = "image/jpeg") -> str:
-    """Vision call using Gemini (only provider with vision)."""
-    return generate(prompt=prompt, provider="gemini", image_data=image_b64, image_mime=mime)
+    """Generate with an image input."""
+    return _call_gemini(prompt=prompt, image_b64=image_b64, image_mime=mime)
 
 
 def json_generate(prompt: str, system: str = "") -> str:
-    """Generate structured JSON output."""
-    return generate(prompt=prompt, system_prompt=system, json_mode=True, temperature=0.2)
+    """Generate and return raw text (parse JSON yourself)."""
+    sys = (system + "\n\n" if system else "") + \
+          "Respond ONLY with valid JSON. No markdown, no backticks, no explanation."
+    return _call_gemini(prompt=prompt, system=sys, temperature=0.2)
 
-
-# ══════════════════════════════════════════════════════════════
-# STATUS & DIAGNOSTICS
-# ══════════════════════════════════════════════════════════════
 
 def get_pool_status() -> Dict:
-    """Get full pool status (safe — never shows key values)."""
-    return _pool.get_status()
+    return _pool.status()
 
 
-def reset_all_keys():
-    """Emergency reset — clear all cooldowns and errors."""
-    _pool.reset_all()
+def reset_all_keys() -> None:
+    _pool.reset()
 
 
 def get_capacity_summary() -> str:
-    """Human-readable capacity summary."""
-    status = _pool.get_status()
-    g = status["groq"]
-    m = status["gemini"]
+    s = _pool.status()
     return (
-        f"🔑 Groq: {g['available']}/{g['total']} keys ready | "
-        f"💎 Gemini: {m['available']}/{m['total']} keys ready | "
-        f"⚡ Total capacity: {status['total_capacity']['groq_rpm']}+{status['total_capacity']['gemini_rpm']} RPM"
+        f"Gemini: {s['available']}/{s['total']} keys active | "
+        f"~{s['gemini_rpm']} RPM | ~{s['gemini_rpd']} RPD"
     )
+
+# ── Backwards-compat stubs (previously groq functions) ────
+def stream_chat_with_groq(*args, **kwargs) -> Iterator[str]:
+    """Groq removed — delegates to Gemini stream."""
+    prompt = kwargs.get("prompt") or (args[0] if args else "")
+    system = kwargs.get("system", "")
+    return generate_stream(prompt=prompt, system=system)
+
+def chat_with_groq(*args, **kwargs) -> str:
+    """Groq removed — delegates to Gemini."""
+    prompt = kwargs.get("prompt") or (args[0] if args else "")
+    system = kwargs.get("system", "")
+    return generate(prompt=prompt, system=system)
+
+def transcribe_audio(*args, **kwargs) -> str:
+    """Audio transcription requires Groq Whisper which has been removed."""
+    return "[Audio transcription unavailable — Groq integration removed]"

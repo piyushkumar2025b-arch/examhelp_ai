@@ -48,11 +48,11 @@ try:
 except ImportError:
     px = None; go = None
 
-# [REMOVED — integration/key stripped] from utils.groq_client import stream_chat_with_groq, transcribe_audio, chat_with_groq
+from utils.groq_client import stream_chat_with_groq, transcribe_audio, chat_with_groq
 from utils.pdf_handler import extract_text_from_pdf, get_pdf_metadata, get_pdf_summary_stats
 from utils.youtube_handler import get_youtube_transcript, format_transcript_as_context, extract_video_id, get_transcript_stats
 from utils.web_handler import scrape_web_page, format_web_context, get_web_stats
-# [REMOVED — integration/key stripped] from utils import key_manager
+from utils import key_manager
 from utils.personas import PERSONAS, get_persona_names, get_persona_by_name, build_persona_prompt
 from utils.ocr_handler import extract_text_from_image
 from utils.analytics import get_subject_mastery_radar, get_study_intensity_heatmap, estimate_required_velocity
@@ -179,7 +179,7 @@ def init_state():
 
     # Validate keys
     if not st.session_state.service_availability:
-# [REMOVED — integration/key stripped]         from utils.secret_manager import validate_all_keys
+        from utils.secret_manager import validate_all_keys
         st.session_state.service_availability = validate_all_keys()
 
     # Vector store
@@ -1271,7 +1271,7 @@ def count_output_stats(text: str):
 
 def _key_health_html() -> str:
     """Render compact API key health widget."""
-# [REMOVED — integration/key stripped]     cap = key_manager.get_total_capacity()
+    cap = key_manager.get_total_capacity()
     avail = cap["keys_available"]
     total = cap["keys_total"]
     pct   = int(avail / max(1, total) * 100)
@@ -1884,11 +1884,11 @@ with st.sidebar:
 
     # ── Admin: API Key Health Table ────────────────
     with st.expander("🔧 API Key Dashboard"):
-# [REMOVED — integration/key stripped]         cap = key_manager.get_total_capacity()
+        cap = key_manager.get_total_capacity()
         st.markdown(
             f"**{cap['keys_available']}/{cap['keys_total']}** keys active · "
             f"**{cap['rpd_used']:,}/{cap['rpd_capacity']:,}** req/day used")
-# [REMOVED — integration/key stripped]         rows = key_manager.status_table()
+        rows = key_manager.status_table()
         for r in rows:
             badge_cls = ("badge-green" if "🟢" in r["status"]
                          else "badge-yellow" if "🟡" in r["status"] or "🟠" in r["status"]
@@ -1899,8 +1899,8 @@ with st.sidebar:
                 f'<span class="{badge_cls}">{r["status"]}</span>'
                 f'</div>', unsafe_allow_html=True)
         if st.button("🔄 Reset All Cooldowns", use_container_width=True):
-# [REMOVED — integration/key stripped]             key_manager.reset_all_cooldowns()
-# [REMOVED — integration/key stripped]             from utils import gemini_key_manager as gkm
+            key_manager.reset_all_cooldowns()
+            from utils import gemini_key_manager as gkm
             gkm.reset_all_cooldowns()
             st.success("✅ All cooldowns cleared!")
 
@@ -3693,7 +3693,7 @@ else:
                     placeholder.warning("⏳ AI providers are busy right now. Retrying with backup engine...")
                     # Direct Gemini retry as last resort
                     try:
-# [REMOVED — integration/key stripped]                         from utils.secret_manager import call_gemini, GEMINI_FLASH_MODEL
+                        from utils.secret_manager import call_gemini, GEMINI_FLASH_MODEL
                         msgs_text = "\n\n".join(
                             f"{m['role'].upper()}: {m['content']}"
                             for m in history[-6:]  # last 3 turns
