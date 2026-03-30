@@ -1,10 +1,3 @@
-"""
-key_manager.py — thin compatibility shim
-=========================================
-Previously managed Groq + Gemini keys. Groq is removed.
-Delegates everything to gemini_key_manager / ai_engine.
-"""
-
 from utils.gemini_key_manager import status as _gkm_status, get_key
 
 def get_total_capacity() -> dict:
