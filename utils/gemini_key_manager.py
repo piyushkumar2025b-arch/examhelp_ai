@@ -5,8 +5,8 @@ gemini_key_manager.py — ELITE Gemini Key Rotation Engine v2.0
 GEMINI FREE-TIER LIMITS (verified March 2026)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Model                  RPM   RPD      TPM
-  gemini-1.5-flash        15   1,500  1,000,000
-  gemini-2.5-flash-lite   15   1,000    250,000
+  gemini-2.0-flash        15   1,500  1,000,000
+  gemini-1.5-flash-8b     15   1,000    250,000
 
   NOTE: Limits are per GCP project. Each key should be from a
   different Google AI Studio project to get independent quota.

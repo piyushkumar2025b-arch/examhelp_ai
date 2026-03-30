@@ -55,15 +55,15 @@ from utils.key_protector import scrub_sensitive_data
 # Groq model hierarchy (best → fallback)
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",  # 30K TPM, 500K TPD — BEST
-    "llama-3.3-70b-versatile",          # 12K TPM — secondary
+    "llama-3.1-70b-versatile",          # 12K TPM — secondary
     "llama-3.1-8b-instant",             # 6K TPM — fast fallback
 ]
 
 # Gemini model hierarchy (best → fallback)
 GEMINI_MODELS = [
-    "gemini-2.5-flash",                 # Fast, 1M context — most reliable free-tier
-    "gemini-2.0-flash",                 # Proven stable fallback
-    "gemini-2.0-flash-lite",            # Fastest, lowest quota
+    "gemini-2.0-flash",                 # Fast, 1M context — most reliable free-tier
+    "gemini-1.5-flash",                 # Proven stable fallback
+    "gemini-1.5-flash-8b",              # Fastest, lowest quota
 ]
 
 # Groq limits per key
@@ -626,8 +626,8 @@ def _call_gemini(
                     _pool.mark_auth_failed(ks)
                     break
                 
-                if resp.status_code == 400:
-                    # Model might not exist — try next model
+                if resp.status_code == 400 or resp.status_code == 404:
+                    # Model might not exist or bad request — try next model
                     continue
                 
                 if resp.status_code == 503 or resp.status_code == 529:

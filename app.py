@@ -1905,6 +1905,14 @@ with st.sidebar:
             st.success("✅ All cooldowns cleared!")
 
     # ── Study Toolbox ──────────────────────────────
+    # ── Background Sound Player ──────────────────────────────
+    st.markdown('<div class="section-label">🎵 Background Sounds</div>', unsafe_allow_html=True)
+    try:
+        from bg_sound_engine import render_sound_player_sidebar
+        render_sound_player_sidebar()
+    except Exception as _se:
+        st.caption(f"Sound player unavailable: {_se}")
+
     st.markdown('<div class="section-label">🛠️ Study Toolbox</div>', unsafe_allow_html=True)
     _tools = [
         ("🃏", "Flashcards",      "Generate Q&A deck",           "flashcards"),
@@ -1955,6 +1963,9 @@ with st.sidebar:
         ("🛒", "Smart Shopping",      "Compare prices across platforms",     "smart_shopping"),
         ("🔬", "Context Focus",       "Deep internet research engine",      "context_focus"),
         ("🎯", "Presentation AI",     "Generate slide decks with real data", "presentation_builder"),
+        ("💗", "AI Companion",         "Chat with Aria – your AI companion", "ai_companion"),
+        ("📎", "Doc Analyser",         "Review any file: what\u2019s good, what to add", "doc_analyser"),
+        ("🎵", "Sound Library",        "50+ ambient background sounds for focus", "bg_sounds"),
     ]
     for icon, name, desc, mode in _power_tools:
         col_icon, col_info, col_btn = st.columns([1, 4, 2])
@@ -3436,6 +3447,23 @@ elif app_mode == "context_focus":
     from utils.context_focus_engine import render_context_focus
     render_context_focus()
 
+
+# ─── AI COMPANION ────────────────────────────────────────────────────────────────
+
+# ─── SMART DOCUMENT ANALYSER ─────────────────────────────────────────────
+
+# ─── BACKGROUND SOUND LIBRARY ────────────────────────────────────────────────
+elif app_mode == "bg_sounds":
+    from bg_sound_engine import render_bg_sounds_page
+    render_bg_sounds_page()
+
+elif app_mode == "doc_analyser":
+    from doc_analyser_engine import render_doc_analyser
+    render_doc_analyser()
+
+elif app_mode == "ai_companion":
+    from ai_companion_engine import render_ai_companion
+    render_ai_companion()
 # ─── PRESENTATION BUILDER ───────────────────────────────────────────────────
 elif app_mode == "presentation_builder":
     from utils.presentation_engine import render_presentation_builder
@@ -3681,11 +3709,11 @@ else:
                             success = True
                             count_output_stats(full_response)
                         else:
-                            placeholder.error("🚨 All AI engines are currently rate-limited. Please wait 60 seconds and try again.")
+                            placeholder.error(f"🚨 All AI engines are currently at capacity. Please wait 60 seconds and try again.\n\nTechnical details: {err_msg}")
                             st.session_state.last_error = err_msg
                             success = False
                     except Exception as e2:
-                        placeholder.error(f"🚨 All AI engines busy. Wait ~60s and retry. ({type(e).__name__})")
+                        placeholder.error(f"🚨 All AI engines are busy. Please wait ~60s and retry.\n\n(Error: {type(e2).__name__} during retry: {e2})")
                         st.session_state.last_error = f"{err_msg} | retry: {e2}"
                         success = False
                 else:
