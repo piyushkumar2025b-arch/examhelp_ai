@@ -236,16 +236,44 @@ def _call_gemini_stream(
 
 
 # ── Public API ────────────────────────────────────────────
+def _messages_to_prompt(
+    messages: list,
+    context_text: str = "",
+    persona_prompt: str = "",
+) -> tuple:
+    """Convert a messages list into (prompt, system) for Gemini."""
+    system_parts = []
+    if context_text:
+        system_parts.append(f"Context:\n{context_text}")
+    if persona_prompt:
+        system_parts.append(persona_prompt)
+    system = "\n\n".join(system_parts)
+
+    turns = []
+    for m in messages:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        turns.append(f"{role.capitalize()}: {content}")
+    prompt = "\n".join(turns)
+    return prompt, system
+
+
 def generate(
-    prompt: str,
+    prompt: str = "",
     system: str = "",
     provider: str = "gemini",   # kept for API compat — always gemini now
     temperature: float = 0.7,
     max_tokens: int = 4096,
     image_data: str = "",
     image_mime: str = "image/jpeg",
+    messages: list = None,
+    model: str = "",            # ignored — always uses GEMINI_MODELS rotation
+    context_text: str = "",
+    **kwargs,
 ) -> str:
     """Generate a response. Returns full text string."""
+    if messages:
+        prompt, system = _messages_to_prompt(messages, context_text)
     return _call_gemini(
         prompt=prompt,
         system=system,
@@ -257,13 +285,21 @@ def generate(
 
 
 def generate_stream(
-    prompt: str,
+    prompt: str = "",
     system: str = "",
     provider: str = "gemini",   # kept for API compat
     temperature: float = 0.7,
     max_tokens: int = 4096,
+    messages: list = None,
+    model: str = "",            # ignored — always uses GEMINI_MODELS rotation
+    context_text: str = "",
+    persona_prompt: str = "",
+    use_vit_context: bool = False,
+    **kwargs,
 ) -> Iterator[str]:
     """Generate a streaming response. Yields text chunks."""
+    if messages:
+        prompt, system = _messages_to_prompt(messages, context_text, persona_prompt)
     return _call_gemini_stream(
         prompt=prompt,
         system=system,
