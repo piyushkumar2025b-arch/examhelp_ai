@@ -7,7 +7,7 @@ import re
 import time
 from typing import List, Dict, Optional
 from datetime import datetime
-from utils.secret_manager import get_service_key
+# [REMOVED — integration/key stripped] from utils.secret_manager import get_service_key
 
 NEWS_SOURCES = [
     # Free RSS/JSON feeds

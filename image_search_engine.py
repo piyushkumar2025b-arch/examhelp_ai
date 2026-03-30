@@ -48,7 +48,7 @@ Generate exactly 25 items. Make URLs realistic and domain-appropriate.
 def _gemini_analyze_image(image_bytes: bytes, mime: str = "image/jpeg") -> Optional[dict]:
     """Uses Gemini Vision to analyze the image and extract search queries."""
     import requests as req
-    from utils.secret_manager import get_gemini_keys_list, GEMINI_BEST_MODEL, GEMINI_FLASH_MODEL
+# [REMOVED — integration/key stripped]     from utils.secret_manager import get_gemini_keys_list, GEMINI_BEST_MODEL, GEMINI_FLASH_MODEL
     
     gemini_keys = get_gemini_keys_list()
     if not gemini_keys:

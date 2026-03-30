@@ -114,7 +114,7 @@ class AppController:
 
     @staticmethod
     def _fetch_json(prompt: list, api_key: str):
-        from utils import key_manager
+# [REMOVED — integration/key stripped]         from utils import key_manager
         # Only retry 3 times for JSON parse failures.
         # chat_with_groq already handles key rotation internally.
         for _ in range(3):

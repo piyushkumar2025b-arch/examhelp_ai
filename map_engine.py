@@ -6,7 +6,7 @@ Google Maps Embed iframe still used for India regional views (Embed API).
 from __future__ import annotations
 import math
 from typing import Dict, List, Optional
-from utils.secret_manager import get_service_key
+# [REMOVED — integration/key stripped] from utils.secret_manager import get_service_key
 
 GOOGLE_MAPS_EMBED_KEY = get_service_key("GOOGLE_MAPS_EMBED_KEY")
 

@@ -215,7 +215,7 @@ def render_chat_file_uploader() -> tuple[Optional[str], Optional[str]]:
         try:
             img_bytes = uploaded.read()
             img_b64 = base64.b64encode(img_bytes).decode()
-            from utils.secret_manager import call_gemini
+# [REMOVED — integration/key stripped]             from utils.secret_manager import call_gemini
             extracted = call_gemini(
                 prompt="Describe this image in detail and extract all text visible in it.",
                 image_data=img_b64,

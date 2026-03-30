@@ -264,7 +264,7 @@ def _pptx_to_text(data: bytes) -> str:
 
 def _image_to_text(data: bytes, ext: str) -> bytes:
     try:
-        from utils.gemini_key_manager import get_key as gemini_get_key
+# [REMOVED — integration/key stripped]         from utils.gemini_key_manager import get_key as gemini_get_key
         import requests
         key = gemini_get_key()
         if not key: return b"[No Gemini key for OCR]"

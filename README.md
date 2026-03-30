@@ -38,8 +38,8 @@ Get a **free** API key at [console.groq.com](https://console.groq.com)
 
 **Option A** — Create a `.env` file (supports up to 8 keys for rotation):
 ```
-GROQ_API_KEY_1=gsk_your_key_here
-GROQ_API_KEY_2=gsk_your_second_key
+GROQ_API_KEY_1=YOUR_NEW_KEY_HERE
+GROQ_API_KEY_2=YOUR_NEW_KEY_HERE
 ```
 
 **Option B** — Enter it directly in the app sidebar (no setup needed)
@@ -57,8 +57,8 @@ streamlit run app.py
 2. Go to [share.streamlit.io](https://share.streamlit.io) and connect your repo
 3. In **Advanced Settings → Secrets**, add:
 ```toml
-GROQ_API_KEY_1 = "gsk_your_key_here"
-GROQ_API_KEY_2 = "gsk_your_second_key"
+GROQ_API_KEY_1 = "YOUR_NEW_KEY_HERE"
+GROQ_API_KEY_2 = "YOUR_NEW_KEY_HERE"
 ```
 4. Deploy — done! 🎉
 

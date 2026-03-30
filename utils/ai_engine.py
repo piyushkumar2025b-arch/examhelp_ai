@@ -171,8 +171,8 @@ class KeyPool:
             self._initialized = True
     
     def _load_all_keys(self):
-        """Load all keys from secret_manager."""
-        from utils.secret_manager import GROQ_KEYS, GEMINI_KEYS
+# [REMOVED — integration/key stripped]         """Load all keys from secret_manager."""
+# [REMOVED — integration/key stripped]         from utils.secret_manager import GROQ_KEYS, GEMINI_KEYS
         
         self._groq_keys = [KeyState(key=k, provider="groq") for k in GROQ_KEYS]
         self._gemini_keys = [KeyState(key=k, provider="gemini") for k in GEMINI_KEYS]

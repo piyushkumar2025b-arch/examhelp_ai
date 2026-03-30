@@ -5,7 +5,7 @@ Plugs into ExamHelp's existing Groq/LLaMA pipeline.
 """
 
 import streamlit as st
-from utils.groq_client import stream_chat_with_groq, chat_with_groq
+# [REMOVED — integration/key stripped] from utils.groq_client import stream_chat_with_groq, chat_with_groq
 
 # ── Aria's system prompt ────────────────────────────────────────────────────
 ARIA_SYSTEM_PROMPT = """You are Aria, a warm, witty, and emotionally intelligent AI companion integrated into ExamHelp — an AI study assistant platform.

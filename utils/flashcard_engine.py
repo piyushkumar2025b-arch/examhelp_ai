@@ -16,7 +16,7 @@ except ImportError:
     genanki = None
 
 from utils.ai_engine import generate
-from utils.secret_manager import get_groq_key
+# [REMOVED — integration/key stripped] from utils.secret_manager import get_groq_key
 
 # ── 1. SM-2 SPACED REPETITION ALGORITHM ──────────────────────────────
 def sm2_update(grade: int, repetitions: int, ease_factor: float, interval: int) -> tuple:

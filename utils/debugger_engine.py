@@ -26,8 +26,8 @@ _load_env()
 
 # ── Dedicated debug key pool ─────────────────────────────────────────
 def _load_debug_keys() -> list[str]:
-    """Load debug keys via centralized secret_manager."""
-    from utils.secret_manager import get_gemini_debug_keys
+# [REMOVED — integration/key stripped]     """Load debug keys via centralized secret_manager."""
+# [REMOVED — integration/key stripped]     from utils.secret_manager import get_gemini_debug_keys
     return get_gemini_debug_keys()
 
 # ── Language definitions ──────────────────────────────────────────────
@@ -54,7 +54,7 @@ SUPPORTED_LANGUAGES = {
 }
 
 # Best available models — use highest-grade for debugging
-from utils.secret_manager import GEMINI_BEST_MODEL, GEMINI_FLASH_MODEL
+# [REMOVED — integration/key stripped] from utils.secret_manager import GEMINI_BEST_MODEL, GEMINI_FLASH_MODEL
 DEBUG_MODEL    = GEMINI_BEST_MODEL    # Highest capability
 FALLBACK_MODEL = GEMINI_FLASH_MODEL   # Fast fallback
 _BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -142,7 +142,7 @@ def _call_gemini_debug(
     
     # Fallback to main gemini pool
     try:
-        from utils import gemini_key_manager as gkm
+# [REMOVED — integration/key stripped]         from utils import gemini_key_manager as gkm
         key = gkm.get_key()
         if key:
             result = _gemini_request(key, prompt, system, FALLBACK_MODEL)

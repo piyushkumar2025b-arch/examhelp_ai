@@ -15,7 +15,7 @@ import json
 import re
 import urllib.parse
 
-from utils.groq_client import chat_with_groq
+# [REMOVED — integration/key stripped] from utils.groq_client import chat_with_groq
 from utils.app_controller import AppController
 
 class QueryEngine:

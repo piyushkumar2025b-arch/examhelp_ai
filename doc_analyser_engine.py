@@ -8,12 +8,12 @@ Uses Gemini Vision for images, PyMuPDF for PDFs, plain read for text.
 import io
 import base64
 import streamlit as st
-from utils.groq_client import chat_with_groq
+# [REMOVED — integration/key stripped] from utils.groq_client import chat_with_groq
 from utils.pdf_handler import extract_text_from_pdf
 
 # ── Try optional deps ────────────────────────────────────────────────────────
 try:
-    from ai.gemini_client import analyze_image_with_gemini, gemini_available
+# [REMOVED — integration/key stripped]     from ai.gemini_client import analyze_image_with_gemini, gemini_available
     _HAS_GEMINI = True
 except Exception:
     _HAS_GEMINI = False
