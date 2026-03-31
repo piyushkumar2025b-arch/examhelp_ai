@@ -1,6 +1,6 @@
 """
 ExamHelp AI — v3.1
-Full-featured AI study assistant · Supabase Auth · Google Suite · Stripe
+Full-featured AI study assistant — Gemini 9-Key Rotation
 """
 
 import datetime
@@ -3469,32 +3469,9 @@ elif app_mode == "presentation_builder":
     from utils.presentation_engine import render_presentation_builder
     render_presentation_builder()
 
-# ─── GMAIL PANEL ──────────────────────────────────────────────────────────────
-elif app_mode == "gmail_panel":
-    st.markdown('<div class="page-header"><div class="page-header-title">📧 Gmail</div><div class="page-header-sub">Send your AI output directly to any email</div></div>', unsafe_allow_html=True)
-    last_ai = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "assistant"), "")
-    render_gmail_panel(prefill_body=last_ai[:3000] if last_ai else "")
-    if st.button("← Back to Chat", key="gmail_back"): st.session_state.app_mode = "chat"; st.rerun()
-
-# ─── DRIVE PANEL ──────────────────────────────────────────────────────────────
-elif app_mode == "drive_panel":
-    st.markdown('<div class="page-header"><div class="page-header-title">📁 Google Drive</div><div class="page-header-sub">Save files from ExamHelp to your Drive</div></div>', unsafe_allow_html=True)
-    last_ai = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "assistant"), "")
-    render_drive_panel(
-        default_filename="ExamHelp_Output.txt",
-        default_content=last_ai.encode() if last_ai else b""
-    )
-    if st.button("← Back to Chat", key="drive_back"): st.session_state.app_mode = "chat"; st.rerun()
-
-# ─── CALENDAR PANEL ───────────────────────────────────────────────────────────
-elif app_mode == "calendar_panel":
-    st.markdown('<div class="page-header"><div class="page-header-title">📅 Google Calendar</div><div class="page-header-sub">View & add study events to your calendar</div></div>', unsafe_allow_html=True)
-    render_calendar_panel()
-    if st.button("← Back to Chat", key="cal_back"): st.session_state.app_mode = "chat"; st.rerun()
-
-# ─── MAPS PANEL ───────────────────────────────────────────────────────────────
+# ─── MAPS PANEL (Leaflet / OpenStreetMap — no API key needed) ─────────────────
 elif app_mode == "maps_panel":
-    st.markdown('<div class="page-header"><div class="page-header-title">🗺️ Google Maps</div><div class="page-header-sub">Search locations & get directions</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-header"><div class="page-header-title">🗺️ Campus & Travel Map</div><div class="page-header-sub">VIT Chennai campus map · India travel destinations</div></div>', unsafe_allow_html=True)
     render_maps_panel()
     if st.button("← Back to Chat", key="maps_back"): st.session_state.app_mode = "chat"; st.rerun()
 
@@ -3805,15 +3782,7 @@ else:
                     st.text_input("Share Link", value=f"?chat={compressed}", label_visibility="collapsed")
                     st.caption("📋 Copy the URL above to share this conversation.")
                 except: st.info("Sharing unavailable.")
-                st.divider()
-                st.markdown("**Send via Google**")
-                col_gm, col_gd = st.columns(2)
-                with col_gm:
-                    if st.button("📧 Send via Gmail", key="quick_gmail", use_container_width=True):
-                        st.session_state.app_mode = "gmail_panel"; st.rerun()
-                with col_gd:
-                    if st.button("📁 Save to Drive", key="quick_drive", use_container_width=True):
-                        st.session_state.app_mode = "drive_panel"; st.rerun()
+
 
             # ── Chat Powerup: ratings + follow-up suggestions ──
             try:

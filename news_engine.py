@@ -1,164 +1,133 @@
 """
-news_engine.py — AI News Hub with Live APIs
-Fetches real AI news, analyzes trends, recommends best AI tools.
+news_engine.py — AI News Hub with Live Feeds
+Fetches real AI news via free RSS feeds (no external API keys needed).
+GNews/NewsData API calls silently skip if no key is provided.
 """
 from __future__ import annotations
 import re
 import time
 from typing import List, Dict, Optional
 from datetime import datetime
-# [REMOVED — integration/key stripped] from utils.secret_manager import get_service_key
 
 NEWS_SOURCES = [
-    # Free RSS/JSON feeds
-    {"name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "type": "rss"},
-    {"name": "The Verge AI", "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml", "type": "rss"},
-    {"name": "VentureBeat AI", "url": "https://venturebeat.com/category/ai/feed/", "type": "rss"},
-    {"name": "MIT Tech Review", "url": "https://www.technologyreview.com/feed/", "type": "rss"},
-    {"name": "Wired AI", "url": "https://www.wired.com/feed/tag/artificial-intelligence/rss", "type": "rss"},
-    {"name": "ArXiv AI", "url": "https://export.arxiv.org/rss/cs.AI", "type": "rss"},
-    {"name": "OpenAI Blog", "url": "https://openai.com/blog/rss.xml", "type": "rss"},
-    {"name": "Google AI Blog", "url": "https://ai.googleblog.com/feeds/posts/default", "type": "rss"},
-    {"name": "Anthropic News", "url": "https://www.anthropic.com/news/rss", "type": "rss"},
-    {"name": "Hugging Face", "url": "https://huggingface.co/blog/feed.xml", "type": "rss"},
+    {"name": "TechCrunch AI",  "url": "https://techcrunch.com/category/artificial-intelligence/feed/",        "type": "rss"},
+    {"name": "The Verge AI",   "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",    "type": "rss"},
+    {"name": "VentureBeat AI", "url": "https://venturebeat.com/category/ai/feed/",                            "type": "rss"},
+    {"name": "MIT Tech Review","url": "https://www.technologyreview.com/feed/",                                "type": "rss"},
+    {"name": "Wired AI",       "url": "https://www.wired.com/feed/tag/artificial-intelligence/rss",           "type": "rss"},
+    {"name": "ArXiv AI",       "url": "https://export.arxiv.org/rss/cs.AI",                                   "type": "rss"},
+    {"name": "OpenAI Blog",    "url": "https://openai.com/blog/rss.xml",                                      "type": "rss"},
+    {"name": "Google AI Blog", "url": "https://ai.googleblog.com/feeds/posts/default",                        "type": "rss"},
+    {"name": "Anthropic News", "url": "https://www.anthropic.com/news/rss",                                   "type": "rss"},
+    {"name": "Hugging Face",   "url": "https://huggingface.co/blog/feed.xml",                                 "type": "rss"},
 ]
 
-# SECURITY: Key loaded lazily — not at import time (st.secrets not ready then)
-def _get_gnews_key() -> str:
-    return get_service_key("GNEWS_API_KEY")
+
+def _get_optional_key(name: str) -> str:
+    """Read an optional API key from Streamlit secrets or env — never raises."""
+    try:
+        import streamlit as st
+        return st.secrets.get(name, "") or ""
+    except Exception:
+        import os
+        return os.environ.get(name, "")
+
 
 def fetch_gnews(query: str = "artificial intelligence", max_results: int = 20) -> List[Dict]:
-    """Fetch news from GNews API (free tier)"""
-    gnews_key = _get_gnews_key()
+    """Fetch news from GNews API if GNEWS_API_KEY is set, else return empty list."""
+    gnews_key = _get_optional_key("GNEWS_API_KEY")
     if not gnews_key:
         return []
     try:
         import requests
-        url = f"https://gnews.io/api/v4/search"
         params = {
-            "q": query,
-            "lang": "en",
-            "country": "us",
+            "q": query, "lang": "en", "country": "us",
             "max": min(max_results, 10),
-            "apikey": gnews_key,
-            "sortby": "publishedAt",
+            "apikey": gnews_key, "sortby": "publishedAt",
         }
-        resp = requests.get(url, params=params, timeout=10)
-        data = resp.json()
-        articles = data.get("articles", [])
-        return [{
-            "title": a.get("title",""),
-            "description": a.get("description",""),
-            "url": a.get("url",""),
-            "source": a.get("source",{}).get("name",""),
-            "published": a.get("publishedAt",""),
-            "image": a.get("image",""),
-        } for a in articles]
+        resp = requests.get("https://gnews.io/api/v4/search", params=params, timeout=10)
+        articles = resp.json().get("articles", [])
+        return [{"title": a.get("title",""), "description": a.get("description",""),
+                 "url": a.get("url",""), "source": a.get("source",{}).get("name",""),
+                 "published": a.get("publishedAt",""), "image": a.get("image","")} for a in articles]
     except Exception:
         return []
+
 
 def fetch_newsapi(query: str = "artificial intelligence", max_results: int = 20) -> List[Dict]:
-    """Fetch from NewsAPI (fallback, free tier)"""
+    """Fetch from NewsData.io if NEWSDATA_API_KEY is set, else return empty list."""
+    key = _get_optional_key("NEWSDATA_API_KEY") or _get_optional_key("GNEWS_API_KEY")
+    if not key:
+        return []
     try:
         import requests
-        # Using newsdata.io free tier as backup
-        url = "https://newsdata.io/api/1/news"
-        params = {
-            "apikey": get_service_key("NEWSDATA_API_KEY") or get_service_key("GNEWS_API_KEY"),
-            "q": query,
-            "language": "en",
-            "category": "technology",
-        }
-        resp = requests.get(url, params=params, timeout=10)
-        data = resp.json()
-        articles = data.get("results", [])
-        return [{
-            "title": a.get("title",""),
-            "description": a.get("description","") or a.get("content",""),
-            "url": a.get("link",""),
-            "source": a.get("source_id",""),
-            "published": a.get("pubDate",""),
-            "image": a.get("image_url",""),
-        } for a in articles[:max_results]]
+        params = {"apikey": key, "q": query, "language": "en", "category": "technology"}
+        resp = requests.get("https://newsdata.io/api/1/news", params=params, timeout=10)
+        articles = resp.json().get("results", [])
+        return [{"title": a.get("title",""), "description": a.get("description","") or a.get("content",""),
+                 "url": a.get("link",""), "source": a.get("source_id",""),
+                 "published": a.get("pubDate",""), "image": a.get("image_url","")}
+                for a in articles[:max_results]]
     except Exception:
         return []
 
+
 def fetch_rss_feed(url: str, source_name: str, max_items: int = 10) -> List[Dict]:
-    """Fetch and parse RSS feed."""
+    """Fetch and parse an RSS/Atom feed — no API key needed."""
     try:
         import requests
         import xml.etree.ElementTree as ET
         resp = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"})
         root = ET.fromstring(resp.content)
-        
         items = []
         ns = {"atom": "http://www.w3.org/2005/Atom"}
-        
-        # Try RSS 2.0
+
         for item in root.findall(".//item")[:max_items]:
-            title = item.findtext("title","").strip()
-            desc = item.findtext("description","").strip()
-            link = item.findtext("link","").strip()
-            pubdate = item.findtext("pubDate","").strip()
+            title   = item.findtext("title", "").strip()
+            desc    = re.sub(r'<[^>]+>', '', item.findtext("description", "").strip())[:400]
+            link    = item.findtext("link", "").strip()
+            pubdate = item.findtext("pubDate", "").strip()
             if title and link:
-                # Strip HTML tags from description
-                desc = re.sub(r'<[^>]+>', '', desc)[:400]
                 items.append({"title": title, "description": desc, "url": link, "source": source_name, "published": pubdate, "image": ""})
-        
-        # Try Atom feed
+
         if not items:
             for entry in root.findall(".//atom:entry", ns)[:max_items]:
-                title = entry.findtext("atom:title", namespaces=ns, default="").strip()
+                title   = entry.findtext("atom:title", namespaces=ns, default="").strip()
                 link_el = entry.find("atom:link", ns)
-                link = link_el.get("href", "") if link_el is not None else ""
-                summary = entry.findtext("atom:summary", namespaces=ns, default="").strip()
-                summary = re.sub(r'<[^>]+>', '', summary)[:400]
-                published = entry.findtext("atom:published", namespaces=ns, default="").strip()
+                link    = link_el.get("href", "") if link_el is not None else ""
+                summary = re.sub(r'<[^>]+>', '', entry.findtext("atom:summary", namespaces=ns, default="").strip())[:400]
+                pub     = entry.findtext("atom:published", namespaces=ns, default="").strip()
                 if title and link:
-                    items.append({"title": title, "description": summary, "url": link, "source": source_name, "published": published, "image": ""})
-        
+                    items.append({"title": title, "description": summary, "url": link, "source": source_name, "published": pub, "image": ""})
         return items
     except Exception:
         return []
 
+
 def fetch_all_ai_news(query: str = "AI artificial intelligence", max_per_source: int = 5) -> List[Dict]:
-    """Fetch AI news from multiple sources."""
-    all_articles = []
-    
-    # Primary: GNews API
-    gnews_articles = fetch_gnews(query, max_results=15)
-    all_articles.extend(gnews_articles)
-    
-    # Secondary: RSS feeds (try a few)
-    rss_to_try = [
+    """Fetch AI news from multiple free RSS sources + optional paid APIs."""
+    all_articles = list(fetch_gnews(query, max_results=15))
+
+    for rss_url, name in [
         ("https://techcrunch.com/category/artificial-intelligence/feed/", "TechCrunch AI"),
         ("https://venturebeat.com/category/ai/feed/", "VentureBeat AI"),
         ("https://export.arxiv.org/rss/cs.AI", "arXiv CS.AI"),
         ("https://huggingface.co/blog/feed.xml", "Hugging Face"),
-    ]
-    
-    for rss_url, name in rss_to_try[:2]:  # Limit to avoid timeouts
-        articles = fetch_rss_feed(rss_url, name, max_per_source)
-        all_articles.extend(articles)
-    
-    # Deduplicate by title
-    seen_titles = set()
-    unique_articles = []
+    ][:2]:
+        all_articles.extend(fetch_rss_feed(rss_url, name, max_per_source))
+
+    seen, unique = set(), []
     for a in all_articles:
-        title_key = a.get("title","").lower()[:50]
-        if title_key and title_key not in seen_titles:
-            seen_titles.add(title_key)
-            unique_articles.append(a)
-    
-    return unique_articles[:40]
+        key = a.get("title", "").lower()[:50]
+        if key and key not in seen:
+            seen.add(key)
+            unique.append(a)
+    return unique[:40]
+
 
 def get_ai_tool_recommendations(use_case: str) -> str:
-    """Get AI recommendations for the best tool for a given use case."""
     from utils.ai_engine import generate
-    
     prompt = f"""A user wants the best AI tool for: "{use_case}"
-
-Provide a comprehensive, current recommendation covering:
 
 ## 🏆 Best AI for: {use_case}
 
@@ -174,46 +143,31 @@ Provide a comprehensive, current recommendation covering:
 - [Specific tip 1]
 - [Specific tip 2]
 
-### 🔗 Direct Links
-- Tool name: [URL]
-
-Be specific, current, and genuinely helpful. Include GPT-4, Claude, Gemini, and specialized tools as appropriate. Today's date context: {datetime.now().strftime("%B %Y")}."""
-
+Be specific, current, and genuinely helpful. Today: {datetime.now().strftime("%B %Y")}."""
     try:
-        result = generate(prompt=prompt, provider="auto")
-        return result or "Could not generate recommendations."
+        return generate(prompt=prompt) or "Could not generate recommendations."
     except Exception as e:
         return f"Error: {e}"
 
+
 def summarize_article_with_ai(article: Dict) -> str:
-    """Get AI summary and analysis of a news article."""
     from utils.ai_engine import generate
-    
-    title = article.get("title", "")
-    desc = article.get("description", "")
-    source = article.get("source", "")
-    
-    prompt = f"""Article from {source}:
-Title: {title}
-Content: {desc}
+    prompt = f"""Article from {article.get('source','')}:
+Title: {article.get('title','')}
+Content: {article.get('description','')}
 
 Provide a 3-sentence expert analysis:
 1. What happened / what this means
 2. Why it matters for the AI field
-3. What to watch next / implications
-
-Keep it sharp, informative, expert-level."""
-
+3. What to watch next / implications"""
     try:
-        result = generate(prompt=prompt, provider="auto", temperature=0.4)
-        return result or desc
+        return generate(prompt=prompt) or article.get("description", "")
     except Exception:
-        return desc
+        return article.get("description", "")
+
 
 def get_ai_trend_analysis() -> str:
-    """Get current AI trends analysis."""
     from utils.ai_engine import generate
-    
     prompt = f"""As of {datetime.now().strftime("%B %Y")}, provide a comprehensive AI trends analysis:
 
 ## 🌊 Current AI Trends & Landscape
@@ -221,8 +175,8 @@ def get_ai_trend_analysis() -> str:
 ### 🔥 What's Hot Right Now
 [Top 5 trending topics in AI]
 
-### 🏭 Model Rankings (by capability, {datetime.now().strftime("%B %Y")})
-[List top models: GPT-4o, Claude 3.5, Gemini 2.0, Llama, etc. with current capabilities]
+### 🏭 Model Rankings (by capability)
+[List top models with current capabilities]
 
 ### 💼 Best AI for Different Tasks
 | Task | Best AI | Why |
@@ -231,33 +185,26 @@ def get_ai_trend_analysis() -> str:
 | Writing | ... | ... |
 | Research | ... | ... |
 | Image Gen | ... | ... |
-| Video Gen | ... | ... |
-| Voice | ... | ... |
-| Data Analysis | ... | ... |
 
 ### 🚀 Emerging Technologies
 [3 key emerging developments]
 
-### 💰 AI Investment & Business News
-[Key business developments]
-
 Be specific and accurate for {datetime.now().strftime("%B %Y")}."""
-
     try:
-        result = generate(prompt=prompt, provider="auto")
-        return result or "Could not fetch trend analysis."
+        return generate(prompt=prompt) or "Could not fetch trend analysis."
     except Exception as e:
         return f"Error: {e}"
 
+
 TOPIC_CATEGORIES = {
-    "🤖 General AI": "artificial intelligence AI machine learning",
-    "💬 LLMs & Chatbots": "ChatGPT GPT Claude Gemini Llama language model chatbot",
-    "🎨 Generative AI": "image generation Midjourney Stable Diffusion DALL-E Sora video AI art",
-    "🔬 AI Research": "AI research paper arxiv neural network deep learning",
-    "💼 AI in Business": "AI business enterprise automation productivity",
-    "🏥 AI in Healthcare": "AI healthcare medical diagnosis drug discovery",
-    "⚖️ AI Ethics & Policy": "AI ethics regulation policy safety alignment",
-    "🚗 AI in Robotics": "AI robotics autonomous vehicle robot",
-    "🎮 AI in Gaming": "AI gaming game development NPC",
-    "📱 AI Tools & Apps": "AI tools apps productivity new AI release",
+    "🤖 General AI":          "artificial intelligence AI machine learning",
+    "💬 LLMs & Chatbots":     "ChatGPT GPT Claude Gemini Llama language model chatbot",
+    "🎨 Generative AI":       "image generation Midjourney Stable Diffusion DALL-E Sora video AI art",
+    "🔬 AI Research":         "AI research paper arxiv neural network deep learning",
+    "💼 AI in Business":      "AI business enterprise automation productivity",
+    "🏥 AI in Healthcare":    "AI healthcare medical diagnosis drug discovery",
+    "⚖️ AI Ethics & Policy":  "AI ethics regulation policy safety alignment",
+    "🚗 AI in Robotics":      "AI robotics autonomous vehicle robot",
+    "🎮 AI in Gaming":        "AI gaming game development NPC",
+    "📱 AI Tools & Apps":     "AI tools apps productivity new AI release",
 }

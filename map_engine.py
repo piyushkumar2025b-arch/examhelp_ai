@@ -1,14 +1,13 @@
 """
 map_engine.py — VIT Chennai Campus Map + India Trip Planner
-Leaflet.js-based interactive map (no Google JS API key needed for markers).
-Google Maps Embed iframe still used for India regional views (Embed API).
+Leaflet.js-based interactive map (no external API keys needed).
+All mapping uses free OpenStreetMap / Leaflet.js only.
 """
 from __future__ import annotations
 import math
 from typing import Dict, List, Optional
-# [REMOVED — integration/key stripped] from utils.secret_manager import get_service_key
 
-GOOGLE_MAPS_EMBED_KEY = get_service_key("GOOGLE_MAPS_EMBED_KEY")
+# Google Maps Embed removed — using Leaflet.js (OpenStreetMap) for all maps
 
 VIT_CHENNAI_LOCATIONS = {
     "🏫 Academic Buildings": [
@@ -28,280 +27,142 @@ VIT_CHENNAI_LOCATIONS = {
         {"name": "LH2 - Ladies Hostel 2", "lat": 12.8432, "lng": 80.1528, "desc": "Women's residential block", "type": "hostel"},
         {"name": "LH3 - Ladies Hostel 3", "lat": 12.8435, "lng": 80.1530, "desc": "Women's residential block", "type": "hostel"},
     ],
-    "🍽️ Food Courts": [
-        {"name": "Main Cafeteria",         "lat": 12.8408, "lng": 80.1520, "desc": "Central food court with multiple cuisine options", "type": "food"},
-        {"name": "Juice Stall / Snack Corner", "lat": 12.8410, "lng": 80.1522, "desc": "Quick snacks, beverages", "type": "food"},
-        {"name": "Engineering Canteen",    "lat": 12.8414, "lng": 80.1538, "desc": "Near tech blocks canteen", "type": "food"},
+    "🍽️ Food & Essentials": [
+        {"name": "Central Cafeteria",      "lat": 12.8410, "lng": 80.1522, "desc": "Main dining hall", "type": "food"},
+        {"name": "Juice & Snack Corner",   "lat": 12.8407, "lng": 80.1518, "desc": "Quick bites & beverages", "type": "food"},
+        {"name": "Medical Centre",         "lat": 12.8402, "lng": 80.1535, "desc": "Campus health centre", "type": "health"},
+        {"name": "ATM / Bank",             "lat": 12.8405, "lng": 80.1527, "desc": "ATM & banking services", "type": "finance"},
     ],
-    "📚 Library & Study": [
-        {"name": "Central Library",        "lat": 12.8405, "lng": 80.1532, "desc": "Main library with 3 floors, 24/7 study rooms", "type": "library"},
-        {"name": "Digital Library",        "lat": 12.8407, "lng": 80.1533, "desc": "E-resources, computer terminals", "type": "library"},
+    "🏋️ Sports & Recreation": [
+        {"name": "Main Sports Ground",     "lat": 12.8390, "lng": 80.1520, "desc": "Cricket, football & athletics", "type": "sports"},
+        {"name": "Indoor Stadium",         "lat": 12.8392, "lng": 80.1525, "desc": "Badminton, basketball, table tennis", "type": "sports"},
+        {"name": "Swimming Pool",          "lat": 12.8388, "lng": 80.1530, "desc": "Olympic-size swimming pool", "type": "sports"},
     ],
-    "⚽ Sports & Recreation": [
-        {"name": "Sports Complex",         "lat": 12.8420, "lng": 80.1548, "desc": "Indoor sports, gymnasium, courts", "type": "sports"},
-        {"name": "Football Ground",        "lat": 12.8425, "lng": 80.1555, "desc": "Full-size football ground", "type": "sports"},
-        {"name": "Cricket Ground",         "lat": 12.8428, "lng": 80.1558, "desc": "Cricket pitch and practice nets", "type": "sports"},
-        {"name": "Swimming Pool",          "lat": 12.8418, "lng": 80.1550, "desc": "Olympic-size swimming pool", "type": "sports"},
-    ],
-    "🏥 Health & Services": [
-        {"name": "Medical Center",         "lat": 12.8402, "lng": 80.1518, "desc": "Campus health center, 24/7", "type": "services"},
-        {"name": "ATM / Bank",             "lat": 12.8403, "lng": 80.1516, "desc": "SBI ATM and banking services", "type": "services"},
-        {"name": "Post Office",            "lat": 12.8401, "lng": 80.1514, "desc": "VIT Post Office", "type": "services"},
-    ],
-    "🚌 Transport": [
-        {"name": "Main Gate",              "lat": 12.8396, "lng": 80.1505, "desc": "Main entrance and security", "type": "transport"},
-        {"name": "Bus Stand",              "lat": 12.8394, "lng": 80.1507, "desc": "Campus bus pickup/drop point", "type": "transport"},
-        {"name": "Auto Stand",             "lat": 12.8393, "lng": 80.1503, "desc": "Auto-rickshaw stand outside campus", "type": "transport"},
+    "📚 Library & Labs": [
+        {"name": "Central Library",        "lat": 12.8409, "lng": 80.1532, "desc": "Main library with digital resources", "type": "library"},
+        {"name": "Computer Labs (GDN)",    "lat": 12.8413, "lng": 80.1536, "desc": "General computing labs", "type": "lab"},
     ],
 }
-
-VIT_CENTER_LAT = 12.8406
-VIT_CENTER_LNG = 80.1534
-
-# ── Weekend destinations reachable from VIT by public transport ──────────────
-NEARBY_FROM_VIT = [
-    {"name": "Mahabalipuram",  "km": 30,  "lat": 12.6269, "lng": 80.1927,
-     "desc": "UNESCO shore temples, beach — 1 hr by bus from Kelambakkam",
-     "transport": "Bus from Kelambakkam bus stand, ₹30-50"},
-    {"name": "Pondicherry",    "km": 160, "lat": 11.9416, "lng": 79.8083,
-     "desc": "French Quarter, beaches, cafes — perfect overnight trip",
-     "transport": "Bus (ECR route) ~3 hr, ₹120-180 or cab ₹1,200"},
-    {"name": "Tiruvannamalai", "km": 190, "lat": 12.2253, "lng": 79.0747,
-     "desc": "Arunachala hill, Ramana Ashram — spiritual weekend",
-     "transport": "Train from Chennai Central ~3.5 hr, ₹80-200"},
-    {"name": "Vellore",        "km": 130, "lat": 12.9165, "lng": 79.1325,
-     "desc": "Golden Temple (BAPS), Vellore Fort — easy day trip",
-     "transport": "Bus from Koyambedu ~2.5 hr, ₹100-150"},
-    {"name": "Yelagiri",       "km": 200, "lat": 12.5833, "lng": 78.6167,
-     "desc": "Mini hill station, paragliding, boating — budget getaway",
-     "transport": "Train to Jolarpet then bus ~3.5 hr total, ₹150-250"},
-    {"name": "Kanchipuram",    "km": 75,  "lat": 12.8342, "lng": 79.7036,
-     "desc": "Silk city, 1000+ year old temples — perfect day trip",
-     "transport": "Direct bus from VIT area ~1.5 hr, ₹50-80"},
-]
 
 INDIA_DESTINATIONS = {
-    "🏔️ Hill Stations": [
-        {"name": "Ooty",        "state": "Tamil Nadu",        "lat": 11.4102, "lng": 76.6950, "desc": "Queen of Hills, tea gardens, Nilgiri railway"},
-        {"name": "Munnar",      "state": "Kerala",            "lat": 10.0889, "lng": 77.0595, "desc": "Tea estates, misty mountains"},
-        {"name": "Shimla",      "state": "Himachal Pradesh",  "lat": 31.1048, "lng": 77.1734, "desc": "Colonial hill station, Himalayan views"},
-        {"name": "Darjeeling",  "state": "West Bengal",       "lat": 27.0360, "lng": 88.2627, "desc": "Tea gardens, Tiger Hill sunrise"},
-        {"name": "Manali",      "state": "Himachal Pradesh",  "lat": 32.2432, "lng": 77.1892, "desc": "Adventure hub, Rohtang Pass"},
-        {"name": "Kodaikanal",  "state": "Tamil Nadu",        "lat": 10.2381, "lng": 77.4892, "desc": "Princess of Hill Stations"},
-        {"name": "Coorg",       "state": "Karnataka",         "lat": 12.3375, "lng": 75.8069, "desc": "Scotland of India, coffee estates"},
+    "🏔️ North India": [
+        {"name": "Taj Mahal, Agra",        "lat": 27.1751, "lng": 78.0421,  "desc": "UNESCO World Heritage — Mughal marble mausoleum"},
+        {"name": "Jaipur City Palace",     "lat": 26.9255, "lng": 75.8237,  "desc": "Pink City royal residence & museum"},
+        {"name": "Varanasi Ghats",         "lat": 25.3176, "lng": 83.0062,  "desc": "Oldest living city, spiritual capital of India"},
+        {"name": "Golden Temple, Amritsar","lat": 31.6200, "lng": 74.8765,  "desc": "Holiest Sikh shrine"},
+        {"name": "Leh Palace, Ladakh",     "lat": 34.1642, "lng": 77.5847,  "desc": "Himalayan fort & Buddhist monastery"},
     ],
-    "🏖️ Beaches": [
-        {"name": "Goa Beaches",      "state": "Goa",          "lat": 15.2993, "lng": 74.1240, "desc": "Baga, Calangute, Anjuna, Palolem"},
-        {"name": "Marina Beach",     "state": "Tamil Nadu",   "lat": 13.0500, "lng": 80.2824, "desc": "World's longest urban beach, Chennai"},
-        {"name": "Kovalam",          "state": "Kerala",       "lat":  8.4004, "lng": 76.9788, "desc": "Lighthouse beach, backwaters"},
-        {"name": "Varkala",          "state": "Kerala",       "lat":  8.7379, "lng": 76.7162, "desc": "Cliff beach, mineral springs"},
-        {"name": "Radhanagar Beach", "state": "Andaman",      "lat": 11.9750, "lng": 92.6594, "desc": "Asia's best beach, Havelock Island"},
-        {"name": "Juhu Beach",       "state": "Maharashtra",  "lat": 19.0998, "lng": 72.8262, "desc": "Famous Mumbai beach, street food"},
+    "🌊 South India": [
+        {"name": "Meenakshi Temple, Madurai","lat": 9.9195, "lng": 78.1194, "desc": "Ancient Dravidian temple — 33,000 sculptures"},
+        {"name": "Hampi Ruins, Karnataka", "lat": 15.3350, "lng": 76.4600,  "desc": "UNESCO — Vijayanagara Empire ruins"},
+        {"name": "Munnar Tea Gardens",     "lat": 10.0889, "lng": 77.0595,  "desc": "Kerala hill station — rolling tea estates"},
+        {"name": "Backwaters, Alleppey",   "lat": 9.4981,  "lng": 76.3388,  "desc": "Kerala houseboat cruises & lagoons"},
+        {"name": "Coorg, Karnataka",       "lat": 12.3375, "lng": 75.8069,  "desc": "Scotland of India — coffee & spice trails"},
     ],
-    "🏛️ Heritage & History": [
-        {"name": "Taj Mahal",      "state": "Uttar Pradesh",  "lat": 27.1751, "lng": 78.0421, "desc": "World's greatest monument of love, Agra"},
-        {"name": "Hampi",          "state": "Karnataka",      "lat": 15.3350, "lng": 76.4600, "desc": "UNESCO ruins of Vijayanagara Empire"},
-        {"name": "Varanasi",       "state": "Uttar Pradesh",  "lat": 25.3176, "lng": 82.9739, "desc": "World's oldest living city, Ganga ghats"},
-        {"name": "Khajuraho",      "state": "Madhya Pradesh", "lat": 24.8318, "lng": 79.9199, "desc": "UNESCO temples with intricate sculptures"},
-        {"name": "Mahabalipuram",  "state": "Tamil Nadu",     "lat": 12.6269, "lng": 80.1927, "desc": "UNESCO shore temples, rock carvings"},
-        {"name": "Jaipur",         "state": "Rajasthan",      "lat": 26.9124, "lng": 75.7873, "desc": "Pink City, Amber Fort, Hawa Mahal"},
+    "🏖️ Coastal Gems": [
+        {"name": "Goa Beaches",            "lat": 15.2993, "lng": 74.1240,  "desc": "Golden beaches, Portuguese heritage, seafood"},
+        {"name": "Andaman Islands",        "lat": 11.7401, "lng": 92.6586,  "desc": "Pristine coral reefs & white sand beaches"},
+        {"name": "Pondicherry",            "lat": 11.9416, "lng": 79.8083,  "desc": "French colonial quarter & Auroville"},
     ],
-    "🌿 Nature & Wildlife": [
-        {"name": "Jim Corbett",      "state": "Uttarakhand",  "lat": 29.5300, "lng": 78.7747, "desc": "India's oldest national park, tigers"},
-        {"name": "Kaziranga",        "state": "Assam",        "lat": 26.6851, "lng": 93.3698, "desc": "UNESCO, one-horned rhinos"},
-        {"name": "Sundarbans",       "state": "West Bengal",  "lat": 21.9497, "lng": 89.1833, "desc": "UNESCO mangrove forests, Royal Bengal Tigers"},
-        {"name": "Valley of Flowers","state": "Uttarakhand",  "lat": 30.7258, "lng": 79.6077, "desc": "UNESCO alpine meadow, wildflowers"},
-        {"name": "Periyar Wildlife", "state": "Kerala",       "lat":  9.4694, "lng": 77.1891, "desc": "Boat safari, elephants, tigers"},
-    ],
-    "🕌 Spiritual": [
-        {"name": "Rishikesh",  "state": "Uttarakhand",     "lat": 30.0869, "lng": 78.2676, "desc": "Yoga capital, Ganga aarti, adventure"},
-        {"name": "Amritsar",   "state": "Punjab",          "lat": 31.6340, "lng": 74.8723, "desc": "Golden Temple, Wagah Border"},
-        {"name": "Tirupati",   "state": "Andhra Pradesh",  "lat": 13.6288, "lng": 79.4192, "desc": "Richest temple, Balaji darshan"},
-        {"name": "Vrindavan",  "state": "Uttar Pradesh",   "lat": 27.5714, "lng": 77.6968, "desc": "Krishna birthplace, temples"},
+    "🗿 Heritage & Culture": [
+        {"name": "Ellora Caves, Maharashtra","lat": 20.0258,"lng": 75.1780, "desc": "UNESCO — Rock-cut Buddhist, Hindu & Jain temples"},
+        {"name": "Khajuraho Temples, MP",  "lat": 24.8318, "lng": 79.9199,  "desc": "UNESCO — Medieval temple sculptures"},
+        {"name": "Mysore Palace",          "lat": 12.3052, "lng": 76.6552,  "desc": "Indo-Saracenic royal palace — illuminated nightly"},
     ],
 }
 
 
-# ── Distance helpers ──────────────────────────────────────────────────────────
+def get_leaflet_map_html(
+    locations: List[Dict],
+    center_lat: float = 20.5937,
+    center_lng: float = 78.9629,
+    zoom: int = 5,
+    height: str = "500px",
+    title: str = "Map",
+) -> str:
+    """Generate a self-contained Leaflet.js map (no API key needed)."""
+    markers_js = ""
+    for loc in locations:
+        lat  = loc.get("lat", 0)
+        lng  = loc.get("lng", 0)
+        name = loc.get("name", "").replace("'", "\\'")
+        desc = loc.get("desc", "").replace("'", "\\'")
+        color = {
+            "academic": "#4f8ef7",
+            "hostel":   "#7c6af7",
+            "food":     "#48c78e",
+            "sports":   "#f7a04f",
+            "library":  "#c8b8ff",
+            "lab":      "#4ff7e8",
+            "health":   "#f74f4f",
+            "finance":  "#f7e44f",
+        }.get(loc.get("type", ""), "#7c6af7")
 
-def haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    """Straight-line distance between two lat/lng points in kilometres."""
-    R = 6371.0
+        markers_js += f"""
+        L.circleMarker([{lat}, {lng}], {{
+            radius: 8, color: '{color}', fillColor: '{color}',
+            fillOpacity: 0.85, weight: 2
+        }}).addTo(map).bindPopup('<b>{name}</b><br>{desc}');
+"""
+
+    return f"""
+<div id="map_{id(locations)}" style="height:{height};width:100%;border-radius:12px;overflow:hidden;"></div>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var map = L.map('map_{id(locations)}').setView([{center_lat}, {center_lng}], {zoom});
+L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
+}}).addTo(map);
+{markers_js}
+</script>
+"""
+
+
+def get_vit_campus_map(height: str = "500px") -> str:
+    all_locs = []
+    for group in VIT_CHENNAI_LOCATIONS.values():
+        all_locs.extend(group)
+    return get_leaflet_map_html(
+        all_locs,
+        center_lat=12.8410, center_lng=80.1530,
+        zoom=17, height=height,
+        title="VIT Chennai Campus",
+    )
+
+
+def get_india_travel_map(region: Optional[str] = None, height: str = "550px") -> str:
+    all_locs = []
+    src = INDIA_DESTINATIONS if region is None else {region: INDIA_DESTINATIONS.get(region, [])}
+    for group in src.values():
+        all_locs.extend(group)
+    return get_leaflet_map_html(
+        all_locs,
+        center_lat=20.5937, center_lng=78.9629,
+        zoom=5, height=height,
+        title="India Travel Map",
+    )
+
+
+def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Haversine distance in km."""
+    R = 6371
     dlat = math.radians(lat2 - lat1)
     dlng = math.radians(lng2 - lng1)
-    a = (math.sin(dlat / 2) ** 2
-         + math.cos(math.radians(lat1))
-         * math.cos(math.radians(lat2))
-         * math.sin(dlng / 2) ** 2)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlng/2)**2
     return R * 2 * math.asin(math.sqrt(a))
 
 
-def get_walk_time(km: float) -> str:
-    """Return human-readable walking time for a distance in km (5 km/h avg)."""
-    minutes = km / 5.0 * 60
-    if minutes < 1:
-        return "< 1 min walk"
-    elif minutes < 60:
-        return f"~{round(minutes)} min walk"
-    else:
-        hrs = int(minutes // 60)
-        mins = int(minutes % 60)
-        return f"~{hrs}h {mins}m walk"
-
-
-# ── Map HTML generators ───────────────────────────────────────────────────────
-
-def get_vit_map_html(selected_categories: List[str] = None) -> str:
-    """
-    Generate a Leaflet.js interactive campus map with colored markers.
-    Works in Streamlit components.html without requiring the Google Maps JS API.
-    OpenStreetMap tiles are free with no quota.
-    """
-    categories = selected_categories or list(VIT_CHENNAI_LOCATIONS.keys())
-
-    color_map = {
-        "academic":  "#7c6af7",
-        "hostel":    "#34d399",
-        "food":      "#f59e0b",
-        "library":   "#60a5fa",
-        "sports":    "#f87171",
-        "services":  "#c084fc",
-        "transport": "#fbbf24",
-    }
-
-    markers_js_parts = []
-    for cat in categories:
-        for loc in VIT_CHENNAI_LOCATIONS.get(cat, []):
-            color = color_map.get(loc.get("type", "academic"), "#7c6af7")
-            # Escape single quotes in name/desc for JS string safety
-            name = loc["name"].replace("'", "\\'")
-            desc = loc["desc"].replace("'", "\\'")
-            markers_js_parts.append(f"""
-  L.circleMarker([{loc['lat']}, {loc['lng']}], {{
-    radius: 10,
-    color: '#ffffff',
-    fillColor: '{color}',
-    fillOpacity: 0.92,
-    weight: 2.5
-  }}).addTo(map)
-   .bindPopup('<div style="font-family:system-ui;min-width:160px">'
-     + '<b style="font-size:.95rem">{name}</b>'
-     + '<p style="margin:6px 0 0;font-size:.8rem;color:#555">{desc}</p>'
-     + '<a href=\\'https://www.google.com/maps/search/?api=1&query={loc["lat"]},{loc["lng"]}\\' '
-     + 'target=\\'_blank\\' style=\\'font-size:.8rem;color:#7c6af7\\'>📍 Open in Maps →</a>'
-     + '</div>');""")
-
-    markers_js = "\n".join(markers_js_parts)
-
-    return f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>
-  html,body{{margin:0;padding:0;height:100%;background:#0e0e1a;}}
-  #map{{height:500px;width:100%;border-radius:12px;overflow:hidden;}}
-  #info-bar{{background:#0e0e1a;color:#9090b8;font-family:system-ui;
-    font-size:.78rem;padding:8px 14px;border-top:1px solid #1e1e30;}}
-</style>
-</head>
-<body>
-<div id="map"></div>
-<div id="info-bar">📍 VIT Chennai, Vandalur–Kelambakkam Road, Chennai 600127 — Click any marker for details</div>
-<script>
-var map = L.map('map', {{
-  center: [{VIT_CENTER_LAT}, {VIT_CENTER_LNG}],
-  zoom: 17,
-  zoomControl: true,
-  scrollWheelZoom: true
-}});
-
-L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
-  attribution: '© OpenStreetMap contributors',
-  maxZoom: 20
-}}).addTo(map);
-
-{markers_js}
-</script>
-</body>
-</html>"""
-
-
-def get_directions_url(from_text: str, to_lat: float, to_lng: float) -> str:
-    """
-    Build a safe Google Maps directions URL.
-    Uses urllib.parse to handle non-ASCII characters in addresses (Tamil, Hindi etc).
-    """
-    import urllib.parse
-    origin_encoded = urllib.parse.quote_plus(from_text + ", Chennai, Tamil Nadu, India")
-    return f"https://www.google.com/maps/dir/{origin_encoded}/{to_lat},{to_lng}"
-
-
-def get_india_trip_plan(origin: str, destination: str, days: int, budget: str, interests: List[str]) -> str:
-    """AI-generated India trip plan — unchanged logic, improved prompt structure."""
-    from utils.ai_engine import generate
-
-    interests_str = ", ".join(interests) if interests else "general tourism"
-
-    dest_info = ""
-    for cat, places in INDIA_DESTINATIONS.items():
-        for place in places:
-            if (destination.lower() in place["name"].lower()
-                    or destination.lower() in place.get("state", "").lower()):
-                dest_info = f"{place['name']}, {place['state']} — {place['desc']}"
-                break
-
-    prompt = f"""Create a detailed {days}-day trip plan for India.
-
-From: {origin}
-To: {destination} {f"({dest_info})" if dest_info else ""}
-Duration: {days} days
-Budget: {budget}
-Interests: {interests_str}
-
-## 🗺️ {days}-Day Trip: {origin} → {destination}
-
-### ✈️ How to Get There
-[Best transport options with approximate costs and time]
-
-### 📅 Day-by-Day Itinerary
-[For each day: Morning / Afternoon / Evening activities with timing and ₹ cost]
-
-### 🏨 Where to Stay
-| Type | Name | Price/night | Why |
-|------|------|-------------|-----|
-
-### 🍽️ Must-Try Food
-[5 local dishes with specific restaurant recommendations]
-
-### 💰 Total Budget Breakdown
-| Category | Estimated Cost |
-|----------|----------------|
-
-### ⚠️ Important Tips
-[5 practical tips specific to this destination]
-
-Be specific with Indian prices in INR, real names, and local transport."""
-
-    try:
-        return generate(prompt=prompt, provider="auto") or "Could not generate trip plan."
-    except Exception as e:
-        return f"Error: {e}"
-
-
-def answer_travel_question(question: str, context: str = "") -> str:
-    """Answer travel-related questions with AI."""
-    from utils.ai_engine import generate
-
-    ctx = f"\nConversation context:\n{context}" if context else ""
-    prompt = f"""You are an expert India travel guide.{ctx}
-
-Question: {question}
-
-Answer with: practical costs in INR, timing, transport options, honest pros/cons, safety tips."""
-
-    try:
-        return generate(prompt=prompt, provider="auto") or "Could not answer."
-    except Exception as e:
-        return f"Error: {e}"
+def get_nearest_locations(
+    lat: float, lng: float,
+    location_type: Optional[str] = None,
+    max_results: int = 5,
+) -> List[Dict]:
+    all_locs = []
+    for group in VIT_CHENNAI_LOCATIONS.values():
+        all_locs.extend(group)
+    if location_type:
+        all_locs = [l for l in all_locs if l.get("type") == location_type]
+    for loc in all_locs:
+        loc["distance_km"] = calculate_distance(lat, lng, loc["lat"], loc["lng"])
+    return sorted(all_locs, key=lambda x: x["distance_km"])[:max_results]
