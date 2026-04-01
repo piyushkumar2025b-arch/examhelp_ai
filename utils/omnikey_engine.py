@@ -618,9 +618,7 @@ class OmniKeyEngine:
         n_invalid = sum(1 for s in self.slots if s.status == KeyStatus.INVALID)
         n_cooling = sum(1 for s in self.slots if s.cooldown_remaining() > 0)
         raise RuntimeError(
-            f"[OmniKey] All {len(self.slots)} keys exhausted. "
-            f"({n_invalid} invalid, {n_cooling} cooling). "
-            f"Try again in ~60 seconds."
+            "To make it work, you just need to wait about 1-2 minutes for the 'Rate Limit' timeout to reset on Google's side, and then the site will work successfully by exclusively using gemini-2.5-flash. If you continue to see errors after waiting 2 minutes, you will need to swap out one of the API keys for a fresh one since the free tier limits are heavily throttled right now."
         )
 
     # ── Streaming Execution ───────────────────────────────────────────────────

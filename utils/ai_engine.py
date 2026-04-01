@@ -26,11 +26,7 @@ from utils.prompts import get_engine_config
 
 # ── Model Priority (confirmed-working first) ──────────────────────────────────
 GEMINI_MODELS: List[str] = [
-    "gemini-2.0-flash",           # Primary — solid free-tier quota
-    "gemini-2.0-flash-lite",      # Ultra-fast fallback
-    "gemini-2.5-flash",           # Preview — may hit limits faster
-    "gemini-2.5-flash-lite-preview-06-17",  # Lite preview
-    "gemini-1.5-flash",           # Legacy stable
+    "gemini-2.5-flash",           # As requested, only use 2.5 flash
 ]
 
 # ── In-memory response cache (prevents re-querying identical prompts) ─────────
