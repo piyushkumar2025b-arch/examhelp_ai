@@ -127,71 +127,61 @@ def fetch_all_ai_news(query: str = "AI artificial intelligence", max_per_source:
 
 def get_ai_tool_recommendations(use_case: str) -> str:
     from utils.ai_engine import generate
-    prompt = f"""A user wants the best AI tool for: "{use_case}"
+    prompt = f"""
+USER INTENT: Best AI tool for "{use_case}"
+TODAY'S DATE: {datetime.now().strftime("%B %Y")}
 
-## 🏆 Best AI for: {use_case}
+STRUCTURED RECOMMENDATION:
+1. TOP PICK: [Name] (Strongest performance, key pricing, core benefit)
+2. RUNNER UP: [Name] (Best alternative, niche target)
+3. VALUE PICK: [Name] (Free or cost-effective option)
 
-**#1 Top Pick**: [Name] — [Why it's the best, key strengths, pricing]
-**#2 Runner Up**: [Name] — [What makes it good, when to choose it]
-**#3 Budget Option**: [Name] — [Free/cheap option that works well]
+COMPARISON TABLE:
+| Tool | Core Strength | Major Weakness | Price Tier |
+|------|---------------|----------------|------------|
 
-### 📊 Quick Comparison Table
-| Tool | Strengths | Weakness | Price |
-|------|-----------|----------|-------|
-
-### 💡 Pro Tips
-- [Specific tip 1]
-- [Specific tip 2]
-
-Be specific, current, and genuinely helpful. Today: {datetime.now().strftime("%B %Y")}."""
+PRO TIPS:
+- [Strategic tip for the specific use case]
+- [What to avoid]
+"""
     try:
-        return generate(prompt=prompt) or "Could not generate recommendations."
+        return generate(prompt=prompt, engine_name="researcher") or "Could not generate recommendations."
     except Exception as e:
         return f"Error: {e}"
 
 
 def summarize_article_with_ai(article: Dict) -> str:
     from utils.ai_engine import generate
-    prompt = f"""Article from {article.get('source','')}:
-Title: {article.get('title','')}
-Content: {article.get('description','')}
+    prompt = f"""
+SOURCE: {article.get('source','')}
+TITLE: {article.get('title','')}
+CONTENT: {article.get('description','')}
 
-Provide a 3-sentence expert analysis:
-1. What happened / what this means
-2. Why it matters for the AI field
-3. What to watch next / implications"""
+EXPERT 3-POINT ANALYSIS:
+1. SYNOPSIS: Summarize exactly what happened.
+2. INDUSTRY IMPACT: How this moves the AI needle.
+3. FUTURE PREDICTION: Short-term implications or next steps to watch.
+"""
     try:
-        return generate(prompt=prompt) or article.get("description", "")
+        return generate(prompt=prompt, engine_name="researcher") or article.get("description", "")
     except Exception:
         return article.get("description", "")
 
 
 def get_ai_trend_analysis() -> str:
     from utils.ai_engine import generate
-    prompt = f"""As of {datetime.now().strftime("%B %Y")}, provide a comprehensive AI trends analysis:
+    prompt = f"""
+PERIOD: {datetime.now().strftime("%B %Y")}
+TASK: Provide a high-level summary of the current AI state.
 
-## 🌊 Current AI Trends & Landscape
-
-### 🔥 What's Hot Right Now
-[Top 5 trending topics in AI]
-
-### 🏭 Model Rankings (by capability)
-[List top models with current capabilities]
-
-### 💼 Best AI for Different Tasks
-| Task | Best AI | Why |
-|------|---------|-----|
-| Coding | ... | ... |
-| Writing | ... | ... |
-| Research | ... | ... |
-| Image Gen | ... | ... |
-
-### 🚀 Emerging Technologies
-[3 key emerging developments]
-
-Be specific and accurate for {datetime.now().strftime("%B %Y")}."""
+REPORT STRUCTURE:
+- CURRENT HOT TOPICS (List 5)
+- TOP COMPETING MODELS (Leaderboard style)
+- EMERGING TECH (What is currently in lab/early-release)
+- MARKET SENTIMENT SUMMARY
+"""
     try:
-        return generate(prompt=prompt) or "Could not fetch trend analysis."
+        return generate(prompt=prompt, engine_name="researcher") or "Could not fetch trend analysis."
     except Exception as e:
         return f"Error: {e}"
 

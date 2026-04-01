@@ -16,8 +16,9 @@ Public API (unchanged from before):
 """
 
 from __future__ import annotations
-import json, time, threading, ssl, urllib.request, urllib.error, sys
+import json, time, threading, ssl, urllib.request, urllib.error, sys, hashlib
 from typing import Iterator, Optional, Dict, List
+from utils.prompts import get_engine_config
 
 # ── Models ─────────────────────────────────────────────────
 GEMINI_MODELS = [
@@ -148,6 +149,15 @@ class _KeyPool:
                 ks.errors = 0
 
 
+# ── Global Cache ───────────────────────────────────────────
+_mem_cache: Dict[str, str] = {}
+_cache_lock = threading.Lock()
+
+def _get_cache_key(prompt: str, system: str, model: str) -> str:
+    """Generate a unique hash for caching."""
+    h = hashlib.md5(f"{prompt}:{system}:{model}".encode()).hexdigest()
+    return h
+
 _pool = _KeyPool()
 
 
@@ -257,56 +267,59 @@ def _call_gemini(
             "or Streamlit Cloud → App settings → Secrets."
         )
 
+    # ── Cache Lookup ───────────────────────────────────
+    cache_key = _get_cache_key(prompt, system, GEMINI_MODELS[0]) # Use first model as cache baseline
+    with _cache_lock:
+        if cache_key in _mem_cache:
+            return _mem_cache[cache_key]
+
     last_err: Exception = RuntimeError("No Gemini keys available.")
 
-    for model in GEMINI_MODELS:
-        # IMPORTANT: Reset tried set PER MODEL so fallback models
-        # actually get a chance to try all keys
-        tried: set = set()
-        pool_attempts = max(len(_pool._keys), 1)
+    # ── Validation & Retry Layer ──────────────────────
+    max_retries = 1
+    for attempt in range(max_retries + 1):
+        for model in GEMINI_MODELS:
+            tried: set = set()
+            pool_attempts = max(len(_pool._keys), 1)
 
-        for _ in range(pool_attempts):
-            ks = _pool.get_best(exclude=tried)
-            if ks is None:
-                break   # all keys exhausted for this model
+            for _ in range(pool_attempts):
+                ks = _pool.get_best(exclude=tried)
+                if ks is None: break
 
-            now = time.monotonic()
-            ks.record_call(now)
-            try:
-                result = _gemini_request(
-                    key=ks.key,
-                    prompt=prompt,
-                    system=system,
-                    model=model,
-                    image_b64=image_b64,
-                    image_mime=image_mime,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
-                return result
-            except Exception as e:
-                etype = _classify_error(e)
-                ks.errors += 1
-                print(f"[ai_engine] Key …{ks.key[-6:]} model={model} error={etype}: {e}", file=sys.stderr)
+                now = time.monotonic()
+                ks.record_call(now)
+                try:
+                    result = _gemini_request(
+                        key=ks.key, prompt=prompt, system=system,
+                        model=model, image_b64=image_b64, image_mime=image_mime,
+                        temperature=temperature, max_tokens=max_tokens,
+                    )
+                    
+                    # Output Validation Part 1: Empty check
+                    if not result or len(result.strip()) < 5:
+                        raise ValueError("Gemini returned an empty or insufficient response.")
 
-                if etype == "rate_limit":
-                    ks.cooldown(65)
-                elif etype == "bad_key":
-                    ks.cooldown(600)    # 10 min, not 1 hour
-                elif etype == "forbidden":
-                    ks.cooldown(300)    # 5 min — could be transient
-                elif etype == "ssl_error":
-                    # SSL errors affect all keys, no point trying more
-                    raise RuntimeError(
-                        f"SSL/TLS error connecting to Gemini API: {e}. "
-                        "Try: pip install certifi"
-                    ) from e
-                elif etype == "timeout":
-                    ks.cooldown(30)     # short cooldown for timeouts
-                # For unknown errors, just try next key (no cooldown)
+                    # Cache successful result
+                    with _cache_lock:
+                        if len(_mem_cache) > 500: _mem_cache.clear() # Evict if too large
+                        _mem_cache[cache_key] = result
+                    return result
 
-                tried.add(ks.key)
-                last_err = e
+                except Exception as e:
+                    etype = _classify_error(e)
+                    ks.errors += 1
+                    print(f"[ai_engine] Key …{ks.key[-6:]} model={model} error={etype}: {e}", file=sys.stderr)
+
+                    if etype == "rate_limit": ks.cooldown(65)
+                    elif etype == "bad_key": ks.cooldown(600)
+                    elif etype == "forbidden": ks.cooldown(300)
+                    elif etype == "timeout": ks.cooldown(30)
+                    tried.add(ks.key)
+                    last_err = e
+
+        if attempt < max_retries:
+            print(f"[ai_engine] Validation failed. Retrying (Attempt {attempt+1}/{max_retries})...", file=sys.stderr)
+            time.sleep(1) # mini-pause
 
     raise last_err
 
@@ -372,6 +385,16 @@ def generate(
     """Generate a response. Returns full text string."""
     if messages:
         prompt, system = _messages_to_prompt(messages, context_text)
+    
+    # ── Task-based Config Injection ───────────
+    # If a known engine matches kwargs, merge its config
+    engine_name = kwargs.get("engine_name")
+    if engine_name:
+        cfg = get_engine_config(engine_name)
+        system = (system + "\n\n" if system else "") + cfg["system"]
+        temperature = kwargs.get("temperature", cfg["temperature"])
+        max_tokens = kwargs.get("max_tokens", cfg["max_tokens"])
+
     return _call_gemini(
         prompt=prompt,
         system=system,
@@ -406,21 +429,21 @@ def generate_stream(
     )
 
 
-def quick_generate(prompt: str, system: str = "") -> str:
+def quick_generate(prompt: str, system: str = "", **kwargs) -> str:
     """Fast single-turn generation."""
-    return _call_gemini(prompt=prompt, system=system, max_tokens=2048)
+    return _call_gemini(prompt=prompt, system=system, max_tokens=2048, **kwargs)
 
 
-def vision_generate(prompt: str, image_b64: str, mime: str = "image/jpeg") -> str:
+def vision_generate(prompt: str, image_b64: str, mime: str = "image/jpeg", **kwargs) -> str:
     """Generate with an image input."""
-    return _call_gemini(prompt=prompt, image_b64=image_b64, image_mime=mime)
+    return _call_gemini(prompt=prompt, image_b64=image_b64, image_mime=mime, **kwargs)
 
 
-def json_generate(prompt: str, system: str = "") -> str:
+def json_generate(prompt: str, system: str = "", **kwargs) -> str:
     """Generate and return raw text (parse JSON yourself)."""
     sys = (system + "\n\n" if system else "") + \
           "Respond ONLY with valid JSON. No markdown, no backticks, no explanation."
-    return _call_gemini(prompt=prompt, system=sys, temperature=0.2)
+    return _call_gemini(prompt=prompt, system=sys, temperature=0.2, **kwargs)
 
 
 def get_pool_status() -> Dict:

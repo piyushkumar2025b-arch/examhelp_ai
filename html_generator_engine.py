@@ -125,10 +125,7 @@ Output ONLY the HTML, starting with <!DOCTYPE html>."""
         from utils.ai_engine import generate
         result = generate(
             prompt=prompt,
-            system_prompt=HTML_SYSTEM,
-            provider="auto",
-            max_tokens=8192,
-            temperature=0.7,
+            engine_name="html_builder"
         )
         if not result: return _fallback_html(page_title, content[:2000])
         
@@ -186,10 +183,7 @@ Output ONLY the HTML starting with <!DOCTYPE html>."""
         from utils.ai_engine import generate
         result = generate(
             prompt=prompt,
-            system_prompt=HTML_SYSTEM,
-            provider="auto",
-            max_tokens=8192,
-            temperature=0.7,
+            engine_name="html_builder"
         )
         if isinstance(result, tuple): result = result[0]
         result = result.strip() if result else ""

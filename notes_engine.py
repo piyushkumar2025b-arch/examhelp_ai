@@ -1,21 +1,13 @@
 """
 notes_engine.py — AI Smart Notes Generator v2.0 ULTRA
-Creates the most comprehensive study materials with 20+ formats.
+Creates high-performance study materials with standardized output quality.
 """
 from __future__ import annotations
-try:
-    from utils.debugger_engine import _call_gemini_debug
-except ImportError:
-    def _call_gemini_debug(prompt, system=""):
-        from utils.ai_engine import generate
-        return generate(prompt=prompt, system_prompt=system, provider="auto")
+from utils.ai_engine import generate
 
-NOTES_SYSTEM = """\
-You are a MASTER Note-Taker and Study Coach who creates the most effective, exam-winning study materials.
-Your notes are: concise, memorable, logically structured, exam-focused.
-Use visual markers (📌 ✅ ⚠️ 💡 🔑 ⭐), hierarchical structure, and memory devices.
-Every note must be immediately useful for studying and revision.
-"""
+def _call_engine(prompt: str, system: str = "") -> str:
+    """Unified call to AI engine with notes-specific tuning."""
+    return generate(prompt=prompt, system=system, engine_name="notes")
 
 NOTE_FORMATS = {
     "Cornell Notes": "Two-column format: main notes right, key questions/cues left, summary at bottom",
@@ -50,21 +42,19 @@ def generate_notes(
     prompt = f"""Convert this content into {format_type}.
 FORMAT STYLE: {fmt_desc}
 """
-    if subject:
-        prompt += f"SUBJECT: {subject}\n"
-    if focus:
-        prompt += f"FOCUS ON: {focus}\n"
+    if subject: prompt += f"SUBJECT: {subject}\n"
+    if focus: prompt += f"FOCUS ON: {focus}\n"
+    
     prompt += f"""
 CONTENT:
 {content[:12000]}
 
-Create comprehensive, exam-ready {format_type}. Include:
-- All key concepts and definitions
-- Important formulas/rules/laws
-- Examples where helpful
-- Memory tricks (acronyms, mnemonics)
-- Exam tips and common question types"""
-    return _call_gemini_debug(prompt, NOTES_SYSTEM)
+REQUIREMENTS:
+- Use markdown for structure
+- Include all key concepts/formulas
+- Ensure the output strictly follows the 5-part hierarchical standard (Summary, Concepts, Breakdown, Tips, Recap).
+"""
+    return _call_engine(prompt)
 
 
 def smart_summarize(
@@ -85,10 +75,9 @@ def smart_summarize(
 LENGTH: {length} — {length_map.get(length, '')}
 STYLE: {style}
 """
-    if preserve:
-        prompt += f"MUST INCLUDE: {preserve}\n"
+    if preserve: prompt += f"MUST INCLUDE: {preserve}\n"
     prompt += f"\nCONTENT:\n{content[:10000]}"
-    return _call_gemini_debug(prompt, NOTES_SYSTEM)
+    return _call_engine(prompt)
 
 
 def extract_exam_questions(content: str, exam_type: str = "University Exam") -> str:
@@ -103,9 +92,8 @@ Generate:
 3. **10 MCQ Questions** with 4 options and correct answer explained
 4. **3 Case Study / Application Questions** with full solutions
 5. **Top 5 Most Likely Exam Topics** from this material
-
-Format for easy printing/studying."""
-    return _call_gemini_debug(prompt, NOTES_SYSTEM)
+"""
+    return _call_engine(prompt)
 
 
 def build_concept_map(content: str) -> str:
@@ -114,25 +102,9 @@ def build_concept_map(content: str) -> str:
 CONTENT:
 {content[:8000]}
 
-Produce:
-1. **Central Concept** — the main theme
-2. **Primary Branches** — 5-8 major concepts  
-3. **Secondary Nodes** — sub-concepts under each branch
-4. **Connections** — show how concepts relate to each other
-5. **Mermaid Diagram Code** — a proper mindmap diagram:
-
-```mermaid
-mindmap
-  root((Central Topic))
-    Branch1
-      Sub1
-      Sub2
-    Branch2
-      Sub1
-```
-
-6. **Key Relationships** — explain 5 most important concept connections"""
-    return _call_gemini_debug(prompt, NOTES_SYSTEM)
+Include a Mermaid Diagram code block using 'mindmap' syntax at the end of the response.
+"""
+    return _call_engine(prompt)
 
 
 def paraphrase_text(text: str, style: str = "Academic", simplify: bool = False) -> str:
@@ -142,6 +114,6 @@ Avoid plagiarism while preserving all meaning.
 
 ORIGINAL:
 {text[:5000]}
+"""
+    return _call_engine(prompt)
 
-Provide the paraphrased version, then explain 3 key changes you made."""
-    return _call_gemini_debug(prompt, NOTES_SYSTEM)

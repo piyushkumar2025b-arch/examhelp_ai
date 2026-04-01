@@ -1204,3 +1204,277 @@ def render_vit_academics():
 
 def render_study_toolkit():
     render_coming_soon("Study Toolkit")
+# ═══════════════════════════════════════════════════════════════
+# EXPERT ENGINES: CIRCUIT SOLVER
+# ═══════════════════════════════════════════════════════════════
+
+def render_circuit_solver():
+    """Render the AI Powered Circuit Analysis engine."""
+    from circuit_solver_engine import CircuitSolver, get_solver_output_html
+    
+    st.markdown("""
+<style>
+.expert-header{background:linear-gradient(135deg,#0a1a2e 0%,#0a3a4e 100%);border:1px solid #1a5a70;border-radius:16px;padding:28px 32px;margin-bottom:24px;}
+.expert-title{font-size:2rem;font-weight:900;color:#60a5fa;margin:0 0 4px;}
+.expert-sub{font-size:.9rem;color:#90b0d8;}
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div class="expert-header">
+  <div class="expert-title">⚡ Circuit Solver Pro</div>
+  <div class="expert-sub">AI Vision-based analysis · KVL/KCL Solvers · Step-by-step logic · Multimeter accuracy</div>
+</div>
+""", unsafe_allow_html=True)
+
+    uploaded_circuit = st.file_uploader("📸 Upload circuit diagram (PNG/JPG)", type=["png","jpg","jpeg"], key="circ_upload")
+    
+    if uploaded_circuit and st.button("🚀 Analyze & Solve Circuit", type="primary", use_container_width=True, key="do_circ"):
+        with st.spinner("🔍 Gemini Vision analyzing topography..."):
+            res = CircuitSolver.solve_from_image(uploaded_circuit.read())
+            html = get_solver_output_html(res)
+            st.markdown(html, unsafe_allow_html=True)
+            
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="circ_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# EXPERT ENGINES: MATH SOLVER
+# ═══════════════════════════════════════════════════════════════
+
+def render_math_solver():
+    """Render the Advanced Math Solver."""
+    from math_solver_engine import MathSolver, get_math_output_html
+    
+    st.markdown("""
+<div class="expert-header" style="background:linear-gradient(135deg,#1a0a2e 0%,#3d1a6b 100%);border-color:#5b2a9e;">
+  <div class="expert-title" style="color:#a78bfa;">🎯 Advanced Math Solver</div>
+  <div class="expert-sub" style="color:#c4b5fd;">Symbolic Parsing · LaTeX Rendering · Calculus · Algebra · Logic · Hand-written OCR</div>
+</div>
+""", unsafe_allow_html=True)
+
+    tab_img, tab_txt = st.tabs(["📸 Use Image", "📝 Type Problem"])
+    
+    with tab_img:
+        uploaded_math = st.file_uploader("📸 Upload math problem image", type=["png","jpg","jpeg"], key="math_img")
+        if uploaded_math and st.button("🚀 Solve from Image", type="primary", use_container_width=True, key="do_math_img"):
+            with st.spinner("🔍 Extracting math from image..."):
+                res = MathSolver.solve(image_bytes=uploaded_math.read())
+                html = get_math_output_html(res)
+                st.markdown(html, unsafe_allow_html=True)
+                
+    with tab_txt:
+        math_q = st.text_area("📝 Problem / Expression", placeholder="e.g. Integrate sin(x)*exp(-x) from 0 to infinity", key="math_q")
+        if math_q and st.button("🚀 Solve Typed Problem", type="primary", use_container_width=True, key="do_math_txt"):
+            with st.spinner("🧮 Solving..."):
+                res = MathSolver.solve(query_text=math_q)
+                html = get_math_output_html(res)
+                st.markdown(html, unsafe_allow_html=True)
+
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="math_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# EXPERT ENGINES: AI DICTIONARY
+# ═══════════════════════════════════════════════════════════════
+
+def render_dictionary():
+    """Render the AI Dictionary."""
+    from dictionary_engine import AIDictionary
+    
+    st.markdown("""
+<div class="expert-header" style="background:linear-gradient(135deg,#0a1a0f 0%,#1a3a2a 100%);border-color:#2a5e3e;">
+  <div class="expert-title" style="color:#34d399;">📚 AI Multi-Lang Dictionary</div>
+  <div class="expert-sub" style="color:#86efac;">100+ Languages · Etymology · Idioms · Real-world Examples · Cultural Nuance</div>
+</div>
+""", unsafe_allow_html=True)
+
+    word = st.text_input("🔍 Enter Word or Phrase", placeholder="e.g., Epiphany, Jugaad, Schadenfreude...", key="dict_word")
+    lang_choice = st.session_state.get("selected_language", "English")
+    
+    if word and st.button("🔎 Lookup Word", type="primary", use_container_width=True, key="do_word"):
+        with st.spinner(f"AI Linguist analyzing '{word}'..."):
+            lookup = AIDictionary.lookup(word, lang_choice)
+            st.markdown(lookup)
+            
+            with st.expander("✨ Historical Etymology"):
+                st.markdown(AIDictionary.get_etymology(word))
+            with st.expander("🌶️ Cultural Idioms & Metaphors"):
+                st.markdown(AIDictionary.get_idioms(word))
+                
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="dict_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# EXPERT ENGINES: STOCKS DASHBOARD
+# ═══════════════════════════════════════════════════════════════
+
+def render_stocks_dashboard():
+    """Render the AI Stocks Dashboard."""
+    from stocks_engine import get_stock_data, get_ai_market_analysis, get_market_overview, MOCK_STOCKS
+    
+    st.markdown("""
+<div class="expert-header" style="background:linear-gradient(135deg,#1f1f2e 0%,#10101a 100%);border-color:#4a4a6a;">
+  <div class="expert-title" style="color:#60a5fa;">💹 AI Market Dashboard</div>
+  <div class="expert-sub" style="color:#9090b8;">Track Global Stocks · Real-time AI Sentinel · Sentiment Analysis · Pro Insights</div>
+</div>
+""", unsafe_allow_html=True)
+
+    col_sum, col_search = st.columns([2, 1])
+    
+    with col_sum:
+        st.info(get_market_overview())
+        
+    with col_search:
+        symbol = st.selectbox("🎯 Track specific stock", list(MOCK_STOCKS.keys()), key="stock_search")
+        if st.button("📈 Analyze {symbol}", use_container_width=True, key="do_stock"):
+            data = get_stock_data(symbol)
+            if data:
+                st.markdown(f"### {symbol} - {data['name']}")
+                color = "green" if data['change'] >= 0 else "red"
+                st.markdown(f'Price: **${data["price"]:.2f}** (<span style="color:{color};">{data["change"]}%</span>)', unsafe_allow_html=True)
+                with st.spinner("AI analyzing technicals..."):
+                    st.markdown(get_ai_market_analysis(symbol, data))
+
+    st.markdown("---")
+    # Show Top watchlist
+    st.markdown("### 📡 Top Watchlist")
+    wcols = st.columns(3)
+    for i, sym in enumerate(list(MOCK_STOCKS.keys())[:9]):
+        with wcols[i % 3]:
+            d = MOCK_STOCKS[sym]
+            color = "green" if d['change'] >= 0 else "red"
+            st.markdown(f'**{sym}**: ${d["price"]:.0f} (<span style="color:{color};">{d["change"]}%</span>)', unsafe_allow_html=True)
+
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="stocks_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# EXPERT ENGINES: LEGAL EXPERT
+# ═══════════════════════════════════════════════════════════════
+
+def render_legal_expert():
+    """Render the AI Legal Analysis engine."""
+    from legal_engine import LegalEngine
+    
+    st.markdown("""
+<div class="expert-header" style="background:linear-gradient(135deg,#2e1a0a 0%,#1a0a05 100%);border-color:#5a3000;">
+  <div class="expert-title" style="color:#f59e0b;">🏛️ Legal Case Analyser</div>
+  <div class="expert-sub" style="color:#92400e;">Professional Legal Reasoning · Fact Pattern Analysis · Compliance · Judicial Depth</div>
+</div>
+""", unsafe_allow_html=True)
+
+    facts = st.text_area("📄 Enter Case Facts or Scenario", placeholder="Describe the material facts of the legal scenario...", key="legal_facts")
+    jurisdiction = st.selectbox("🌍 Jurisdiction Filter", ["Common Law", "International", "Indian Penal Code (IPC)", "US Federal/State", "UK English Law"], key="legal_juris")
+    
+    if facts and st.button("⚖️ Analyze Case via Senior Counsel", type="primary", use_container_width=True, key="do_legal"):
+        with st.spinner("Senior Counsel reviewing facts..."):
+            st.markdown(LegalEngine.analyze_case(facts, jurisdiction))
+            
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="legal_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# EXPERT ENGINES: MEDICAL EXPERT
+# ═══════════════════════════════════════════════════════════════
+
+def render_medical_expert():
+    """Render the AI Medical Researcher engine."""
+    from medical_engine import MedicalEngine
+    
+    st.markdown("""
+<div class="expert-header" style="background:linear-gradient(135deg,#0a1a1a 0%,#000 100%);border-color:#0891b2;">
+  <div class="expert-title" style="color:#06b6d4;">🩺 Medical Research Guide</div>
+  <div class="expert-sub" style="color:#0891b2;">Clinical Scenario Analysis · Differential Diagnosis Reasoning · Educational Pathophysiology</div>
+</div>
+""", unsafe_allow_html=True)
+
+    st.warning("⚠️ EDUCATIONAL RESEARCH MODE ONLY. This is not for real diagnosis or medical advice.")
+    
+    symptoms = st.text_input("📋 Enter Symptoms (comma separated)", placeholder="e.g. progressive dyspnea, fatigue, peripheral edema...", key="med_symp")
+    age_gen = st.text_input("👤 Age / Gender / Context", placeholder="e.g., 65-year-old male, history of hypertension...", key="med_context")
+    
+    if symptoms and st.button("🔗 Run Differential Reasoning", type="primary", use_container_width=True, key="do_med"):
+        with st.spinner("Clinical Advisor analyzing clinical findings..."):
+            st.markdown(MedicalEngine.analyze_symptoms(symptoms.split(","), age_gen))
+            
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="med_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# EXPERT ENGINES: ADVANCED RESEARCH PRO
+# ═══════════════════════════════════════════════════════════════
+
+def render_research_pro():
+    """Render the Advanced Research Tools engine."""
+    from research_tools_engine import ResearchTools
+    
+    st.markdown("""
+<div class="expert-header" style="background:linear-gradient(135deg,#1a1a1a 0%,#000 100%);border-color:#71717a;">
+  <div class="expert-title" style="color:#e4e4e7;">🔬 Advanced Research Pro</div>
+  <div class="expert-sub" style="color:#a1a1aa;">Peer-Review Critique · Lit-Review Mapper · Research Gap Identification · Academic Depth</div>
+</div>
+""", unsafe_allow_html=True)
+
+    tab_crit, tab_lit = st.tabs(["📑 Paper Critique", "📚 Lit-Review Mapper"])
+    
+    with tab_crit:
+        abstract = st.text_area("📝 Enter Abstract or Section for Critique", placeholder="Paste scientific text here for rigorous peer review...", key="crit_text")
+        if abstract and st.button("🔍 Run Peer Review Critique", type="primary", use_container_width=True, key="do_crit"):
+            with st.spinner("Research Scientist performing peer review..."):
+                st.markdown(ResearchTools.critique_paper(abstract))
+                
+    with tab_lit:
+        topics = st.text_input("🔑 Focus Topics (comma separated)", key="lit_topics")
+        focus = st.selectbox("🎯 Academic Focus", ["Systematic Review", "Phenomenological", "Case Study", "Technical/Algorithm"], key="lit_focus")
+        if topics and st.button("🛠️ Map Literature Opening", type="primary", use_container_width=True, key="do_lit"):
+            with st.spinner("Building literature structure..."):
+                st.markdown(ResearchTools.generate_lit_review(topics.split(","), focus))
+
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="res_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# EXPERT ENGINES: PROJECT ARCHITECT
+# ═══════════════════════════════════════════════════════════════
+
+def render_project_architect():
+    """Render the Technical Project Architect engine."""
+    from project_blueprint_engine import ProjectArchitect
+    
+    st.markdown("""
+<div class="expert-header" style="background:linear-gradient(135deg,#0a1a2e 0%,#020617 100%);border-color:#1e40af;">
+  <div class="expert-title" style="color:#3b82f6;">🏗️ Technical Project Architect</div>
+  <div class="expert-sub" style="color:#60a5fa;">Full Stack Blueprints · System Architecture · Mermaid Diagrams · Tech-Stack Optimizer</div>
+</div>
+""", unsafe_allow_html=True)
+
+    name = st.text_input("🛠️ Project Name", placeholder="e.g., Real-time Collaboration App...", key="proj_name")
+    stack = st.text_input("💻 Preferred Tech Stack", placeholder="e.g., Next.js, FastAPI, PostgreSQL...", key="proj_stack")
+    desc = st.text_area("📝 Detailed Description / Requirements", key="proj_desc")
+    
+    if name and desc and st.button("🚀 Generate Full Architectural Blueprint", type="primary", use_container_width=True, key="do_proj"):
+        with st.spinner("Principal Architect drafting blueprints..."):
+            st.markdown(ProjectArchitect.generate_blueprint(name, stack, desc))
+            
+            with st.expander("📊 System Architecture Diagram (Mermaid)"):
+                code = ProjectArchitect.generate_architecture_diagram_code(desc)
+                st.code(code, language="mermaid")
+
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="proj_back"):
+        st.session_state.app_mode = "chat"; st.rerun()

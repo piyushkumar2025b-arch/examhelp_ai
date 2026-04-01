@@ -97,17 +97,23 @@ def humanise_text(text: str, tone: str = "Casual / Friendly", preserve_structure
         "Maximum": "Deep transformation — rewrite every sentence. Maximum personality. Unmistakably human.",
         "Academic Safe": "Humanise while keeping academic register — eliminate robotic patterns, inject scholarly personality.",
     }
-    prompt = f"""Humanise strength: {strength}\n{strength_hints.get(strength, '')}\n\nTone: {tone}\n{tone_hint}\n\n{struct_hint}\n{f"Extra: {extra_instructions}" if extra_instructions else ""}{f"\nAudience: {target_audience}" if target_audience else ""}\n\nTEXT TO HUMANISE:\n---\n{text}\n---\n\nOutput ONLY the rewritten text. No preamble."""
+    prompt = f"""
+TARGET TONE: {tone} ({tone_hint})
+STRENGTH: {strength} — {strength_hints.get(strength, '')}
+STRUCTURE: {struct_hint}
+{f"EXTRA INSTRUCTIONS: {extra_instructions}" if extra_instructions else ""}
+{f"AUDIENCE: {target_audience}" if target_audience else ""}
+
+TEXT TO HUMANISE:
+---
+{text}
+---
+"""
     try:
-        result = generate(prompt=prompt, system_prompt=HUMANISE_SYSTEM, provider="auto", temperature=0.8)
+        # engine_name="humaniser" automatically injects the ghostwriting persona and 0.8 temperature
+        result = generate(prompt=prompt, engine_name="humaniser")
         if result:
-            stripped = result.strip()
-            for prefix in ["Here is", "Here's", "Below is", "The humanised", "Rewritten:", "Output:"]:
-                if stripped.lower().startswith(prefix.lower()):
-                    lines = stripped.split("\n", 1)
-                    stripped = lines[1].strip() if len(lines) > 1 else stripped
-                    break
-            return stripped
+            return result.strip()
         return text
     except Exception as e:
         return f"Humanisation error: {e}"

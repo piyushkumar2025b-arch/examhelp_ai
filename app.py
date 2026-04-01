@@ -61,7 +61,9 @@ from new_features import (
     render_news_hub, render_vit_map, render_trip_planner, 
     render_universal_converter, render_ai_humaniser, render_html_generator, 
     render_citation_generator, render_regex_tester, render_vit_academics, 
-    render_study_toolkit
+    render_study_toolkit, render_circuit_solver, render_math_solver,
+    render_dictionary, render_stocks_dashboard, render_legal_expert,
+    render_medical_expert, render_research_pro, render_project_architect
 )
 from utils import ai_engine
 from dotenv import load_dotenv
@@ -1443,6 +1445,34 @@ with st.sidebar:
 
         st.divider()
 
+        # ── Elite Expert Engines ──────────────────────
+        st.markdown('<div class="section-label">🚀 Elite Expert Engines</div>', unsafe_allow_html=True)
+        e_col1, e_col2 = st.columns(2)
+        with e_col1:
+            if st.button("⚡ Circuit Solver", use_container_width=True, key="side_circ"):
+                st.session_state.app_mode = "circuit_solver"; st.rerun()
+            if st.button("📚 AI Dictionary", use_container_width=True, key="side_dict"):
+                st.session_state.app_mode = "dictionary"; st.rerun()
+        with e_col2:
+            if st.button("🎯 Math Solver", use_container_width=True, key="side_math"):
+                st.session_state.app_mode = "math_solver"; st.rerun()
+            if st.button("💹 Stocks Dash", use_container_width=True, key="side_stock"):
+                st.session_state.app_mode = "stocks"; st.rerun()
+
+        e_col3, e_col4 = st.columns(2)
+        with e_col3:
+            if st.button("⚖️ Legal Expert", use_container_width=True, key="side_legal"):
+                st.session_state.app_mode = "legal_expert"; st.rerun()
+            if st.button("🔬 Research Pro", use_container_width=True, key="side_research"):
+                st.session_state.app_mode = "research_pro"; st.rerun()
+        with e_col4:
+            if st.button("🩺 Medical Guide", use_container_width=True, key="side_med"):
+                st.session_state.app_mode = "medical_expert"; st.rerun()
+            if st.button("🏗️ Proj Architect", use_container_width=True, key="side_arch"):
+                st.session_state.app_mode = "project_architect"; st.rerun()
+
+        st.divider()
+
     # ── Toolbar icons ──────────────────────────────
     tb_cols = st.columns(8)
     _tb_items = [
@@ -2461,6 +2491,33 @@ elif app_mode == "debugger":
                     st.rerun()
                 st.divider()
 
+
+# ─────────────────────────────────────────────
+# ELITE EXPERT ENGINES
+# ─────────────────────────────────────────────
+elif app_mode == "circuit_solver":
+    render_circuit_solver()
+
+elif app_mode == "math_solver":
+    render_math_solver()
+
+elif app_mode == "dictionary":
+    render_dictionary()
+
+elif app_mode == "stocks":
+    render_stocks_dashboard()
+
+elif app_mode == "legal_expert":
+    render_legal_expert()
+
+elif app_mode == "medical_expert":
+    render_medical_expert()
+
+elif app_mode == "research_pro":
+    render_research_pro()
+
+elif app_mode == "project_architect":
+    render_project_architect()
 
 # ─────────────────────────────────────────────
 # LEARN CODING MODE

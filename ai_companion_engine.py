@@ -5,7 +5,8 @@ Plugs into ExamHelp's existing Groq/LLaMA pipeline.
 """
 
 import streamlit as st
-# [REMOVED — integration/key stripped] from utils.groq_client import stream_chat_with_groq, chat_with_groq
+from utils.ai_engine import generate
+from utils.prompts import get_companion_persona
 
 # ── Persona definitions ──────────────────────────────────────────────────────
 PERSONAS = {
@@ -420,10 +421,11 @@ def _send_message(text: str):
 
     try:
         model = st.session_state.get("model_choice", "llama-3.3-70b-versatile")
-        reply = chat_with_groq(
+        reply = generate(
             messages=history,
-            system_prompt=_build_system_prompt(),
-            model=model,
+            system=_build_system_prompt(),
+            temperature=0.8, # Companions are more creative
+            max_tokens=4096
         )
     except Exception as e:
         pname = st.session_state.nova_persona
