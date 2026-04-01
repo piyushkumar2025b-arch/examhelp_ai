@@ -11,8 +11,8 @@ import os, sys
 from typing import List
 
 # ── Model aliases ─────────────────────────────────────
-GEMINI_BEST_MODEL  = "gemini-2.0-flash"
-GEMINI_FLASH_MODEL = "gemini-2.0-flash"
+GEMINI_BEST_MODEL  = "gemini-2.5-flash"
+GEMINI_FLASH_MODEL = "gemini-2.5-flash"
 GEMINI_FAST_MODEL  = "gemini-2.0-flash-lite"
 
 # ── Lazy loader ───────────────────────────────────────

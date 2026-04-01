@@ -21,8 +21,8 @@ from typing import Iterator, Optional, Dict, List
 
 # ── Models ─────────────────────────────────────────────────
 GEMINI_MODELS = [
-    "gemini-2.0-flash",        # primary — 15 RPM, 1500 RPD free
-    "gemini-2.5-flash",        # fallback — newer, separate quota pool
+    "gemini-2.5-flash",        # primary — working, separate quota pool
+    "gemini-2.0-flash",        # fallback — may be quota-exhausted on free tier
     "gemini-2.0-flash-lite",   # last-resort — lightweight, separate quota
 ]
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"

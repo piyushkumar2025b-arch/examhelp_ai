@@ -264,18 +264,14 @@ def _pptx_to_text(data: bytes) -> str:
 
 def _image_to_text(data: bytes, ext: str) -> bytes:
     try:
-# [REMOVED — integration/key stripped]         from utils.gemini_key_manager import get_key as gemini_get_key
-        import requests
-        key = gemini_get_key()
-        if not key: return b"[No Gemini key for OCR]"
+        from utils.ai_engine import vision_generate
         b64 = base64.b64encode(data).decode()
         mime = {"jpg":"image/jpeg","jpeg":"image/jpeg","png":"image/png","webp":"image/webp"}.get(ext,"image/png")
-        resp = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}",
-            json={"contents":[{"parts":[{"inline_data":{"mime_type":mime,"data":b64}},{"text":"Extract all text visible in this image. Return only raw text."}]}]},
-            timeout=30)
-        result = resp.json()
-        text = result.get("candidates",[{}])[0].get("content",{}).get("parts",[{}])[0].get("text","")
+        text = vision_generate(
+            prompt="Extract all text visible in this image. Return only raw text.",
+            image_b64=b64,
+            mime=mime,
+        )
         return text.encode("utf-8")
     except Exception as e:
         return f"OCR error: {e}".encode()
