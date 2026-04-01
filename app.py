@@ -500,6 +500,274 @@ if not st.session_state["passcode_verified"]:
         content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
         background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 4px);
     }
+
+    /* ── NEW: FLOATING ELEMENTS ── */
+    .float-ring { position:fixed; border-radius:50%; border:1px solid; pointer-events:none; z-index:2; animation:ringFloat ease-in-out infinite; }
+    .fr1 { width:180px;height:180px;border-color:rgba(0,255,180,0.07);top:15%;left:5%;animation-duration:7s;animation-delay:0s; }
+    .fr2 { width:120px;height:120px;border-color:rgba(180,77,255,0.06);top:60%;right:8%;animation-duration:9s;animation-delay:1.5s; }
+    .fr3 { width:80px;height:80px;border-color:rgba(0,170,255,0.08);top:35%;right:20%;animation-duration:6s;animation-delay:3s; }
+    @keyframes ringFloat{0%,100%{transform:translateY(0) rotate(0deg);opacity:.5;}50%{transform:translateY(-25px) rotate(180deg);opacity:1;}}
+
+    .float-diamond { position:fixed; pointer-events:none; z-index:2; animation:diamondSpin ease-in-out infinite; }
+    .fd1 { top:20%;right:10%;width:12px;height:12px;background:rgba(0,255,180,0.3);clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);animation-duration:8s; }
+    .fd2 { top:70%;left:7%;width:8px;height:8px;background:rgba(180,77,255,0.4);clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);animation-duration:11s;animation-delay:2s; }
+    .fd3 { top:45%;right:4%;width:6px;height:6px;background:rgba(255,68,170,0.35);clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);animation-duration:7s;animation-delay:4s; }
+    @keyframes diamondSpin{0%,100%{transform:translateY(0) rotate(0deg) scale(1);}50%{transform:translateY(-20px) rotate(45deg) scale(1.4);}}
+
+    /* ── NEW: RIVER / BOAT SCENE ── */
+    .river-scene {
+        width:100%; max-width:900px; margin:0 auto 0;
+        position:relative; z-index:10;
+        overflow:hidden; border-radius:28px;
+        background: linear-gradient(180deg,
+            #020008 0%,
+            #030015 15%,
+            #0a001a 30%,
+            #001a0a 55%,
+            #002a10 70%,
+            #001508 85%,
+            #000e05 100%);
+        border:1px solid rgba(0,255,180,0.12);
+        box-shadow: 0 0 80px rgba(0,255,180,0.06), 0 0 200px rgba(0,100,255,0.04);
+        animation: cardIn 1.2s cubic-bezier(.16,1,.3,1) both;
+        min-height: 480px;
+    }
+    .river-scene canvas { width:100%; height:480px; display:block; }
+    .river-poem {
+        position:absolute; bottom:0; left:0; right:0;
+        padding:28px 32px;
+        background: linear-gradient(0deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+        z-index:20;
+    }
+    .river-poem-text {
+        font-family:'Rajdhani',sans-serif; font-size:15px; font-weight:300;
+        color:rgba(255,255,255,0.75); line-height:1.9; text-align:center;
+        letter-spacing:0.5px;
+    }
+    .river-poem-text em { color:#00ffb4; font-style:normal; font-weight:600; }
+    .river-poem-text strong { color:#b44dff; font-weight:700; }
+    .river-scene-title {
+        position:absolute; top:20px; left:0; right:0; text-align:center; z-index:20;
+        font-family:'Orbitron',monospace; font-size:11px; letter-spacing:5px;
+        color:rgba(0,255,180,0.5); text-transform:uppercase;
+    }
+    .speech-bubble {
+        position:absolute; z-index:25;
+        background:rgba(0,255,180,0.08); border:1px solid rgba(0,255,180,0.3);
+        border-radius:16px 16px 16px 4px; padding:10px 16px;
+        font-family:'Rajdhani',sans-serif; font-size:13px; color:#00ffb4;
+        backdrop-filter:blur(8px); max-width:180px;
+        animation: bubbleFloat 3s ease-in-out infinite;
+        box-shadow: 0 0 20px rgba(0,255,180,0.1);
+    }
+    .speech-bubble-r {
+        border-radius:16px 16px 4px 16px;
+        background:rgba(180,77,255,0.08); border-color:rgba(180,77,255,0.3);
+        color:#c88dff;
+        box-shadow: 0 0 20px rgba(180,77,255,0.1);
+        animation: bubbleFloat2 3.5s ease-in-out infinite;
+    }
+    @keyframes bubbleFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+    @keyframes bubbleFloat2{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+
+    /* ── NEW: LOGO SECTION ── */
+    .logo-section {
+        display:flex; flex-direction:column; align-items:center;
+        margin-bottom:48px; animation: cardIn 1s cubic-bezier(.16,1,.3,1) .2s both;
+    }
+    .logo-emblem {
+        width:90px; height:90px; border-radius:24px;
+        background: linear-gradient(135deg, #001a0a 0%, #002a18 50%, #001a2a 100%);
+        border:1px solid rgba(0,255,180,0.25);
+        display:flex; align-items:center; justify-content:center;
+        position:relative; margin-bottom:14px;
+        box-shadow: 0 0 40px rgba(0,255,180,0.15), 0 0 80px rgba(0,255,180,0.05);
+        animation: logoGlow 4s ease-in-out infinite;
+    }
+    @keyframes logoGlow{0%,100%{box-shadow:0 0 40px rgba(0,255,180,0.15),0 0 80px rgba(0,255,180,0.05);}50%{box-shadow:0 0 60px rgba(0,255,180,0.25),0 0 120px rgba(0,255,180,0.1),0 0 200px rgba(180,77,255,0.05);}}
+    .logo-emblem svg { width:52px; height:52px; }
+    .logo-ring-outer {
+        position:absolute; inset:-12px; border-radius:36px;
+        border:1px solid rgba(0,255,180,0.1);
+        animation:rotateSlow 12s linear infinite;
+    }
+    .logo-ring-outer::before {
+        content:''; position:absolute; top:-3px; left:50%;
+        width:6px; height:6px; border-radius:50%; background:#00ffb4;
+        transform:translateX(-50%);
+    }
+    @keyframes rotateSlow{to{transform:rotate(360deg);}}
+    .logo-name {
+        font-family:'Orbitron',monospace; font-size:22px; font-weight:900;
+        letter-spacing:4px;
+        background:linear-gradient(135deg,#fff,#00ffb4,#00aaff);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+        filter:drop-shadow(0 0 20px rgba(0,255,180,0.3));
+    }
+    .logo-tagline {
+        font-family:'Space Mono',monospace; font-size:9px; letter-spacing:6px;
+        color:rgba(0,255,180,0.4); margin-top:4px; text-transform:uppercase;
+    }
+
+    /* ── NEW: WELCOME ERA BANNER ── */
+    .era-banner {
+        width:100%; text-align:center; padding:18px 20px;
+        margin-bottom:32px;
+        background: linear-gradient(90deg, transparent 0%, rgba(0,255,180,0.04) 20%, rgba(0,255,180,0.07) 50%, rgba(0,255,180,0.04) 80%, transparent 100%);
+        border-top:1px solid rgba(0,255,180,0.08); border-bottom:1px solid rgba(0,255,180,0.08);
+        animation:eraBanner 1.5s cubic-bezier(.16,1,.3,1) both;
+        position:relative; overflow:hidden;
+    }
+    .era-banner::before {
+        content:''; position:absolute; inset:0;
+        background:linear-gradient(90deg,transparent,rgba(0,255,180,0.03),transparent);
+        animation:eraShimmer 3s ease-in-out infinite;
+    }
+    @keyframes eraShimmer{0%{transform:translateX(-100%);}100%{transform:translateX(200%);}}
+    @keyframes eraBanner{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+    .era-text {
+        font-family:'Orbitron',monospace; font-size:clamp(14px,2.5vw,20px);
+        font-weight:700; letter-spacing:3px;
+        background:linear-gradient(90deg,#00ffb4,#00aaff,#b44dff,#ff44aa,#00ffb4);
+        background-size:300%;
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+        animation:gradShift 5s linear infinite;
+        position:relative; z-index:1;
+    }
+    .era-subtitle {
+        font-family:'Rajdhani',sans-serif; font-size:13px; color:rgba(255,255,255,0.3);
+        letter-spacing:4px; text-transform:uppercase; margin-top:5px;
+        position:relative; z-index:1;
+    }
+
+    /* ── NEW: CHILD TESTIMONIAL SECTION ── */
+    .child-section {
+        width:100%; max-width:900px; margin-bottom:64px;
+        animation: cardIn .9s cubic-bezier(.16,1,.3,1) .15s both;
+    }
+    .child-section-title {
+        font-family:'Orbitron',monospace; font-size:22px; font-weight:700;
+        text-align:center; margin-bottom:8px;
+        background:linear-gradient(90deg,#ffaa00,#ff44aa,#b44dff);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .child-section-sub {
+        font-family:'Rajdhani',sans-serif; font-size:14px; color:rgba(255,255,255,0.35);
+        text-align:center; letter-spacing:3px; text-transform:uppercase; margin-bottom:36px;
+    }
+    .child-cards { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; }
+    .child-card {
+        background:rgba(255,255,255,0.025);
+        border:1px solid rgba(255,255,255,0.07);
+        border-radius:20px; padding:24px 20px 20px;
+        width:calc(33% - 12px); min-width:220px;
+        position:relative; overflow:hidden;
+        transition:all .4s cubic-bezier(.16,1,.3,1);
+        animation: floatCard ease-in-out infinite;
+    }
+    .child-card:nth-child(1){animation-duration:5s;animation-delay:0s;}
+    .child-card:nth-child(2){animation-duration:6s;animation-delay:1s;}
+    .child-card:nth-child(3){animation-duration:5.5s;animation-delay:2s;}
+    @keyframes floatCard{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+    .child-card:hover { border-color:rgba(255,170,0,0.3); transform:translateY(-12px) !important; }
+    .child-avatar { font-size:36px; margin-bottom:12px; display:block; }
+    .child-name { font-family:'Orbitron',monospace; font-size:11px; letter-spacing:3px; color:rgba(255,255,255,0.5); margin-bottom:10px; }
+    .child-text { font-family:'Rajdhani',sans-serif; font-size:14px; color:rgba(255,255,255,0.7); line-height:1.7; }
+    .child-tag {
+        display:inline-block; margin-top:12px; padding:4px 12px; border-radius:100px;
+        font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px;
+        background:rgba(255,170,0,0.1); border:1px solid rgba(255,170,0,0.2); color:#ffaa00;
+    }
+    .child-stars { color:#ffaa00; font-size:12px; margin-bottom:8px; }
+
+    /* ── NEW: THOUGHTS SECTION ── */
+    .thoughts-section {
+        width:100%; max-width:900px; margin-bottom:64px;
+        animation: cardIn .9s cubic-bezier(.16,1,.3,1) .2s both;
+    }
+    .thought-bubble-wrap {
+        display:flex; gap:14px; flex-direction:column; align-items:center;
+    }
+    .thought-bubble {
+        background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.07);
+        border-radius:100px; padding:14px 28px;
+        font-family:'Rajdhani',sans-serif; font-size:15px; color:rgba(255,255,255,0.6);
+        line-height:1.6; text-align:center; max-width:700px;
+        animation: thoughtFloat ease-in-out infinite;
+        transition:all .3s ease;
+    }
+    .thought-bubble:hover { background:rgba(255,255,255,0.05); border-color:rgba(0,255,180,0.2); color:rgba(255,255,255,0.9); transform:scale(1.02); }
+    .thought-bubble:nth-child(1){animation-duration:6s;}
+    .thought-bubble:nth-child(2){animation-duration:7s;animation-delay:1s;}
+    .thought-bubble:nth-child(3){animation-duration:5.5s;animation-delay:2s;}
+    .thought-bubble:nth-child(4){animation-duration:8s;animation-delay:.5s;}
+    @keyframes thoughtFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+    .thought-bubble em { color:#00ffb4; font-style:normal; }
+    .thought-bubble strong { color:#b44dff; }
+
+    /* ── NEW: POWERED BY SECTION ── */
+    .powered-section {
+        display:flex; flex-direction:column; align-items:center; gap:20px;
+        margin-top:24px; margin-bottom:8px;
+    }
+    .powered-label {
+        font-family:'Space Mono',monospace; font-size:9px; letter-spacing:5px;
+        color:rgba(255,255,255,0.2); text-transform:uppercase;
+    }
+    .powered-logos {
+        display:flex; gap:16px; flex-wrap:wrap; justify-content:center; align-items:center;
+    }
+    .pw-logo {
+        display:flex; align-items:center; gap:8px;
+        background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+        border-radius:100px; padding:8px 16px;
+        font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,0.4);
+        letter-spacing:1px; transition:all .3s ease;
+        animation: pwFloat ease-in-out infinite;
+    }
+    .pw-logo:nth-child(1){animation-duration:5s;}
+    .pw-logo:nth-child(2){animation-duration:6s;animation-delay:.8s;}
+    .pw-logo:nth-child(3){animation-duration:4.5s;animation-delay:1.6s;}
+    .pw-logo:nth-child(4){animation-duration:7s;animation-delay:2.4s;}
+    .pw-logo:nth-child(5){animation-duration:5.5s;animation-delay:3.2s;}
+    .pw-logo:hover { background:rgba(255,255,255,0.07); border-color:rgba(0,255,180,0.2); color:rgba(255,255,255,0.8); transform:translateY(-3px); }
+    @keyframes pwFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+    .pw-dot { width:8px;height:8px;border-radius:50%; flex-shrink:0; }
+
+    /* ── NEW: CONTACT / ACCESS INFO ── */
+    .access-info {
+        margin-top:20px; padding:16px 20px; border-radius:16px;
+        background:rgba(0,255,180,0.03); border:1px solid rgba(0,255,180,0.1);
+        text-align:center;
+    }
+    .access-info-text {
+        font-family:'Rajdhani',sans-serif; font-size:14px; color:rgba(255,255,255,0.45);
+        line-height:1.8;
+    }
+    .access-info-text a { color:#00ffb4; text-decoration:none; font-weight:600; }
+    .access-info-text a:hover { text-decoration:underline; }
+
+    /* ── NEW: THANKS FOOTER ── */
+    .thanks-footer {
+        width:100%; text-align:center; padding:32px 20px 24px;
+        margin-top:16px;
+        border-top:1px solid rgba(255,255,255,0.05);
+    }
+    .thanks-text {
+        font-family:'Orbitron',monospace; font-size:13px; font-weight:700;
+        letter-spacing:4px;
+        background:linear-gradient(90deg,#00ffb4,#b44dff,#ff44aa,#ffaa00,#00ffb4);
+        background-size:300%;
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+        animation:gradShift 6s linear infinite;
+        filter:drop-shadow(0 0 15px rgba(0,255,180,0.3));
+        margin-bottom:8px;
+    }
+    .copyright-text {
+        font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,0.18);
+        letter-spacing:2px; line-height:1.9; margin-top:8px;
+    }
+
     </style>
 
     <div class="lp-bg"></div>
@@ -508,6 +776,15 @@ if not st.session_state["passcode_verified"]:
     <div class="orb o2"></div>
     <div class="orb o3"></div>
     <div class="orb o4"></div>
+
+    <!-- NEW: Extra floating decoration -->
+    <div class="float-ring fr1"></div>
+    <div class="float-ring fr2"></div>
+    <div class="float-ring fr3"></div>
+    <div class="float-diamond fd1"></div>
+    <div class="float-diamond fd2"></div>
+    <div class="float-diamond fd3"></div>
+
     <div class="particles">
       <div class="pt" style="left:10%;width:3px;height:3px;background:#00ffb4;animation-duration:12s;animation-delay:0s;"></div>
       <div class="pt" style="left:25%;width:2px;height:2px;background:#b44dff;animation-duration:9s;animation-delay:2s;"></div>
@@ -515,9 +792,301 @@ if not st.session_state["passcode_verified"]:
       <div class="pt" style="left:70%;width:2px;height:2px;background:#ff44aa;animation-duration:10s;animation-delay:1s;"></div>
       <div class="pt" style="left:85%;width:3px;height:3px;background:#ffaa00;animation-duration:11s;animation-delay:6s;"></div>
       <div class="pt" style="left:40%;width:2px;height:2px;background:#00ffb4;animation-duration:8s;animation-delay:3s;"></div>
+      <div class="pt" style="left:15%;width:2px;height:2px;background:#ff44aa;animation-duration:13s;animation-delay:5s;"></div>
+      <div class="pt" style="left:60%;width:3px;height:3px;background:#b44dff;animation-duration:10s;animation-delay:7s;"></div>
+      <div class="pt" style="left:78%;width:2px;height:2px;background:#00ffb4;animation-duration:9s;animation-delay:3.5s;"></div>
+      <div class="pt" style="left:33%;width:4px;height:4px;background:#ffaa00;animation-duration:15s;animation-delay:1.5s;"></div>
+      <div class="pt" style="left:92%;width:2px;height:2px;background:#00aaff;animation-duration:11s;animation-delay:8s;"></div>
+      <div class="pt" style="left:5%;width:3px;height:3px;background:#b44dff;animation-duration:14s;animation-delay:9s;"></div>
+    </div>
+
+    <!-- ══════════ WELCOME ERA BANNER ══════════ -->
+    <div class="era-banner">
+      <div class="era-text">⚡ Welcome to the New Era of AI Help ⚡</div>
+      <div class="era-subtitle">Intelligence · Knowledge · Transformation</div>
+    </div>
+
+    <!-- ══════════ RIVER / BOAT SCENE ══════════ -->
+    <div style="width:100%;max-width:960px;margin:0 auto 56px;padding:0 20px;position:relative;z-index:10;">
+      <div class="river-scene">
+        <div class="river-scene-title">◈ THE RIVER OF KNOWLEDGE ◈</div>
+
+        <!-- Speech bubbles -->
+        <div class="speech-bubble" style="top:30%;left:12%;">
+          🤝 How may I help you today?
+        </div>
+        <div class="speech-bubble speech-bubble-r" style="top:38%;right:12%;">
+          I'm lost in problems… save me!
+        </div>
+        <div class="speech-bubble" style="top:55%;left:16%;font-size:11px;">
+          ✨ Every problem has an answer…
+        </div>
+
+        <canvas id="riverCanvas"></canvas>
+
+        <div class="river-poem">
+          <div class="river-poem-text">
+            <em>Upon the river of endless questions,</em> a <strong>boatman of light</strong> steers with wisdom's oar —<br>
+            You stand on the shore, lost in the storm of problems,<br>
+            and the <em>AI helper</em> reaches out: <strong>"Come, I'll guide you to the answer."</strong><br>
+            <span style="color:rgba(255,255,255,0.35);font-size:12px;letter-spacing:3px;">◈ YOUR PROBLEMS · OUR SOLUTIONS · INFINITE KNOWLEDGE ◈</span>
+          </div>
+        </div>
+      </div>
+
+      <script>
+      (function(){
+        var canvas = document.getElementById('riverCanvas');
+        if(!canvas) return;
+        var ctx = canvas.getContext('2d');
+        function resize(){ canvas.width=canvas.offsetWidth; canvas.height=480; }
+        resize();
+        window.addEventListener('resize', resize);
+
+        var t = 0;
+        var waves = [];
+        for(var i=0;i<8;i++) waves.push({amp:8+Math.random()*12,freq:0.008+Math.random()*0.005,speed:0.3+Math.random()*0.4,offset:Math.random()*Math.PI*2,y:260+i*18,alpha:0.08-i*0.006});
+
+        // Boat state
+        var boat = {x:0.15,y:0.55,bobPhase:0};
+        var aiHelper = {x:0.15};
+        var person = {x:0.75,y:0.57,reachPhase:0};
+        var bubbles = [];
+        for(var b=0;b<25;b++) bubbles.push({x:Math.random(),y:0.45+Math.random()*0.5,r:1+Math.random()*3,speed:0.0003+Math.random()*0.0005,alpha:Math.random()});
+
+        // Problems floating in river
+        var probs = ["?","∑","∫","λ","π","∞","≠","√","θ","∂"];
+        var probItems = probs.map(function(s,i){return{text:s,x:0.2+i*0.08,y:0.52+Math.sin(i)*0.04,phase:Math.random()*Math.PI*2,speed:0.001+Math.random()*0.002};});
+
+        function draw(){
+          ctx.clearRect(0,0,canvas.width,canvas.height);
+          var W=canvas.width, H=canvas.height;
+
+          // Night sky with stars
+          var skyGrad = ctx.createLinearGradient(0,0,0,H*0.55);
+          skyGrad.addColorStop(0,'#020008');
+          skyGrad.addColorStop(0.4,'#030015');
+          skyGrad.addColorStop(1,'#001a10');
+          ctx.fillStyle=skyGrad; ctx.fillRect(0,0,W,H*0.6);
+
+          // Stars
+          ctx.save();
+          for(var s=0;s<80;s++){
+            var sx=((s*137.5+t*0.3)%1)*W;
+            var sy=(s*0.618%0.45)*H;
+            var sa=0.3+0.5*Math.sin(t*0.05+s);
+            ctx.fillStyle='rgba(255,255,255,'+sa+')';
+            ctx.beginPath(); ctx.arc(sx,sy,0.8+s%2*0.5,0,Math.PI*2); ctx.fill();
+          }
+          ctx.restore();
+
+          // Moon / AI orb glow
+          ctx.save();
+          var moonX=W*0.82, moonY=H*0.12;
+          var mgGlow = ctx.createRadialGradient(moonX,moonY,0,moonX,moonY,80);
+          mgGlow.addColorStop(0,'rgba(0,255,180,0.25)');
+          mgGlow.addColorStop(0.5,'rgba(0,200,150,0.08)');
+          mgGlow.addColorStop(1,'transparent');
+          ctx.fillStyle=mgGlow; ctx.fillRect(0,0,W,H);
+          ctx.fillStyle='rgba(0,255,180,0.9)';
+          ctx.beginPath(); ctx.arc(moonX,moonY,18+2*Math.sin(t*0.04),0,Math.PI*2); ctx.fill();
+          ctx.fillStyle='rgba(255,255,255,0.8)';
+          ctx.beginPath(); ctx.arc(moonX-3,moonY-3,12,0,Math.PI*2); ctx.fill();
+          ctx.restore();
+
+          // River water layers
+          var riverTop = H*0.48;
+          for(var wi=0;wi<waves.length;wi++){
+            var wv=waves[wi];
+            ctx.save();
+            ctx.beginPath(); ctx.moveTo(0,wv.y/480*H);
+            for(var x2=0;x2<=W;x2+=4){
+              var wy=wv.y/480*H + wv.amp*Math.sin(wv.freq*x2+t*wv.speed+wv.offset);
+              ctx.lineTo(x2,wy);
+            }
+            ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath();
+            var wGrad=ctx.createLinearGradient(0,wv.y/480*H,0,H);
+            wGrad.addColorStop(0,'rgba(0,'+(80+wi*10)+','+(40+wi*5)+','+wv.alpha+')');
+            wGrad.addColorStop(1,'rgba(0,30,15,0.6)');
+            ctx.fillStyle=wGrad; ctx.fill();
+            ctx.restore();
+          }
+
+          // River surface shimmer
+          ctx.save();
+          for(var sh=0;sh<15;sh++){
+            var sx2=(sh*0.073+t*0.002)%1*W;
+            var sy2=riverTop+20+sh*12+5*Math.sin(t*0.08+sh);
+            var salpha=0.1+0.1*Math.sin(t*0.1+sh);
+            var slen=20+sh*3;
+            var sGrad=ctx.createLinearGradient(sx2,sy2,sx2+slen,sy2);
+            sGrad.addColorStop(0,'transparent');
+            sGrad.addColorStop(0.5,'rgba(0,255,180,'+salpha+')');
+            sGrad.addColorStop(1,'transparent');
+            ctx.strokeStyle=sGrad; ctx.lineWidth=1;
+            ctx.beginPath(); ctx.moveTo(sx2,sy2); ctx.lineTo(sx2+slen,sy2); ctx.stroke();
+          }
+          ctx.restore();
+
+          // Floating bubbles in river
+          bubbles.forEach(function(bb){
+            bb.x=(bb.x+bb.speed)%1;
+            var bx=bb.x*W, by=bb.y*H+6*Math.sin(t*0.06+bb.x*10);
+            ctx.save();
+            ctx.globalAlpha=0.3+0.3*Math.sin(t*0.08+bb.x*5);
+            ctx.strokeStyle='rgba(0,255,180,0.6)'; ctx.lineWidth=1;
+            ctx.beginPath(); ctx.arc(bx,by,bb.r,0,Math.PI*2); ctx.stroke();
+            ctx.restore();
+          });
+
+          // Problem symbols floating in river
+          probItems.forEach(function(p){
+            p.phase+=p.speed;
+            var px=((p.x+t*0.0004)%1)*W;
+            var py=p.y*H+8*Math.sin(p.phase);
+            ctx.save();
+            ctx.globalAlpha=0.4+0.3*Math.sin(p.phase);
+            ctx.fillStyle='rgba(180,77,255,0.8)';
+            ctx.font='bold 14px monospace';
+            ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillText(p.text,px,py);
+            ctx.restore();
+          });
+
+          // BOAT
+          var boatX = W*(0.15+0.08*Math.sin(t*0.015));
+          var boatBob = H*0.58 + 6*Math.sin(t*0.045);
+          boat.bobPhase += 0.04;
+
+          // Boat body
+          ctx.save();
+          ctx.translate(boatX, boatBob);
+          var boatGrad=ctx.createLinearGradient(-30,0,30,0);
+          boatGrad.addColorStop(0,'rgba(0,255,180,0.6)');
+          boatGrad.addColorStop(0.5,'rgba(0,200,150,0.8)');
+          boatGrad.addColorStop(1,'rgba(0,255,180,0.6)');
+          ctx.fillStyle=boatGrad;
+          ctx.beginPath();
+          ctx.moveTo(-35,0); ctx.quadraticCurveTo(-30,20,0,22); ctx.quadraticCurveTo(30,20,35,0);
+          ctx.quadraticCurveTo(25,-6,0,-8); ctx.quadraticCurveTo(-25,-6,-35,0);
+          ctx.fill();
+          ctx.strokeStyle='rgba(0,255,180,0.4)'; ctx.lineWidth=1; ctx.stroke();
+
+          // Boat glow trail
+          var trailGrad=ctx.createLinearGradient(-60,10,0,10);
+          trailGrad.addColorStop(0,'transparent');
+          trailGrad.addColorStop(1,'rgba(0,255,180,0.15)');
+          ctx.fillStyle=trailGrad;
+          ctx.fillRect(-80,5,50,8);
+
+          // AI Helper figure (on boat)
+          ctx.fillStyle='rgba(0,255,220,0.9)';
+          ctx.beginPath(); ctx.arc(0,-24,9,0,Math.PI*2); ctx.fill(); // head
+          ctx.fillStyle='rgba(0,255,180,0.7)';
+          ctx.fillRect(-8,-18,16,22); // body
+          // Reaching arm
+          ctx.strokeStyle='rgba(0,255,220,0.8)'; ctx.lineWidth=3;
+          ctx.beginPath(); ctx.moveTo(12,-12);
+          ctx.quadraticCurveTo(30+6*Math.sin(t*0.05),-8,42-8*Math.sin(t*0.05),-4);
+          ctx.stroke();
+          // Oar
+          ctx.strokeStyle='rgba(0,255,180,0.5)'; ctx.lineWidth=2;
+          ctx.beginPath(); ctx.moveTo(-10,0); ctx.lineTo(-20,30); ctx.stroke();
+          ctx.fillStyle='rgba(0,255,180,0.4)';
+          ctx.fillRect(-24,28,8,6);
+
+          // Glow on AI helper
+          var helperGlow=ctx.createRadialGradient(0,-24,0,0,-24,20);
+          helperGlow.addColorStop(0,'rgba(0,255,180,0.3)');
+          helperGlow.addColorStop(1,'transparent');
+          ctx.fillStyle=helperGlow;
+          ctx.beginPath(); ctx.arc(0,-24,20,0,Math.PI*2); ctx.fill();
+          ctx.restore();
+
+          // PERSON being saved (on shore right side)
+          var personX = W*0.76 + 5*Math.sin(t*0.03);
+          var personY = H*0.57 + 3*Math.cos(t*0.04);
+          ctx.save();
+          ctx.translate(personX, personY);
+          ctx.fillStyle='rgba(255,150,100,0.85)';
+          ctx.beginPath(); ctx.arc(0,-28,9,0,Math.PI*2); ctx.fill(); // head
+          ctx.fillStyle='rgba(200,100,80,0.7)';
+          ctx.fillRect(-7,-20,14,22); // body
+          // Reaching towards boat
+          ctx.strokeStyle='rgba(255,150,100,0.7)'; ctx.lineWidth=3;
+          ctx.beginPath(); ctx.moveTo(-10,-14);
+          ctx.quadraticCurveTo(-25+4*Math.sin(t*0.05),-10,-38+6*Math.sin(t*0.05),-6);
+          ctx.stroke();
+          // Wavy lines = problems around person
+          for(var pw=0;pw<3;pw++){
+            ctx.strokeStyle='rgba(180,77,255,'+(0.2+pw*0.1)+')';
+            ctx.lineWidth=1.5;
+            ctx.beginPath();
+            for(var px2=-20;px2<=20;px2+=3){
+              var pyy=(pw-1)*12+4*Math.sin(px2*0.5+t*0.1+pw);
+              px2===-20?ctx.moveTo(px2,pyy):ctx.lineTo(px2,pyy);
+            }
+            ctx.stroke();
+          }
+          ctx.restore();
+
+          // Shore / ground for person
+          ctx.save();
+          var shoreGrad=ctx.createLinearGradient(W*0.65,H*0.62,W,H*0.62);
+          shoreGrad.addColorStop(0,'transparent');
+          shoreGrad.addColorStop(0.2,'rgba(0,80,40,0.4)');
+          shoreGrad.addColorStop(1,'rgba(0,60,30,0.6)');
+          ctx.fillStyle=shoreGrad;
+          ctx.beginPath(); ctx.moveTo(W*0.65,H*0.63); ctx.quadraticCurveTo(W*0.8,H*0.6,W,H*0.62);
+          ctx.lineTo(W,H); ctx.lineTo(W*0.65,H); ctx.closePath(); ctx.fill();
+          ctx.restore();
+
+          // Connection line (rope/bridge between boat and person)
+          var ropeAlpha=0.3+0.2*Math.sin(t*0.06);
+          ctx.save();
+          ctx.strokeStyle='rgba(0,255,180,'+ropeAlpha+')';
+          ctx.lineWidth=1.5; ctx.setLineDash([6,4]);
+          ctx.beginPath();
+          ctx.moveTo(boatX+42, boatBob-4);
+          ctx.quadraticCurveTo((boatX+personX)/2,(boatBob+personY)/2-20,personX-38,personY-6);
+          ctx.stroke();
+          ctx.restore();
+
+          // Reflection of moon in water
+          ctx.save();
+          var reflGrad=ctx.createLinearGradient(W*0.82,H*0.55,W*0.82,H*0.8);
+          reflGrad.addColorStop(0,'rgba(0,255,180,0.12)');
+          reflGrad.addColorStop(1,'transparent');
+          ctx.fillStyle=reflGrad;
+          ctx.beginPath(); ctx.ellipse(W*0.82,H*0.7,6,40,0,0,Math.PI*2); ctx.fill();
+          ctx.restore();
+
+          t+=0.6;
+          requestAnimationFrame(draw);
+        }
+        draw();
+      })();
+      </script>
     </div>
 
     <div class="lp-wrap">
+
+      <!-- NEW: LOGO -->
+      <div class="logo-section">
+        <div class="logo-emblem">
+          <div class="logo-ring-outer"></div>
+          <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="26" cy="26" r="22" stroke="rgba(0,255,180,0.3)" stroke-width="1.5"/>
+            <path d="M14 26 C14 18.3 19.4 12.5 26 12.5 C32.6 12.5 38 18.3 38 26" stroke="#00ffb4" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M18 30 L26 18 L34 30" stroke="#00ffb4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="26" cy="33" r="3" fill="#00ffb4" opacity="0.8"/>
+            <path d="M20 38 L32 38" stroke="rgba(0,255,180,0.4)" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="26" cy="26" r="3" fill="rgba(0,255,180,0.2)" stroke="rgba(0,255,180,0.5)" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="logo-name">EXAMHELP AI</div>
+        <div class="logo-tagline">◈ Elite Academic Intelligence ◈</div>
+      </div>
 
       <!-- HERO -->
       <div class="hero-badge"><div class="badge-dot"></div> LIVE &nbsp;·&nbsp; ExamHelp AI v4.0</div>
@@ -568,12 +1137,62 @@ if not st.session_state["passcode_verified"]:
         <div class="feat-item" style="animation-delay:.38s"><div class="feat-emoji">💎</div><div><div class="feat-name">Glassmorphism UI</div><div class="feat-sub">Premium responsive design system</div></div></div>
       </div>
 
+      <!-- NEW: CHILD TESTIMONIALS -->
+      <div class="child-section">
+        <div class="child-section-title">💫 Students Got Helped</div>
+        <div class="child-section-sub">◈ Real stories · Real transformations ◈</div>
+        <div class="child-cards">
+          <div class="child-card">
+            <span class="child-avatar">👧</span>
+            <div class="child-stars">★★★★★</div>
+            <div class="child-name">PRIYA · ENGINEERING STUDENT</div>
+            <div class="child-text">"I was drowning in circuit problems at midnight. ExamHelp AI solved my KVL equations step-by-step and explained each node. I passed with distinction!"</div>
+            <div class="child-tag">CIRCUIT SOLVER</div>
+          </div>
+          <div class="child-card">
+            <span class="child-avatar">👦</span>
+            <div class="child-stars">★★★★★</div>
+            <div class="child-name">ARJUN · LAW STUDENT</div>
+            <div class="child-text">"The Legal Analyser helped me understand IPC sections I'd been confused about for weeks. It thinks like a senior counsel — absolutely brilliant!"</div>
+            <div class="child-tag">LEGAL ENGINE</div>
+          </div>
+          <div class="child-card">
+            <span class="child-avatar">🧒</span>
+            <div class="child-stars">★★★★★</div>
+            <div class="child-name">MEERA · MEDICAL STUDENT</div>
+            <div class="child-text">"From pathophysiology to pharmacokinetics — this AI studies alongside me like a mentor. The mind maps and flashcards are magical for last-night revision!"</div>
+            <div class="child-tag">MEDICAL ENGINE</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NEW: THOUGHTS / POETIC FLOATING SECTION -->
+      <div class="thoughts-section">
+        <div class="section-label">◈ WHAT WE BELIEVE ◈</div>
+        <div class="section-title" style="font-size:22px;margin-bottom:24px;">Thoughts &amp; Philosophy</div>
+        <div class="thought-bubble-wrap">
+          <div class="thought-bubble">Every question you have deserves a <em>thoughtful answer</em>, not a search result.</div>
+          <div class="thought-bubble"><strong>Knowledge</strong> is infinite — the only barrier is finding the right guide through the river of complexity.</div>
+          <div class="thought-bubble">We don't just solve problems. We <em>illuminate the path</em> so you never fear the dark of confusion again.</div>
+          <div class="thought-bubble">Like a <strong>boatman on still water</strong>, ExamHelp AI carries your burdens and delivers you to the shore of understanding.</div>
+        </div>
+      </div>
+
       <!-- GATE -->
       <div class="gate-wrap">
         <div class="gate-card">
           <div class="gate-title">🔐 ACCESS PORTAL</div>
-          <div class="gate-sub">This platform is private & protected.<br>Enter your access key to unlock all features.</div>
+          <div class="gate-sub">This platform is <strong style="color:rgba(255,68,170,0.7)">private & protected</strong>.<br>Not free to access — password required.</div>
           <div class="gate-label">▸ Secret Access Key</div>
+
+          <!-- NEW: Contact for access -->
+          <div class="access-info">
+            <div class="access-info-text">
+              🔑 To get access, contact us at:<br>
+              <a href="mailto:piyushkumar52521@gmail.com">piyushkumar52521@gmail.com</a><br>
+              <span style="font-size:12px;color:rgba(255,255,255,0.25);letter-spacing:2px;">◈ GMAIL · FOR MORE INFO & ACCESS REQUESTS ◈</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -592,15 +1211,53 @@ if not st.session_state["passcode_verified"]:
                 st.error("⚠️ Invalid access key. Please try again.")
 
     st.markdown("""
-    <div style="text-align:center;padding:32px 20px 10px;border-top:1px solid rgba(255,255,255,.06);margin-top:16px;">
+    <div class="thanks-footer">
       <div class="made-by" style="font-family:'Orbitron',monospace;font-size:14px;font-weight:700;
         background:linear-gradient(90deg,#00ffb4,#b44dff,#ff44aa,#00aaff,#00ffb4);
         background-size:300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
         animation:gradShift 5s linear infinite;filter:drop-shadow(0 0 12px rgba(0,255,180,.4));">
         ✦ MADE WITH ❤️ BY PIYUSH KUMAR ✦
       </div>
-      <div style="font-size:12px;color:rgba(255,255,255,.2);letter-spacing:2px;margin-top:8px;font-family:'Space Mono',monospace;">
-        ExamHelp AI v4.0 · Built on Gemini-Pro & Streamlit
+
+      <!-- POWERED BY -->
+      <div class="powered-section">
+        <div class="powered-label">⚡ Powered By ⚡</div>
+        <div class="powered-logos">
+          <div class="pw-logo">
+            <div class="pw-dot" style="background:linear-gradient(135deg,#4285F4,#34A853);"></div>
+            <span>Gemini Pro</span>
+          </div>
+          <div class="pw-logo">
+            <div class="pw-dot" style="background:linear-gradient(135deg,#ff6b35,#f7c59f);"></div>
+            <span>Groq API</span>
+          </div>
+          <div class="pw-logo">
+            <div class="pw-dot" style="background:linear-gradient(135deg,#ff4b4b,#ff9f9f);"></div>
+            <span>Streamlit</span>
+          </div>
+          <div class="pw-logo">
+            <div class="pw-dot" style="background:linear-gradient(135deg,#00d4aa,#00a090);"></div>
+            <span>OpenAI Whisper</span>
+          </div>
+          <div class="pw-logo">
+            <div class="pw-dot" style="background:linear-gradient(135deg,#6f42c1,#a78bfa);"></div>
+            <span>Mermaid.js</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="copyright-text">
+        © 2024–2025 Piyush Kumar · All Rights Reserved<br>
+        ExamHelp AI v4.0 · Elite Academic Intelligence Platform<br>
+        ◈ Unauthorized reproduction or distribution strictly prohibited ◈
+      </div>
+
+      <!-- THANKS FOR VISITING -->
+      <div class="thanks-text" style="margin-top:20px;">
+        🙏 Thanks for Visiting ExamHelp AI 🙏
+      </div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:13px;color:rgba(255,255,255,0.2);letter-spacing:3px;margin-top:6px;">
+        May every question find its answer ✨
       </div>
     </div>
     <style>@keyframes gradShift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}</style>
