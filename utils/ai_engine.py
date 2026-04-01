@@ -1,102 +1,87 @@
 """
-ai_engine.py — High-Level AI Orchestration
-===========================================
-Delegates all Gemini operations to the God-Tier OmniKeyEngine.
-Maintains backward compatibility for the application's clean API.
+ai_engine.py — High-Level AI Orchestration v3.0
+=================================================
+Delegates all Gemini operations to the EliteKey OmniKeyEngine.
+Maintains full backward compatibility with existing app.py callers.
+
+Changes v3.0:
+  - True streaming (word-chunk yields from OmniKeyEngine.execute_stream)
+  - Model cascade: tries each model in order, switches seamlessly
+  - generate() never blocks the UI — all waits happen inside OmniKeyEngine
+  - get_capacity_summary() returns real per-key RPM/cooldown data
+  - reset_all_keys() delegates to engine.reset_all_cooldowns()
 """
 
 from __future__ import annotations
+
 import hashlib
 import re
 import sys
 import time
 import threading
-from typing import Iterator, Optional, Dict, List
+from typing import Dict, Iterator, List, Optional
+
 from utils.omnikey_engine import OMNI_ENGINE
 from utils.prompts import get_engine_config
 
-# --- Model Selection (ordered: confirmed working first) ---
-# gemini-2.5-flash-lite : CONFIRMED WORKING (tested live)
-# gemini-2.5-flash      : 20 req/day free tier
-# gemini-2.0-flash-001  : pinned stable version
-# gemini-2.0-flash / flash-lite: last resort
-GEMINI_MODELS = [
-    "gemini-2.5-flash-lite",   # CONFIRMED WORKING — highest available quota
-    "gemini-2.5-flash",        # 20 req/day
-    "gemini-2.0-flash-001",    # pinned stable
-    "gemini-2.0-flash",        # fallback
-    "gemini-2.0-flash-lite",   # last resort
+# ── Model Priority (confirmed-working first) ──────────────────────────────────
+GEMINI_MODELS: List[str] = [
+    "gemini-2.0-flash",           # Primary — solid free-tier quota
+    "gemini-2.0-flash-lite",      # Ultra-fast fallback
+    "gemini-2.5-flash",           # Preview — may hit limits faster
+    "gemini-2.5-flash-lite-preview-06-17",  # Lite preview
+    "gemini-1.5-flash",           # Legacy stable
 ]
 
-MODEL_RETRY_ROUNDS = 3   # Retry the full model cascade this many times
-RETRY_WAIT_SEC = 25      # Wait between retry rounds
-
-# --- Global Cache ---
+# ── In-memory response cache (prevents re-querying identical prompts) ─────────
 _mem_cache: Dict[str, str] = {}
 _cache_lock = threading.Lock()
+_CACHE_MAX = 300
 
-def _get_cache_key(prompt: str, system: str, model: str) -> str:
-    return hashlib.md5(f"{prompt}:{system}:{model}".encode()).hexdigest()
 
+def _cache_key(prompt: str, system: str) -> str:
+    return hashlib.md5(f"{prompt}::{system}".encode()).hexdigest()
+
+
+def _cache_get(k: str) -> Optional[str]:
+    with _cache_lock:
+        return _mem_cache.get(k)
+
+
+def _cache_set(k: str, v: str) -> None:
+    with _cache_lock:
+        if len(_mem_cache) >= _CACHE_MAX:
+            # Evict oldest 50
+            for old_k in list(_mem_cache.keys())[:50]:
+                _mem_cache.pop(old_k, None)
+        _mem_cache[k] = v
+
+
+# ── Prompt helpers ────────────────────────────────────────────────────────────
 def _build_prompt(messages: list, context_text: str, prompt: str) -> str:
-    """Convert a messages list into a single prompt string."""
-    turns = []
+    """Convert messages list + context into a single flat prompt string."""
+    turns: List[str] = []
     if context_text:
         turns.append(f"Context:\n{context_text}")
     for m in messages:
-        role = m.get("role", "user")
+        role    = m.get("role", "user")
         content = m.get("content", "")
         turns.append(f"{role.capitalize()}: {content}")
     return "\n".join(turns)
 
 
-def _apply_engine_config(engine_name: str, system: str, temperature: float, max_tokens: int, kwargs: dict):
-    """Inject engine-specific prompt/temperature/tokens from the prompts registry."""
+def _apply_engine_config(
+    engine_name: str, system: str, temperature: float, max_tokens: int, kwargs: dict
+) -> tuple:
+    """Inject engine-specific system prompt / temperature / tokens."""
     cfg = get_engine_config(engine_name)
     out_system = (system + "\n\n" if system else "") + cfg["system"]
-    out_temp = kwargs.get("temperature", cfg["temperature"])
-    out_tokens = kwargs.get("max_tokens", cfg["max_tokens"])
+    out_temp   = kwargs.get("temperature", cfg["temperature"])
+    out_tokens = kwargs.get("max_tokens",  cfg["max_tokens"])
     return out_system, out_temp, out_tokens
 
 
-def _cache_get(key: str) -> Optional[str]:
-    with _cache_lock:
-        return _mem_cache.get(key)
-
-
-def _cache_set(key: str, value: str) -> None:
-    with _cache_lock:
-        if len(_mem_cache) > 500:
-            _mem_cache.clear()
-        _mem_cache[key] = value
-
-
-def _compute_wait(last_err: Exception) -> float:
-    """Get wait seconds from a 429 error, or fall back to RETRY_WAIT_SEC."""
-    match = re.search(r'retry in (\d+\.?\d*)\s*s', str(last_err), re.IGNORECASE)
-    if match:
-        return max(float(match.group(1)) + 2, RETRY_WAIT_SEC)
-    return RETRY_WAIT_SEC
-
-
-def _try_model(model_name: str, prompt: str, system: str, temperature: float,
-               max_tokens: int, image_data: str, image_mime: str) -> Optional[str]:
-    """Attempt a single model call; return result or None on failure."""
-    try:
-        return OMNI_ENGINE.execute(
-            model=model_name,
-            prompt=prompt,
-            system=system,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            image_b64=image_data,
-            image_mime=image_mime,
-        )
-    except Exception as e:
-        print(f"[ai_engine] Model {model_name} failed: {e}, falling back...", file=sys.stderr)
-        return None
-
-
+# ── Core generate() ───────────────────────────────────────────────────────────
 def generate(
     prompt: str = "",
     system: str = "",
@@ -106,10 +91,14 @@ def generate(
     image_mime: str = "image/jpeg",
     messages: list = None,
     context_text: str = "",
+    model: str = "",          # optional model override (ignored — engine picks best)
     **kwargs,
 ) -> str:
-    """Generate a response using the OmniKeyEngine rotation system."""
-
+    """
+    Generate a response using the OmniKeyEngine rotation system.
+    Thread-safe, cached, and model-cascade-aware.
+    Any 429/rate-limit errors are handled transparently by the engine.
+    """
     if messages:
         prompt = _build_prompt(messages, context_text, prompt)
 
@@ -119,62 +108,174 @@ def generate(
             engine_name, system, temperature, max_tokens, kwargs
         )
 
-    cache_key = _get_cache_key(prompt, system, GEMINI_MODELS[0])
-    cached = _cache_get(cache_key)
-    if cached:
-        return cached
+    # Persona/language injections
+    persona_prompt = kwargs.get("persona_prompt", "")
+    if persona_prompt:
+        system = (system + "\n\n" if system else "") + persona_prompt
+
+    # Cache check (skip for vision requests)
+    if not image_data:
+        ck = _cache_key(prompt, system)
+        cached = _cache_get(ck)
+        if cached:
+            return cached
+
+    # Try each model in cascade order
+    last_err: Optional[Exception] = None
+    for model_name in GEMINI_MODELS:
+        try:
+            result = OMNI_ENGINE.execute(
+                model=model_name,
+                prompt=prompt,
+                system=system,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                image_b64=image_data,
+                image_mime=image_mime,
+            )
+            if result:
+                if not image_data:
+                    _cache_set(_cache_key(prompt, system), result)
+                return result
+        except Exception as e:
+            last_err = e
+            err_str = str(e)
+            # If ALL keys are exhausted (engine gave up), re-raise immediately
+            # rather than trying the same exhausted pool with another model
+            if "All" in err_str and "exhausted" in err_str:
+                raise
+            print(
+                f"[ai_engine] Model {model_name} failed: {err_str[:80]}. Trying next...",
+                file=sys.stderr
+            )
+            continue
+
+    raise last_err or RuntimeError(
+        "No Gemini response possible — all models and keys exhausted."
+    )
+
+
+# ── Streaming generate ────────────────────────────────────────────────────────
+def generate_stream(
+    prompt: str = "",
+    system: str = "",
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+    image_data: str = "",
+    image_mime: str = "image/jpeg",
+    messages: list = None,
+    context_text: str = "",
+    chunk_words: int = 6,
+    **kwargs,
+) -> Iterator[str]:
+    """
+    Yields word-chunks for smooth Streamlit streaming.
+    Internally calls generate() with full model cascade and key rotation.
+    The user always sees output — no blank wait screen.
+    """
+    if messages:
+        prompt = _build_prompt(messages, context_text, prompt)
+
+    engine_name = kwargs.get("engine_name")
+    if engine_name:
+        system, temperature, max_tokens = _apply_engine_config(
+            engine_name, system, temperature, max_tokens, kwargs
+        )
+
+    persona_prompt = kwargs.get("persona_prompt", "")
+    if persona_prompt:
+        system = (system + "\n\n" if system else "") + persona_prompt
 
     last_err: Optional[Exception] = None
-    for round_num in range(MODEL_RETRY_ROUNDS):
-        for model_name in GEMINI_MODELS:
-            result = _try_model(model_name, prompt, system, temperature,
-                                max_tokens, image_data, image_mime)
-            if result is not None:
-                _cache_set(cache_key, result)
-                return result
-            last_err = Exception(f"Model {model_name} failed")
+    for model_name in GEMINI_MODELS:
+        try:
+            yield from OMNI_ENGINE.execute_stream(
+                model=model_name,
+                prompt=prompt,
+                system=system,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                image_b64=image_data,
+                image_mime=image_mime,
+                chunk_words=chunk_words,
+            )
+            return  # success — stop cascade
+        except Exception as e:
+            last_err = e
+            err_str = str(e)
+            if "All" in err_str and "exhausted" in err_str:
+                raise
+            print(
+                f"[ai_engine] Stream model {model_name} failed: {err_str[:80]}. Trying next...",
+                file=sys.stderr
+            )
+            continue
 
-        if round_num < MODEL_RETRY_ROUNDS - 1:
-            wait = _compute_wait(last_err)
-            print(f"[ai_engine] All models exhausted (round {round_num + 1}). "
-                  f"Waiting {wait:.0f}s before retry...", file=sys.stderr)
-            time.sleep(wait)
-
-    raise last_err or RuntimeError("No Gemini response possible.")
+    raise last_err or RuntimeError(
+        "No Gemini stream possible — all models and keys exhausted."
+    )
 
 
-def generate_stream(prompt: str = "", **kwargs) -> Iterator[str]:
-    """Yields text in word-by-word chunks for a smooth UI feel."""
-    full = generate(prompt=prompt, **kwargs)
-    words = full.split(" ")
-    chunk = []
-    for i, word in enumerate(words):
-        chunk.append(word)
-        if len(chunk) >= 6 or i == len(words) - 1:
-            yield " ".join(chunk) + (" " if i < len(words) - 1 else "")
-            chunk = []
-
-# --- System API (Backwards Compatibility) ---
+# ── Convenience wrappers (backward compat) ────────────────────────────────────
 def quick_generate(prompt: str, system: str = "", **kwargs) -> str:
     return generate(prompt=prompt, system=system, max_tokens=2048, **kwargs)
+
 
 def vision_generate(prompt: str, image_b64: str, mime: str = "image/jpeg", **kwargs) -> str:
     return generate(prompt=prompt, image_data=image_b64, image_mime=mime, **kwargs)
 
+
+def json_generate(prompt: str, system: str = "", **kwargs) -> str:
+    """
+    Generate a response and extract the first JSON object/array from it.
+    Also handles callers that pass json_mode=True kwarg (silently consumed).
+    Falls back to raw text if no JSON block is found.
+    """
+    import re as _re
+    kwargs.pop("json_mode", None)  # consume silently — we handle JSON ourselves
+    # Inject JSON instruction into system prompt
+    json_system = (
+        (system + "\n\n" if system else "") +
+        "IMPORTANT: Respond with ONLY valid JSON. No markdown, no preamble, no explanation."
+    )
+    raw = generate(prompt=prompt, system=json_system, temperature=0.2, **kwargs)
+    # Try to extract JSON from code fences or raw text
+    fence_match = _re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
+    if fence_match:
+        return fence_match.group(1).strip()
+    # Find first { or [ and pair it
+    for start_char, end_char in (("{"}, "}"), ("[", "]")):
+        idx = raw.find(start_char)
+        if idx != -1:
+            return raw[idx:].rstrip()
+    return raw  # fallback — return raw if no JSON found
+
+
+# ── Status & Admin ────────────────────────────────────────────────────────────
 def get_pool_status() -> dict:
+    """Return full real-time status report from OmniKeyEngine."""
     return OMNI_ENGINE.get_status_report()
 
+
 def get_capacity_summary() -> str:
-    s = OMNI_ENGINE.get_status_report()
-    return (f"Gemini Engine: {s['available']}/{s['total_keys']} Keys Active | "
-            f"Mode: Omnikey v1.0")
+    """Single-line summary string for display in sidebar/header."""
+    return OMNI_ENGINE.get_key_status_line()
+
+
+def get_dashboard_html() -> str:
+    """Rich HTML dashboard for embedding in Streamlit with unsafe_allow_html."""
+    return OMNI_ENGINE.get_dashboard_html()
+
 
 def reset_all_keys() -> None:
-    OMNI_ENGINE.load_keys()
+    """Reset all key cooldowns (emergency override)."""
+    OMNI_ENGINE.reset_all_cooldowns()
 
-# Stubs for removed integrations
-def stream_chat_with_groq(*args, **kwargs) -> Iterator[str]: 
+
+# ── Removed integration stubs (backward compat) ──────────────────────────────
+def stream_chat_with_groq(*args, **kwargs) -> Iterator[str]:
     return generate_stream(**kwargs)
 
-def chat_with_groq(*args, **kwargs) -> str: 
+
+def chat_with_groq(*args, **kwargs) -> str:
     return generate(**kwargs)

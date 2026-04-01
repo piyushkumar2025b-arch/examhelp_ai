@@ -2350,27 +2350,9 @@ def count_output_stats(text: str):
 
 
 def _key_health_html() -> str:
-    """Render compact API key health widget."""
-    cap = key_manager.get_total_capacity()
-    avail = cap["keys_available"]
-    total = cap["keys_total"]
-    pct   = int(avail / max(1, total) * 100)
-    color = "#4ade80" if pct >= 60 else "#fbbf24" if pct >= 30 else "#f87171"
-    return f"""
-    <div style="margin-bottom:.5rem;">
-      <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--text3);margin-bottom:3px;">
-        <span>🔑 API Keys ({avail}/{total} active)</span>
-        <span style="color:{color};font-weight:600;">{pct}%</span>
-      </div>
-      <div class="key-health-bar">
-        <div class="key-health-fill" style="width:{pct}%;background:{color};"></div>
-      </div>
-      <div style="display:flex;gap:12px;font-size:.68rem;color:var(--text3);">
-        <span>RPM: {cap['rpm_used']}/{cap['rpm_capacity']}</span>
-        <span>TPM: {cap['tpm_used']:,}/{cap['tpm_capacity']:,}</span>
-        <span>RPD: {cap['rpd_used']}/{cap['rpd_capacity']}</span>
-      </div>
-    </div>"""
+    """Render real-time API key health dashboard via OmniKeyEngine."""
+    from utils.ai_engine import get_dashboard_html
+    return get_dashboard_html()
 
 
 # ─────────────────────────────────────────────
