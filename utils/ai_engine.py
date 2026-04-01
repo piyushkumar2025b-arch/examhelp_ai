@@ -244,7 +244,7 @@ def json_generate(prompt: str, system: str = "", **kwargs) -> str:
     if fence_match:
         return fence_match.group(1).strip()
     # Find first { or [ and pair it
-    for start_char, end_char in (("{"}, "}"), ("[", "]")):
+    for start_char, end_char in (("{", "}"), ("[", "]")):
         idx = raw.find(start_char)
         if idx != -1:
             return raw[idx:].rstrip()
