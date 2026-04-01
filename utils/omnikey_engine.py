@@ -91,13 +91,29 @@ class OmniKeyEngine:
         except:
             pass
 
-        # Source 2: Environment Variables (.env)
+        # Source 2: Environment Variables / .env File
         if not found_keys:
+            # First check direct environment
             for i in range(1, 11):
                 k = f"GEMINI_API_KEY_{i}"
                 val = os.environ.get(k, "").strip().strip('"').strip("'")
                 if val and val.startswith("AIzaSy"):
                     found_keys.append(val)
+            
+            # Then check .env file manually (if still empty)
+            if not found_keys:
+                try:
+                    if os.path.exists(".env"):
+                        with open(".env", "r") as f:
+                            for line in f:
+                                if "GEMINI_API_KEY" in line and "=" in line:
+                                    # Very simple parser: SPLIT at first '='
+                                    k, v = line.split("=", 1)
+                                    v_clean = v.strip().strip('"').strip("'")
+                                    if v_clean.startswith("AIzaSy"):
+                                        found_keys.append(v_clean)
+                except Exception as e:
+                    print(f"[OmniKey] .env read error: {e}", file=sys.stderr)
 
         self.keys = list(dict.fromkeys(found_keys)) # Deduplicate
         self.stats = {k: KeyDiagnostics(k) for k in self.keys}
@@ -219,6 +235,7 @@ class OmniKeyEngine:
             except: pass
             raise RuntimeError(f"HTTP {e.code}: {msg}")
         except Exception as e:
+            print(f"[OmniKey] Raw request failed: {str(e)}", file=sys.stderr)
             raise RuntimeError(f"Request failed: {str(e)}")
 
     def get_status_report(self) -> Dict[str, Any]:

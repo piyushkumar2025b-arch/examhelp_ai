@@ -88,7 +88,7 @@ def generate(
             return result
         except Exception as e:
             last_err = e
-            print(f"[ai_engine] Model {model_name} failed, falling back...", file=sys.stderr)
+            print(f"[ai_engine] Model {model_name} failed: {str(e)}, falling back...", file=sys.stderr)
             continue
 
     raise last_err or RuntimeError("No Gemini response possible.")
