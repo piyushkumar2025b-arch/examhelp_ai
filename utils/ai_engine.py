@@ -1,155 +1,26 @@
 """
-ai_engine.py — Gemini-only AI Engine
-======================================
-9-key rotation, auto-retry, streaming support.
-Reads keys from Streamlit Cloud secrets — no hardcoding.
-
-Public API (unchanged from before):
-    generate(prompt, system, ...)        -> str
-    generate_stream(prompt, system, ...) -> Iterator[str]
-    quick_generate(prompt, system)       -> str
-    vision_generate(prompt, image_b64)   -> str
-    json_generate(prompt, system)        -> str
-    get_pool_status()                    -> dict
-    reset_all_keys()                     -> None
-    get_capacity_summary()               -> str
+ai_engine.py — High-Level AI Orchestration
+===========================================
+Delegates all Gemini operations to the God-Tier OmniKeyEngine.
+Maintains backward compatibility for the application's clean API.
 """
 
 from __future__ import annotations
-import json, time, threading, ssl, urllib.request, urllib.error, sys, hashlib
+import hashlib
+import sys
+import threading
 from typing import Iterator, Optional, Dict, List
+from utils.omnikey_engine import OMNI_ENGINE
 from utils.prompts import get_engine_config
 
-# ── Models ─────────────────────────────────────────────────
+# --- Model Selection ---
 GEMINI_MODELS = [
-    "gemini-2.5-flash",        # primary — working, separate quota pool
-    "gemini-2.0-flash",        # fallback — may be quota-exhausted on free tier
-    "gemini-2.0-flash-lite",   # last-resort — lightweight, separate quota
+    "gemini-2.5-flash",        # Primary - Best working model
+    "gemini-2.0-flash",        # Fallback
+    "gemini-2.0-flash-lite",   # Minimal
 ]
-GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
-GEMINI_RPM     = 15
-GEMINI_RPD     = 1_500
-GEMINI_TPM     = 1_000_000
-GEMINI_SWITCH_RPM = 3   # rotate key when < 3 RPM remain
-
-# ── SSL Context (fixes Windows certificate errors) ─────────
-def _make_ssl_context() -> ssl.SSLContext:
-    """Create SSL context with fallback for systems with broken cert chains."""
-    # Try verified first
-    try:
-        ctx = ssl.create_default_context()
-        # Quick test to see if it actually works
-        import urllib.request
-        test_req = urllib.request.Request("https://generativelanguage.googleapis.com")
-        urllib.request.urlopen(test_req, timeout=5, context=ctx)
-        return ctx
-    except Exception:
-        pass
-    # Fallback: unverified context (works on systems with broken cert chains)
-    try:
-        ctx = ssl._create_unverified_context()
-        print("[ai_engine] WARNING: Using unverified SSL (cert chain issue). "
-              "Run 'pip install certifi' to fix.", file=sys.stderr)
-        return ctx
-    except Exception:
-        return None
-
-_SSL_CTX = _make_ssl_context()
-
-# ── Key Pool ───────────────────────────────────────────────
-class _KeyState:
-    def __init__(self, key: str):
-        self.key          = key
-        self.rpm_times: list = []   # timestamps of recent calls
-        self.cooldown_until = 0.0
-        self.total_calls  = 0
-        self.errors       = 0
-
-    def rpm_used(self, now: float) -> int:
-        cutoff = now - 60
-        self.rpm_times = [t for t in self.rpm_times if t > cutoff]
-        return len(self.rpm_times)
-
-    def record_call(self, now: float):
-        self.rpm_times.append(now)
-        self.total_calls += 1
-
-    def available(self, now: float) -> bool:
-        return now >= self.cooldown_until and self.rpm_used(now) < GEMINI_RPM
-
-    def cooldown(self, seconds: float = 65):
-        self.cooldown_until = time.monotonic() + seconds
-
-
-class _KeyPool:
-    def __init__(self):
-        self._lock  = threading.Lock()
-        self._keys: List[_KeyState] = []
-        self._loaded = False
-
-    def _ensure_loaded(self):
-        if self._loaded:
-            return
-        with self._lock:
-            if self._loaded:
-                return
-            from utils.secret_manager import GEMINI_KEYS
-            self._keys = [_KeyState(k) for k in GEMINI_KEYS]
-            self._loaded = True
-            print(f"[ai_engine] Key pool loaded: {len(self._keys)} keys", file=sys.stderr)
-
-    def force_reload(self):
-        """Force reload keys from secret_manager."""
-        with self._lock:
-            self._loaded = False
-            self._keys = []
-        from utils.secret_manager import force_reload_keys
-        count = force_reload_keys()
-        with self._lock:
-            from utils.secret_manager import GEMINI_KEYS
-            self._keys = [_KeyState(k) for k in GEMINI_KEYS]
-            self._loaded = True
-        print(f"[ai_engine] Key pool force-reloaded: {len(self._keys)} keys", file=sys.stderr)
-        return count
-
-    def get_best(self, exclude: set = None) -> Optional[_KeyState]:
-        self._ensure_loaded()
-        exclude = exclude or set()
-        now = time.monotonic()
-        with self._lock:
-            candidates = [
-                ks for ks in self._keys
-                if ks.key not in exclude and ks.available(now)
-            ]
-            if not candidates:
-                return None
-            # Prefer key with most RPM headroom
-            return min(candidates, key=lambda ks: ks.rpm_used(now))
-
-    def status(self) -> dict:
-        self._ensure_loaded()
-        now = time.monotonic()
-        with self._lock:
-            avail = sum(1 for ks in self._keys if ks.available(now))
-            return {
-                "total":     len(self._keys),
-                "available": avail,
-                "cooling":   len(self._keys) - avail,
-                "gemini_rpm": avail * GEMINI_RPM,
-                "gemini_rpd": avail * GEMINI_RPD,
-            }
-
-    def reset(self):
-        self._ensure_loaded()
-        with self._lock:
-            for ks in self._keys:
-                ks.cooldown_until = 0
-                ks.rpm_times.clear()
-                ks.errors = 0
-
-
-# ── Global Cache ───────────────────────────────────────────
+# --- Global Cache ---
 _mem_cache: Dict[str, str] = {}
 _cache_lock = threading.Lock()
 
@@ -158,185 +29,73 @@ def _get_cache_key(prompt: str, system: str, model: str) -> str:
     h = hashlib.md5(f"{prompt}:{system}:{model}".encode()).hexdigest()
     return h
 
-_pool = _KeyPool()
-
-
-# ── HTTP helpers ───────────────────────────────────────────
-def _gemini_request(
-    key: str,
-    prompt: str,
-    system: str,
-    model: str,
-    image_b64: str = "",
-    image_mime: str = "image/jpeg",
-    temperature: float = 0.7,
-    max_tokens: int = 4096,
-) -> str:
-    url = f"{GEMINI_API_BASE}/{model}:generateContent?key={key}"
-
-    # Build content parts
-    parts: list = []
-    if image_b64:
-        parts.append({"inline_data": {"mime_type": image_mime, "data": image_b64}})
-    parts.append({"text": prompt})
-
-    body: dict = {
-        "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {
-            "temperature": temperature,
-            "maxOutputTokens": max_tokens,
-        },
-    }
-    if system:
-        body["system_instruction"] = {"parts": [{"text": system}]}
-
-    data = json.dumps(body).encode()
-    req  = urllib.request.Request(
-        url, data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
-    # Use SSL context to avoid certificate errors on Windows
-    try:
-        if _SSL_CTX:
-            with urllib.request.urlopen(req, timeout=60, context=_SSL_CTX) as resp:
-                result = json.loads(resp.read())
-        else:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                result = json.loads(resp.read())
-    except urllib.error.HTTPError as he:
-        # Read error body for better diagnostics
-        err_body = ""
-        try:
-            err_body = he.read().decode()[:500]
-        except Exception:
-            pass
-        raise RuntimeError(f"HTTP {he.code}: {err_body or he.reason}") from he
-    except urllib.error.URLError as ue:
-        raise RuntimeError(f"Connection error: {ue.reason}") from ue
-
-    candidates = result.get("candidates", [])
-    if not candidates:
-        # Check for blocked content or other issues
-        block_reason = result.get("promptFeedback", {}).get("blockReason", "")
-        if block_reason:
-            raise ValueError(f"Content blocked: {block_reason}")
-        raise ValueError("Empty candidates in Gemini response")
-    parts_out = candidates[0].get("content", {}).get("parts", [])
-    return "".join(p.get("text", "") for p in parts_out)
-
-
-def _classify_error(err: Exception) -> str:
-    s = str(err).lower()
-    if "429" in s or "quota" in s or "rate" in s or "resource_exhausted" in s:
-        return "rate_limit"
-    if "403" in s or "permission" in s:
-        return "forbidden"
-    if "400" in s and ("invalid" in s or "api key" in s):
-        return "bad_key"
-    if "timeout" in s or "timed out" in s:
-        return "timeout"
-    if "ssl" in s or "certificate" in s:
-        return "ssl_error"
-    if "connection" in s or "urlopen" in s:
-        return "connection"
-    return "unknown"
-
-
-# ── Core call with rotation ────────────────────────────────
-def _call_gemini(
-    prompt: str,
+def generate(
+    prompt: str = "",
     system: str = "",
-    image_b64: str = "",
-    image_mime: str = "image/jpeg",
     temperature: float = 0.7,
     max_tokens: int = 4096,
+    image_data: str = "",
+    image_mime: str = "image/jpeg",
+    messages: list = None,
+    context_text: str = "",
+    **kwargs,
 ) -> str:
-    # Auto-reload keys if pool is empty
-    if _pool._loaded and len(_pool._keys) == 0:
-        _pool.force_reload()
+    """Generate a response using the OmniKeyEngine rotation system."""
+    
+    # 1. Message conversion
+    if messages:
+        turns = []
+        if context_text: turns.append(f"Context:\n{context_text}")
+        for m in messages:
+            role = m.get("role", "user")
+            content = m.get("content", "")
+            turns.append(f"{role.capitalize()}: {content}")
+        prompt = "\n".join(turns)
 
-    if not _pool._loaded:
-        _pool._ensure_loaded()
+    # 2. Engine-specific config injection
+    engine_name = kwargs.get("engine_name")
+    if engine_name:
+        cfg = get_engine_config(engine_name)
+        system = (system + "\n\n" if system else "") + cfg["system"]
+        temperature = kwargs.get("temperature", cfg["temperature"])
+        max_tokens = kwargs.get("max_tokens", cfg["max_tokens"])
 
-    if len(_pool._keys) == 0:
-        raise RuntimeError(
-            "No Gemini API keys configured. "
-            "Add GEMINI_API_KEY_1…9 in .streamlit/secrets.toml "
-            "or Streamlit Cloud → App settings → Secrets."
-        )
-
-    # ── Cache Lookup ───────────────────────────────────
-    cache_key = _get_cache_key(prompt, system, GEMINI_MODELS[0]) # Use first model as cache baseline
+    # 3. Cache Check
+    cache_key = _get_cache_key(prompt, system, GEMINI_MODELS[0])
     with _cache_lock:
         if cache_key in _mem_cache:
             return _mem_cache[cache_key]
 
-    last_err: Exception = RuntimeError("No Gemini keys available.")
+    # 4. Delegate to OmniKeyEngine for the actual call
+    # It will automatically handle keys, rotation, and falling back to 2.0 if 2.5 fails
+    last_err = None
+    for model_name in GEMINI_MODELS:
+        try:
+            result = OMNI_ENGINE.execute(
+                model=model_name,
+                prompt=prompt,
+                system=system,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                image_b64=image_data,
+                image_mime=image_mime
+            )
+            
+            # Cache success
+            with _cache_lock:
+                if len(_mem_cache) > 500: _mem_cache.clear()
+                _mem_cache[cache_key] = result
+            return result
+        except Exception as e:
+            last_err = e
+            print(f"[ai_engine] Model {model_name} failed, falling back...", file=sys.stderr)
+            continue
 
-    # ── Validation & Retry Layer ──────────────────────
-    max_retries = 1
-    for attempt in range(max_retries + 1):
-        for model in GEMINI_MODELS:
-            tried: set = set()
-            pool_attempts = max(len(_pool._keys), 1)
+    raise last_err or RuntimeError("No Gemini response possible.")
 
-            for _ in range(pool_attempts):
-                ks = _pool.get_best(exclude=tried)
-                if ks is None: break
-
-                now = time.monotonic()
-                ks.record_call(now)
-                try:
-                    result = _gemini_request(
-                        key=ks.key, prompt=prompt, system=system,
-                        model=model, image_b64=image_b64, image_mime=image_mime,
-                        temperature=temperature, max_tokens=max_tokens,
-                    )
-                    
-                    # Output Validation Part 1: Empty check
-                    if not result or len(result.strip()) < 5:
-                        raise ValueError("Gemini returned an empty or insufficient response.")
-
-                    # Cache successful result
-                    with _cache_lock:
-                        if len(_mem_cache) > 500: _mem_cache.clear() # Evict if too large
-                        _mem_cache[cache_key] = result
-                    return result
-
-                except Exception as e:
-                    etype = _classify_error(e)
-                    ks.errors += 1
-                    print(f"[ai_engine] Key …{ks.key[-6:]} model={model} error={etype}: {e}", file=sys.stderr)
-
-                    if etype == "rate_limit": ks.cooldown(65)
-                    elif etype == "bad_key": ks.cooldown(600)
-                    elif etype == "forbidden": ks.cooldown(300)
-                    elif etype == "timeout": ks.cooldown(30)
-                    tried.add(ks.key)
-                    last_err = e
-
-        if attempt < max_retries:
-            print(f"[ai_engine] Validation failed. Retrying (Attempt {attempt+1}/{max_retries})...", file=sys.stderr)
-            time.sleep(1) # mini-pause
-
-    raise last_err
-
-
-# ── Streaming (sentence-chunked simulation) ───────────────
-def _call_gemini_stream(
-    prompt: str,
-    system: str = "",
-    temperature: float = 0.7,
-    max_tokens: int = 4096,
-) -> Iterator[str]:
-    """Yields text in chunks (Gemini REST doesn't stream; we chunk the response)."""
-    full = _call_gemini(
-        prompt=prompt, system=system,
-        temperature=temperature, max_tokens=max_tokens,
-    )
-    # Yield word-by-word for a streaming feel
+def generate_stream(prompt: str = "", **kwargs) -> Iterator[str]:
+    """Yields text in word-by-word chunks for a smooth UI feel."""
+    full = generate(prompt=prompt, **kwargs)
     words = full.split(" ")
     chunk = []
     for i, word in enumerate(words):
@@ -345,141 +104,27 @@ def _call_gemini_stream(
             yield " ".join(chunk) + (" " if i < len(words) - 1 else "")
             chunk = []
 
-
-# ── Public API ────────────────────────────────────────────
-def _messages_to_prompt(
-    messages: list,
-    context_text: str = "",
-    persona_prompt: str = "",
-) -> tuple:
-    """Convert a messages list into (prompt, system) for Gemini."""
-    system_parts = []
-    if context_text:
-        system_parts.append(f"Context:\n{context_text}")
-    if persona_prompt:
-        system_parts.append(persona_prompt)
-    system = "\n\n".join(system_parts)
-
-    turns = []
-    for m in messages:
-        role = m.get("role", "user")
-        content = m.get("content", "")
-        turns.append(f"{role.capitalize()}: {content}")
-    prompt = "\n".join(turns)
-    return prompt, system
-
-
-def generate(
-    prompt: str = "",
-    system: str = "",
-    provider: str = "gemini",   # kept for API compat — always gemini now
-    temperature: float = 0.7,
-    max_tokens: int = 4096,
-    image_data: str = "",
-    image_mime: str = "image/jpeg",
-    messages: list = None,
-    model: str = "",            # ignored — always uses GEMINI_MODELS rotation
-    context_text: str = "",
-    **kwargs,
-) -> str:
-    """Generate a response. Returns full text string."""
-    if messages:
-        prompt, system = _messages_to_prompt(messages, context_text)
-    
-    # ── Task-based Config Injection ───────────
-    # If a known engine matches kwargs, merge its config
-    engine_name = kwargs.get("engine_name")
-    if engine_name:
-        cfg = get_engine_config(engine_name)
-        system = (system + "\n\n" if system else "") + cfg["system"]
-        temperature = kwargs.get("temperature", cfg["temperature"])
-        max_tokens = kwargs.get("max_tokens", cfg["max_tokens"])
-
-    return _call_gemini(
-        prompt=prompt,
-        system=system,
-        image_b64=image_data,
-        image_mime=image_mime,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
-
-def generate_stream(
-    prompt: str = "",
-    system: str = "",
-    provider: str = "gemini",   # kept for API compat
-    temperature: float = 0.7,
-    max_tokens: int = 4096,
-    messages: list = None,
-    model: str = "",            # ignored — always uses GEMINI_MODELS rotation
-    context_text: str = "",
-    persona_prompt: str = "",
-    use_vit_context: bool = False,
-    **kwargs,
-) -> Iterator[str]:
-    """Generate a streaming response. Yields text chunks."""
-    if messages:
-        prompt, system = _messages_to_prompt(messages, context_text, persona_prompt)
-    return _call_gemini_stream(
-        prompt=prompt,
-        system=system,
-        temperature=temperature,
-        max_tokens=max_tokens,
-    )
-
-
+# --- System API (Backwards Compatibility) ---
 def quick_generate(prompt: str, system: str = "", **kwargs) -> str:
-    """Fast single-turn generation."""
-    return _call_gemini(prompt=prompt, system=system, max_tokens=2048, **kwargs)
-
+    return generate(prompt=prompt, system=system, max_tokens=2048, **kwargs)
 
 def vision_generate(prompt: str, image_b64: str, mime: str = "image/jpeg", **kwargs) -> str:
-    """Generate with an image input."""
-    return _call_gemini(prompt=prompt, image_b64=image_b64, image_mime=mime, **kwargs)
+    return generate(prompt=prompt, image_data=image_b64, image_mime=mime, **kwargs)
 
-
-def json_generate(prompt: str, system: str = "", **kwargs) -> str:
-    """Generate and return raw text (parse JSON yourself)."""
-    sys = (system + "\n\n" if system else "") + \
-          "Respond ONLY with valid JSON. No markdown, no backticks, no explanation."
-    return _call_gemini(prompt=prompt, system=sys, temperature=0.2, **kwargs)
-
-
-def get_pool_status() -> Dict:
-    return _pool.status()
-
-
-def reset_all_keys() -> None:
-    _pool.reset()
-
-
-def force_reload_all() -> int:
-    """Force reload keys and reset all cooldowns. Returns key count."""
-    count = _pool.force_reload()
-    return count
-
+def get_pool_status() -> dict:
+    return OMNI_ENGINE.get_status_report()
 
 def get_capacity_summary() -> str:
-    s = _pool.status()
-    return (
-        f"Gemini: {s['available']}/{s['total']} keys active | "
-        f"~{s['gemini_rpm']} RPM | ~{s['gemini_rpd']} RPD"
-    )
+    s = OMNI_ENGINE.get_status_report()
+    return (f"Gemini Engine: {s['available']}/{s['total_keys']} Keys Active | "
+            f"Mode: Omnikey v1.0")
 
-# ── Backwards-compat stubs (previously groq functions) ────
-def stream_chat_with_groq(*args, **kwargs) -> Iterator[str]:
-    """Groq removed — delegates to Gemini stream."""
-    prompt = kwargs.get("prompt") or (args[0] if args else "")
-    system = kwargs.get("system", "")
-    return generate_stream(prompt=prompt, system=system)
+def reset_all_keys() -> None:
+    OMNI_ENGINE.load_keys()
 
-def chat_with_groq(*args, **kwargs) -> str:
-    """Groq removed — delegates to Gemini."""
-    prompt = kwargs.get("prompt") or (args[0] if args else "")
-    system = kwargs.get("system", "")
-    return generate(prompt=prompt, system=system)
+# Stubs for removed integrations
+def stream_chat_with_groq(*args, **kwargs) -> Iterator[str]: 
+    return generate_stream(**kwargs)
 
-def transcribe_audio(*args, **kwargs) -> str:
-    """Audio transcription requires Groq Whisper which has been removed."""
-    return "[Audio transcription unavailable — Groq integration removed]"
+def chat_with_groq(*args, **kwargs) -> str: 
+    return generate(**kwargs)

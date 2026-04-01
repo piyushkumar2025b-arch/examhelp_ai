@@ -4,8 +4,9 @@ gemini_key_manager.py — 9-Key Gemini Rotation Engine
 Reads GEMINI_API_KEY_1 … GEMINI_API_KEY_9 from Streamlit secrets.
 Round-robin rotation with per-key RPM cooldown.
 
-Free-tier limits (per key, per project):
-  gemini-2.0-flash   : 15 RPM, 1500 RPD, 1M TPM
+Free-tier limits (per key):
+  gemini-2.5-flash   : Working (Dedicated pool)
+  gemini-2.0-flash   : 15 RPM, 1500 RPD, 1M TPM (Fallback)
   gemini-1.5-flash-8b: 15 RPM, 1000 RPD, 250K TPM
 """
 
