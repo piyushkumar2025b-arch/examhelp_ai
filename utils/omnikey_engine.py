@@ -6,10 +6,12 @@ Features:
 - Token-Aware Rate Limiting (Simulated)
 - Per-Key Cooldown & Error Tracking
 - Instant Recovery: Switch keys mid-request on 429
+- Automatic Retry-After-Delay for 429 rate limits
 - Secure Loading: Zero exposure, st.secrets + .env fallback
 """
 
 import os
+import re
 import sys
 import time
 import threading
@@ -25,7 +27,8 @@ GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 RPM_LIMIT = 15      # Hard limit for free tier
 RPM_SAFE = 14       # Safety buffer
 COOLDOWN_SEC = 65    # Duration to wait after a 429
-MAX_RETRY_PER_REQ = 3 # How many DIFFERENT keys to try before giving up
+MAX_RETRY_PER_REQ = 9 # Try more keys before giving up (was 3)
+GLOBAL_RETRY_ROUNDS = 3  # How many full rounds to attempt with cooldown waits
 
 class KeyDiagnostics:
     """Diagnostic data for a single key."""
@@ -141,6 +144,27 @@ class OmniKeyEngine:
         # Pick the 'freshest' key (lowest RPM usage)
         return min(candidates, key=lambda k: len(self.stats[k].rpm_history))
 
+    def _get_shortest_cooldown(self) -> float:
+        """Return the shortest remaining cooldown time across all keys."""
+        now = time.monotonic()
+        remaining = [self.stats[k].cooldown_until - now for k in self.keys 
+                     if self.stats[k].cooldown_until > now]
+        if not remaining:
+            return 0
+        return max(min(remaining), 0)
+
+    @staticmethod
+    def _parse_retry_delay(error_msg: str) -> float:
+        """Extract retry delay from 429 error message (e.g. 'Please retry in 19.30870923s')."""
+        match = re.search(r'retry in (\d+\.?\d*)\s*s', error_msg, re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+        # Also check retryDelay JSON field
+        match = re.search(r'"retryDelay":\s*"(\d+)s?"', error_msg)
+        if match:
+            return float(match.group(1))
+        return 0
+
     def mark_error(self, key: str, error_type: str):
         """Categorize error and adjust cooldown."""
         st = self.stats.get(key)
@@ -148,7 +172,10 @@ class OmniKeyEngine:
         st.errors += 1
         
         if "429" in error_type or "quota" in error_type.lower():
-            st.cooldown_until = time.monotonic() + COOLDOWN_SEC
+            # Try to parse the actual retry delay from the error
+            parsed_delay = self._parse_retry_delay(error_type)
+            cooldown = max(parsed_delay + 2, COOLDOWN_SEC)  # Add 2s safety buffer
+            st.cooldown_until = time.monotonic() + cooldown
             st.status = "Rate Limited"
         elif "400" in error_type or "401" in error_type:
             st.cooldown_until = time.monotonic() + 3600 # Bad key? 1 hour cooldown
@@ -156,36 +183,70 @@ class OmniKeyEngine:
         else:
             st.cooldown_until = time.monotonic() + 10 # Transient error
 
+    def _acquire_key(self, tried_keys: set, attempt: int) -> Optional[str]:
+        """Try to get a ready key, waiting out cooldowns if needed."""
+        key = self.get_best_key(exclude=tried_keys)
+        if key:
+            return key
+
+        wait_time = self._get_shortest_cooldown()
+        if 0 < wait_time <= 120:
+            print(f"[OmniKey] All keys cooling. Waiting {wait_time:.0f}s...", file=sys.stderr)
+            time.sleep(wait_time + 1)
+            tried_keys.clear()
+            return self.get_best_key()
+
+        if attempt < MAX_RETRY_PER_REQ - 1:
+            time.sleep(2)
+            tried_keys.clear()
+        return None
+
+    def _handle_429_wait(self, err_str: str) -> None:
+        """If the error is a short-delay 429, sleep before next attempt."""
+        if "429" not in err_str:
+            return
+        retry_delay = self._parse_retry_delay(err_str)
+        if 0 < retry_delay <= 30:
+            print(f"[OmniKey] 429 hit, waiting {retry_delay:.0f}s before next attempt...", file=sys.stderr)
+            time.sleep(retry_delay + 1)
+
+    def _between_round_wait(self, round_num: int, tried_keys: set) -> None:
+        """Wait between retry rounds to let quotas partially recover."""
+        if round_num >= GLOBAL_RETRY_ROUNDS - 1:
+            return
+        wait_time = self._get_shortest_cooldown()
+        actual_wait = min(wait_time + 1, 65) if wait_time > 0 else 5
+        print(f"[OmniKey] Round {round_num + 1} exhausted. Waiting {actual_wait:.0f}s before retry...", file=sys.stderr)
+        time.sleep(actual_wait)
+        tried_keys.clear()
+
     def execute(self, model: str, prompt: str, system: str = "", **kwargs) -> str:
-        """The core execution loop with transparent failover."""
-        tried_keys = set()
-        last_exception = None
+        """The core execution loop with transparent failover and retry-after-delay."""
+        tried_keys: set = set()
+        last_exception: Optional[Exception] = None
 
-        for attempt in range(MAX_RETRY_PER_REQ):
-            key = self.get_best_key(exclude=tried_keys)
-            if not key:
-                # All keys exhausted or cooling? Brief pause and try one last time from all
-                if attempt < MAX_RETRY_PER_REQ - 1:
-                    time.sleep(1)
-                    tried_keys.clear()
+        for round_num in range(GLOBAL_RETRY_ROUNDS):
+            for attempt in range(MAX_RETRY_PER_REQ):
+                key = self._acquire_key(tried_keys, attempt)
+                if not key:
                     continue
-                raise RuntimeError("Exhausted all available Gemini keys or all are in cooldown.")
 
-            st = self.stats[key]
-            st.total_calls += 1
-            st.rpm_history.append(time.monotonic())
+                st = self.stats[key]
+                st.total_calls += 1
+                st.rpm_history.append(time.monotonic())
 
-            try:
-                result = self._raw_request(key, model, prompt, system, **kwargs)
-                return result
-            except Exception as e:
-                err_str = str(e)
-                self.mark_error(key, err_str)
-                tried_keys.add(key)
-                last_exception = e
-                # Immediately loop to try next key
+                try:
+                    return self._raw_request(key, model, prompt, system, **kwargs)
+                except Exception as e:
+                    err_str = str(e)
+                    self.mark_error(key, err_str)
+                    tried_keys.add(key)
+                    last_exception = e
+                    self._handle_429_wait(err_str)
 
-        raise last_exception or RuntimeError("Failed to generate response after multiple key rotations.")
+            self._between_round_wait(round_num, tried_keys)
+
+        raise last_exception or RuntimeError("Exhausted all available Gemini keys or all are in cooldown.")
 
     def _raw_request(self, key: str, model: str, prompt: str, system: str, **kwargs) -> str:
         url = f"{GEMINI_API_BASE}/{model}:generateContent?key={key}"
