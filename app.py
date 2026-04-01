@@ -191,6 +191,427 @@ def init_state():
 
 init_state()
 
+# ═══════════════════════════════════════════════
+# PASSCODE LANDING PAGE GATE
+# ═══════════════════════════════════════════════
+_SITE_PASSCODE = "aahuti"
+
+if "passcode_verified" not in st.session_state:
+    st.session_state["passcode_verified"] = False
+
+if not st.session_state["passcode_verified"]:
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
+        margin: 0 !important; padding: 0 !important; background: #020008 !important;
+    }
+    [data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stSidebar"],footer { display:none !important; }
+    section[data-testid="stMain"] > div { padding-top: 0 !important; padding-bottom: 0 !important; }
+    div[data-testid="stVerticalBlock"] { gap: 0 !important; }
+
+    * { box-sizing: border-box; }
+
+    /* ── BACKGROUND ── */
+    .lp-bg {
+        position: fixed; inset: 0; z-index: 0;
+        background:
+            radial-gradient(ellipse 80% 60% at 10% 20%, #1a0040 0%, transparent 60%),
+            radial-gradient(ellipse 60% 60% at 90% 80%, #002a1a 0%, transparent 60%),
+            radial-gradient(ellipse 50% 50% at 50% 50%, #00001a 0%, transparent 70%),
+            #020008;
+    }
+    /* animated grid */
+    .lp-grid {
+        position: fixed; inset: 0; z-index: 1; pointer-events: none;
+        background-image:
+            linear-gradient(rgba(0,255,180,0.06) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,255,180,0.06) 1px, transparent 1px);
+        background-size: 70px 70px;
+        animation: gridScroll 25s linear infinite;
+    }
+    @keyframes gridScroll { to { background-position: 70px 70px; } }
+
+    /* floating orbs */
+    .orb { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 1; }
+    .o1 { width:500px;height:500px;background:radial-gradient(#7b00ff,#3d00a0);opacity:.22;top:-150px;left:-150px;animation:ob1 10s ease-in-out infinite; }
+    .o2 { width:400px;height:400px;background:radial-gradient(#00ffe0,#0066ff);opacity:.18;bottom:-100px;right:-100px;animation:ob2 12s ease-in-out infinite; }
+    .o3 { width:300px;height:300px;background:radial-gradient(#ff0099,#7b00ff);opacity:.14;top:40%;left:50%;animation:ob3 8s ease-in-out infinite; }
+    .o4 { width:250px;height:250px;background:radial-gradient(#00ff88,#00aaff);opacity:.12;top:10%;right:15%;animation:ob1 14s ease-in-out infinite reverse; }
+    @keyframes ob1{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(40px,-40px) scale(1.1);}}
+    @keyframes ob2{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(-30px,30px) scale(1.08);}}
+    @keyframes ob3{0%,100%{transform:translate(-50%,-50%) scale(1);}50%{transform:translate(-50%,-50%) scale(1.15) rotate(10deg);}}
+
+    /* particles */
+    .particles { position:fixed;inset:0;z-index:1;pointer-events:none;overflow:hidden; }
+    .pt { position:absolute;border-radius:50%;animation:ptFloat linear infinite; }
+    @keyframes ptFloat { 0%{transform:translateY(100vh) scale(0);opacity:0;} 10%{opacity:1;} 90%{opacity:.5;} 100%{transform:translateY(-10vh) scale(1);opacity:0;} }
+
+    /* ── CONTENT WRAPPER ── */
+    .lp-wrap {
+        position:relative; z-index:10;
+        width:100%; min-height:100vh;
+        display:flex; flex-direction:column; align-items:center;
+        padding: 48px 20px 60px;
+        font-family: 'Rajdhani', sans-serif;
+    }
+
+    /* ── HERO BADGE ── */
+    .hero-badge {
+        display:inline-flex; align-items:center; gap:8px;
+        background: rgba(0,255,180,0.08);
+        border: 1px solid rgba(0,255,180,0.3);
+        border-radius:100px; padding:6px 18px;
+        font-family:'Space Mono',monospace; font-size:11px;
+        color:#00ffb4; letter-spacing:3px;
+        margin-bottom:28px;
+        animation: badgePulse 3s ease-in-out infinite;
+    }
+    .badge-dot { width:7px;height:7px;background:#00ffb4;border-radius:50%;animation:blink 1.5s ease-in-out infinite; }
+    @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+    @keyframes badgePulse{0%,100%{box-shadow:0 0 0 rgba(0,255,180,0);}50%{box-shadow:0 0 20px rgba(0,255,180,0.2);}}
+
+    /* ── HERO TITLE ── */
+    .hero-title {
+        font-family:'Orbitron',monospace; font-weight:900;
+        font-size: clamp(36px, 6vw, 80px);
+        line-height:1.0; text-align:center; margin-bottom:6px;
+        background: linear-gradient(135deg, #ffffff 0%, #a0ffee 25%, #00ffb4 45%, #00aaff 65%, #b44dff 85%, #ff44aa 100%);
+        -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+        filter: drop-shadow(0 0 40px rgba(0,255,180,0.35));
+        animation: titleGlow 4s ease-in-out infinite alternate;
+    }
+    @keyframes titleGlow{from{filter:drop-shadow(0 0 30px rgba(0,255,180,0.3));}to{filter:drop-shadow(0 0 60px rgba(180,77,255,0.5));}}
+    .hero-version {
+        font-family:'Space Mono',monospace; font-size:13px;
+        color:rgba(180,77,255,0.8); letter-spacing:4px; text-align:center; margin-bottom:18px;
+    }
+    .hero-desc {
+        font-size:18px; font-weight:300; color:rgba(255,255,255,0.55);
+        text-align:center; max-width:620px; line-height:1.7; margin-bottom:56px;
+        letter-spacing:.5px;
+    }
+    .hero-desc span { color:#00ffb4; font-weight:600; }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+        display:flex; gap:0; border:1px solid rgba(255,255,255,0.08);
+        border-radius:16px; overflow:hidden; margin-bottom:64px;
+        backdrop-filter:blur(10px); background:rgba(255,255,255,0.02);
+        animation: cardIn .8s cubic-bezier(.16,1,.3,1) .1s both;
+    }
+    .stat-item {
+        padding:20px 36px; text-align:center; border-right:1px solid rgba(255,255,255,0.07);
+        flex:1;
+    }
+    .stat-item:last-child{border-right:none;}
+    .stat-num { font-family:'Orbitron',monospace; font-size:28px; font-weight:900; }
+    .stat-lbl { font-size:12px; color:rgba(255,255,255,0.4); letter-spacing:2px; margin-top:4px; }
+    .s1 .stat-num{background:linear-gradient(135deg,#00ffb4,#00aaff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    .s2 .stat-num{background:linear-gradient(135deg,#b44dff,#ff44aa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    .s3 .stat-num{background:linear-gradient(135deg,#ffaa00,#ff4400);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+
+    /* ── SECTION LABEL ── */
+    .section-label {
+        font-family:'Space Mono',monospace; font-size:11px; letter-spacing:5px;
+        color:rgba(255,255,255,0.3); text-transform:uppercase; text-align:center;
+        margin-bottom:28px;
+    }
+    .section-title {
+        font-family:'Orbitron',monospace; font-weight:700; font-size:28px;
+        text-align:center; margin-bottom:40px;
+        background:linear-gradient(90deg,#fff,#a0c4ff);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+
+    /* ── ENGINE CARDS ── */
+    .engines-grid {
+        display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+        gap:16px; width:100%; max-width:1100px; margin-bottom:72px;
+    }
+    .eng-card {
+        background:rgba(255,255,255,0.03);
+        border:1px solid rgba(255,255,255,0.08);
+        border-radius:18px; padding:24px 22px;
+        position:relative; overflow:hidden;
+        transition:transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+        animation: cardIn .7s cubic-bezier(.16,1,.3,1) both;
+        cursor:default;
+    }
+    .eng-card::before {
+        content:''; position:absolute; inset:0;
+        background: var(--glow); opacity:0; border-radius:18px;
+        transition:opacity .3s ease;
+    }
+    .eng-card:hover { transform:translateY(-6px); border-color:var(--accent); }
+    .eng-card:hover::before { opacity:1; }
+    .eng-card:hover .eng-icon { transform:scale(1.15) rotate(-5deg); }
+
+    .c1{--accent:rgba(0,255,180,.4);--glow:radial-gradient(ellipse at top left,rgba(0,255,180,.08),transparent 70%);animation-delay:.05s;}
+    .c2{--accent:rgba(180,77,255,.4);--glow:radial-gradient(ellipse at top left,rgba(180,77,255,.08),transparent 70%);animation-delay:.10s;}
+    .c3{--accent:rgba(255,68,170,.4);--glow:radial-gradient(ellipse at top left,rgba(255,68,170,.08),transparent 70%);animation-delay:.15s;}
+    .c4{--accent:rgba(0,170,255,.4);--glow:radial-gradient(ellipse at top left,rgba(0,170,255,.08),transparent 70%);animation-delay:.20s;}
+    .c5{--accent:rgba(255,170,0,.4);--glow:radial-gradient(ellipse at top left,rgba(255,170,0,.08),transparent 70%);animation-delay:.25s;}
+    .c6{--accent:rgba(0,255,100,.4);--glow:radial-gradient(ellipse at top left,rgba(0,255,100,.08),transparent 70%);animation-delay:.30s;}
+    .c7{--accent:rgba(255,100,0,.4);--glow:radial-gradient(ellipse at top left,rgba(255,100,0,.08),transparent 70%);animation-delay:.35s;}
+    .c8{--accent:rgba(100,200,255,.4);--glow:radial-gradient(ellipse at top left,rgba(100,200,255,.08),transparent 70%);animation-delay:.40s;}
+    .c9{--accent:rgba(220,100,255,.4);--glow:radial-gradient(ellipse at top left,rgba(220,100,255,.08),transparent 70%);animation-delay:.45s;}
+
+    .eng-icon { font-size:36px; margin-bottom:14px; display:block; transition:transform .3s ease; }
+    .eng-name {
+        font-family:'Orbitron',monospace; font-size:13px; font-weight:700;
+        color:#fff; letter-spacing:1px; margin-bottom:8px;
+    }
+    .eng-tag {
+        display:inline-block; padding:3px 10px; border-radius:100px;
+        font-size:10px; letter-spacing:2px; font-family:'Space Mono',monospace;
+        background:var(--accent); color:#fff; margin-bottom:10px;
+    }
+    .eng-desc { font-size:13px; color:rgba(255,255,255,.45); line-height:1.6; }
+    .eng-corner {
+        position:absolute; top:16px; right:16px;
+        width:8px; height:8px; border-radius:50%; background:var(--accent);
+        animation:blink 2s ease-in-out infinite;
+    }
+
+    /* ── FEATURES GRID ── */
+    .feat-grid {
+        display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+        gap:12px; width:100%; max-width:1100px; margin-bottom:72px;
+    }
+    .feat-item {
+        background:rgba(255,255,255,0.025);
+        border:1px solid rgba(255,255,255,0.07);
+        border-radius:14px; padding:18px 20px;
+        display:flex; align-items:flex-start; gap:14px;
+        transition:all .3s ease;
+        animation: cardIn .7s cubic-bezier(.16,1,.3,1) both;
+    }
+    .feat-item:hover { background:rgba(255,255,255,0.05); border-color:rgba(0,255,180,.2); transform:translateY(-3px); }
+    .feat-emoji { font-size:24px; flex-shrink:0; margin-top:2px; }
+    .feat-name { font-size:14px; font-weight:700; color:#fff; font-family:'Rajdhani',sans-serif; letter-spacing:.5px; }
+    .feat-sub { font-size:12px; color:rgba(255,255,255,.4); margin-top:3px; line-height:1.5; }
+
+    /* ── GATE CARD ── */
+    .gate-wrap {
+        width:100%; max-width:500px; margin-bottom:48px;
+        animation: cardIn 1s cubic-bezier(.16,1,.3,1) .3s both;
+    }
+    .gate-card {
+        background:rgba(255,255,255,.03);
+        border:1px solid rgba(0,255,180,.2);
+        border-radius:28px; padding:48px 44px;
+        text-align:center;
+        backdrop-filter:blur(24px);
+        box-shadow:
+            0 0 80px rgba(0,255,180,.07),
+            0 0 160px rgba(180,77,255,.05),
+            inset 0 1px 0 rgba(255,255,255,.07),
+            inset 0 -1px 0 rgba(0,0,0,.3);
+        position:relative; overflow:hidden;
+    }
+    .gate-card::before {
+        content:''; position:absolute; top:-1px; left:20%; right:20%; height:1px;
+        background:linear-gradient(90deg,transparent,rgba(0,255,180,.6),transparent);
+    }
+    .gate-title {
+        font-family:'Orbitron',monospace; font-size:clamp(26px,4vw,42px);
+        font-weight:900; margin-bottom:8px;
+        background:linear-gradient(135deg,#fff 0%,#00ffb4 40%,#b44dff 80%,#ff44aa 100%);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+        filter:drop-shadow(0 0 20px rgba(0,255,180,.3));
+    }
+    .gate-sub {
+        font-size:15px; color:rgba(255,255,255,.4); letter-spacing:1px;
+        margin-bottom:38px; line-height:1.7;
+    }
+    .gate-label {
+        font-family:'Space Mono',monospace; font-size:10px; letter-spacing:4px;
+        color:rgba(0,255,180,.5); text-transform:uppercase; text-align:left; margin-bottom:10px;
+    }
+    .gate-divider {
+        display:flex;align-items:center;gap:12px;
+        color:rgba(255,255,255,.12);font-size:10px;letter-spacing:3px;
+        font-family:'Space Mono',monospace; margin-top:24px;
+    }
+    .gate-divider::before,.gate-divider::after {
+        content:'';flex:1;height:1px;
+        background:linear-gradient(90deg,transparent,rgba(0,255,180,.15),transparent);
+    }
+
+    /* ── INPUT + BUTTON ── */
+    div[data-testid="stTextInput"] input {
+        background:rgba(0,255,180,.04) !important;
+        border:1px solid rgba(0,255,180,.25) !important;
+        border-radius:14px !important; color:#fff !important;
+        font-family:'Space Mono',monospace !important; font-size:18px !important;
+        letter-spacing:8px !important; text-align:center !important;
+        padding:18px !important; transition:all .3s ease !important;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        border-color:rgba(0,255,180,.8) !important;
+        box-shadow:0 0 30px rgba(0,255,180,.15),0 0 60px rgba(0,255,180,.06) !important;
+    }
+    div[data-testid="stTextInput"] label { display:none !important; }
+
+    div[data-testid="stButton"] button {
+        width:100% !important;
+        background:linear-gradient(135deg,#00ffb4 0%,#00aaff 40%,#b44dff 70%,#ff44aa 100%) !important;
+        background-size:200% !important; border:none !important;
+        border-radius:14px !important; color:#000 !important;
+        font-family:'Orbitron',monospace !important; font-size:13px !important;
+        font-weight:700 !important; letter-spacing:4px !important;
+        padding:18px 32px !important; cursor:pointer !important; margin-top:14px !important;
+        transition:all .3s ease !important;
+        box-shadow:0 6px 40px rgba(0,255,180,.3) !important;
+        animation:gradShift 4s ease infinite !important;
+    }
+    @keyframes gradShift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
+    div[data-testid="stButton"] button:hover {
+        transform:translateY(-3px) !important;
+        box-shadow:0 12px 60px rgba(0,255,180,.5) !important;
+    }
+    div[data-testid="stAlert"] { border-radius:12px !important; }
+
+    /* ── FOOTER ── */
+    .lp-footer {
+        text-align:center; padding:28px 20px 10px;
+        border-top:1px solid rgba(255,255,255,.06); width:100%; max-width:900px;
+    }
+    .made-by {
+        font-family:'Orbitron',monospace; font-size:13px; font-weight:700;
+        margin-bottom:6px;
+        background:linear-gradient(90deg,#00ffb4,#b44dff,#ff44aa,#00aaff,#00ffb4);
+        background-size:300%;
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+        animation:gradShift 5s linear infinite;
+        filter:drop-shadow(0 0 10px rgba(0,255,180,.3));
+    }
+    .footer-sub { font-size:12px; color:rgba(255,255,255,.2); letter-spacing:2px; margin-top:4px; }
+
+    @keyframes cardIn {
+        from{opacity:0;transform:translateY(30px) scale(.97);}
+        to{opacity:1;transform:translateY(0) scale(1);}
+    }
+
+    /* scanlines */
+    body::after {
+        content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+        background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.04) 3px,rgba(0,0,0,.04) 4px);
+    }
+    </style>
+
+    <div class="lp-bg"></div>
+    <div class="lp-grid"></div>
+    <div class="orb o1"></div>
+    <div class="orb o2"></div>
+    <div class="orb o3"></div>
+    <div class="orb o4"></div>
+    <div class="particles">
+      <div class="pt" style="left:10%;width:3px;height:3px;background:#00ffb4;animation-duration:12s;animation-delay:0s;"></div>
+      <div class="pt" style="left:25%;width:2px;height:2px;background:#b44dff;animation-duration:9s;animation-delay:2s;"></div>
+      <div class="pt" style="left:50%;width:4px;height:4px;background:#00aaff;animation-duration:14s;animation-delay:4s;"></div>
+      <div class="pt" style="left:70%;width:2px;height:2px;background:#ff44aa;animation-duration:10s;animation-delay:1s;"></div>
+      <div class="pt" style="left:85%;width:3px;height:3px;background:#ffaa00;animation-duration:11s;animation-delay:6s;"></div>
+      <div class="pt" style="left:40%;width:2px;height:2px;background:#00ffb4;animation-duration:8s;animation-delay:3s;"></div>
+    </div>
+
+    <div class="lp-wrap">
+
+      <!-- HERO -->
+      <div class="hero-badge"><div class="badge-dot"></div> LIVE &nbsp;·&nbsp; ExamHelp AI v4.0</div>
+      <div class="hero-title">EXAMHELP AI</div>
+      <div class="hero-version">◈ ELITE ACADEMIC INTELLIGENCE PLATFORM ◈</div>
+      <div class="hero-desc">
+        The <span>ultimate AI-powered study ecosystem</span> built for high-performance learning.<br>
+        9 Expert Engines · Multi-Modal · Production-Grade.
+      </div>
+
+      <!-- STATS -->
+      <div class="stats-bar" style="animation: cardIn .8s cubic-bezier(.16,1,.3,1) both;">
+        <div class="stat-item s1"><div class="stat-num">9</div><div class="stat-lbl">EXPERT ENGINES</div></div>
+        <div class="stat-item s2"><div class="stat-num">30+</div><div class="stat-lbl">AI PERSONAS</div></div>
+        <div class="stat-item s3"><div class="stat-num">∞</div><div class="stat-lbl">POSSIBILITIES</div></div>
+      </div>
+
+      <!-- EXPERT ENGINES -->
+      <div class="section-label">◈ CORE INTELLIGENCE SUITE ◈</div>
+      <div class="section-title">Elite Expert Engines</div>
+      <div class="engines-grid">
+        <div class="eng-card c1"><div class="eng-corner"></div><span class="eng-icon">⚡</span><div class="eng-name">Circuit Solver Pro</div><div class="eng-tag">ELECTRICAL</div><div class="eng-desc">Upload circuit diagrams — AI maps nodes & solves KVL/KCL with symbolic derivation.</div></div>
+        <div class="eng-card c2"><div class="eng-corner"></div><span class="eng-icon">🎯</span><div class="eng-name">Advanced Math Solver</div><div class="eng-tag">MATHEMATICS</div><div class="eng-desc">Handwritten OCR + LaTeX proofs. Calculus, Linear Algebra, Real Analysis solved step-by-step.</div></div>
+        <div class="eng-card c3"><div class="eng-corner"></div><span class="eng-icon">⚖️</span><div class="eng-name">Legal Analyser</div><div class="eng-tag">LAW</div><div class="eng-desc">Statutes, case law, IPC & Federal analysis with Senior Counsel depth and judicial reasoning.</div></div>
+        <div class="eng-card c4"><div class="eng-corner"></div><span class="eng-icon">🔬</span><div class="eng-name">Research Scholar</div><div class="eng-tag">ACADEMIA</div><div class="eng-desc">Peer-review critiques, literature maps, and critical research gap identification.</div></div>
+        <div class="eng-card c5"><div class="eng-corner"></div><span class="eng-icon">🏗️</span><div class="eng-name">Project Architect</div><div class="eng-tag">ENGINEERING</div><div class="eng-desc">Full-file project blueprints, production tech stacks, and Mermaid.js architecture diagrams.</div></div>
+        <div class="eng-card c6"><div class="eng-corner"></div><span class="eng-icon">🩺</span><div class="eng-name">Medical Research Guide</div><div class="eng-tag">MEDICINE</div><div class="eng-desc">Clinical reasoning, pathophysiology, and pharmacokinetic profiles for medical education.</div></div>
+        <div class="eng-card c7"><div class="eng-corner"></div><span class="eng-icon">💹</span><div class="eng-name">Elite Stocks Dashboard</div><div class="eng-tag">FINANCE</div><div class="eng-desc">Real-time market sentiment, technical indicators, and sector trend forecasting.</div></div>
+        <div class="eng-card c8"><div class="eng-corner"></div><span class="eng-icon">📚</span><div class="eng-name">AI Dictionary & Lexicon</div><div class="eng-tag">LINGUISTICS</div><div class="eng-desc">Contextual meanings, etymology, difficulty-ranked synonyms, and cultural idioms.</div></div>
+        <div class="eng-card c9"><div class="eng-corner"></div><span class="eng-icon">🎨</span><div class="eng-name">HTML Page Builder</div><div class="eng-tag">FRONTEND</div><div class="eng-desc">Stunning single-file HTML/CSS pages with Tailwind, glassmorphism & smooth animations.</div></div>
+      </div>
+
+      <!-- FEATURES -->
+      <div class="section-label">◈ COMPLETE FEATURE SUITE ◈</div>
+      <div class="section-title">Everything You Need</div>
+      <div class="feat-grid">
+        <div class="feat-item" style="animation-delay:.05s"><div class="feat-emoji">📑</div><div><div class="feat-name">Smart PDF Analyst</div><div class="feat-sub">Upload textbooks & notes, ask anything</div></div></div>
+        <div class="feat-item" style="animation-delay:.08s"><div class="feat-emoji">▶️</div><div><div class="feat-name">YouTube Transcripts</div><div class="feat-sub">Instant summaries & key takeaways</div></div></div>
+        <div class="feat-item" style="animation-delay:.11s"><div class="feat-emoji">🌐</div><div><div class="feat-name">Web Page Scraper</div><div class="feat-sub">Chat with any live article or wiki</div></div></div>
+        <div class="feat-item" style="animation-delay:.14s"><div class="feat-emoji">🃏</div><div><div class="feat-name">Flashcard Generator</div><div class="feat-sub">Auto Q&A flashcards from material</div></div></div>
+        <div class="feat-item" style="animation-delay:.17s"><div class="feat-emoji">📝</div><div><div class="feat-name">Interactive Quiz Mode</div><div class="feat-sub">AI-tracked quizzes with explanations</div></div></div>
+        <div class="feat-item" style="animation-delay:.20s"><div class="feat-emoji">📊</div><div><div class="feat-name">Visual Mind Maps</div><div class="feat-sub">Mermaid.js concept diagrams</div></div></div>
+        <div class="feat-item" style="animation-delay:.23s"><div class="feat-emoji">📅</div><div><div class="feat-name">Dynamic Study Planner</div><div class="feat-sub">Day-by-day revision timetables</div></div></div>
+        <div class="feat-item" style="animation-delay:.26s"><div class="feat-emoji">🎭</div><div><div class="feat-name">30+ AI Personas</div><div class="feat-sub">Einstein, Feynman, Socrates & more</div></div></div>
+        <div class="feat-item" style="animation-delay:.29s"><div class="feat-emoji">🎙️</div><div><div class="feat-name">Whisper Voice Chat</div><div class="feat-sub">Voice input with real-time audio replies</div></div></div>
+        <div class="feat-item" style="animation-delay:.32s"><div class="feat-emoji">📸</div><div><div class="feat-name">Image OCR Scanner</div><div class="feat-sub">Extract text from handwritten notes</div></div></div>
+        <div class="feat-item" style="animation-delay:.35s"><div class="feat-emoji">🔄</div><div><div class="feat-name">9-Key API Rotation</div><div class="feat-sub">Zero interruptions, smart cooldown</div></div></div>
+        <div class="feat-item" style="animation-delay:.38s"><div class="feat-emoji">💎</div><div><div class="feat-name">Glassmorphism UI</div><div class="feat-sub">Premium responsive design system</div></div></div>
+      </div>
+
+      <!-- GATE -->
+      <div class="gate-wrap">
+        <div class="gate-card">
+          <div class="gate-title">🔐 ACCESS PORTAL</div>
+          <div class="gate-sub">This platform is private & protected.<br>Enter your access key to unlock all features.</div>
+          <div class="gate-label">▸ Secret Access Key</div>
+        </div>
+      </div>
+
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 1.8, 1])
+    with col2:
+        entered = st.text_input("passcode", type="password", placeholder="· · · · · · · ·", label_visibility="collapsed", key="passcode_input")
+        submit = st.button("⚡ UNLOCK & ENTER ⚡", use_container_width=True)
+        if submit:
+            if entered == _SITE_PASSCODE:
+                st.session_state["passcode_verified"] = True
+                st.rerun()
+            else:
+                st.error("⚠️ Invalid access key. Please try again.")
+
+    st.markdown("""
+    <div style="text-align:center;padding:32px 20px 10px;border-top:1px solid rgba(255,255,255,.06);margin-top:16px;">
+      <div class="made-by" style="font-family:'Orbitron',monospace;font-size:14px;font-weight:700;
+        background:linear-gradient(90deg,#00ffb4,#b44dff,#ff44aa,#00aaff,#00ffb4);
+        background-size:300%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+        animation:gradShift 5s linear infinite;filter:drop-shadow(0 0 12px rgba(0,255,180,.4));">
+        ✦ MADE WITH ❤️ BY PIYUSH KUMAR ✦
+      </div>
+      <div style="font-size:12px;color:rgba(255,255,255,.2);letter-spacing:2px;margin-top:8px;font-family:'Space Mono',monospace;">
+        ExamHelp AI v4.0 · Built on Gemini-Pro & Streamlit
+      </div>
+    </div>
+    <style>@keyframes gradShift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}</style>
+    """, unsafe_allow_html=True)
+
+    st.stop()
+
+# ═══════════════════════════════════════════════
+# END PASSCODE GATE — rest of app runs below
+# ═══════════════════════════════════════════════
+
 # ─────────────────────────────────────────────
 # GOOGLE OAUTH CALLBACK (catch ?code= redirect)
 # ─────────────────────────────────────────────
