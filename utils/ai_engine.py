@@ -138,8 +138,10 @@ def generate(
             err_str = str(e)
             # If ALL keys are exhausted (engine gave up), re-raise immediately
             # rather than trying the same exhausted pool with another model
-            if "All" in err_str and "exhausted" in err_str:
-                raise
+            if "exhausted" in err_str or "To make it work" in err_str:
+                import streamlit as st
+                st.error(f"🚨 **Free Tier Exhaustion**\n\n{err_str}")
+                st.stop()
             print(
                 f"[ai_engine] Model {model_name} failed: {err_str[:80]}. Trying next...",
                 file=sys.stderr
@@ -199,8 +201,10 @@ def generate_stream(
         except Exception as e:
             last_err = e
             err_str = str(e)
-            if "All" in err_str and "exhausted" in err_str:
-                raise
+            if "exhausted" in err_str or "To make it work" in err_str:
+                import streamlit as st
+                st.error(f"🚨 **Free Tier Exhaustion**\n\n{err_str}")
+                st.stop()
             print(
                 f"[ai_engine] Stream model {model_name} failed: {err_str[:80]}. Trying next...",
                 file=sys.stderr
