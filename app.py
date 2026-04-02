@@ -3369,6 +3369,545 @@ def get_theme_css():
 
 st.markdown(get_theme_css(), unsafe_allow_html=True)
 
+# ═══════════════════════════════════════════════
+# INNER UI ENHANCEMENT LAYER — ADDITIVE ONLY
+# Upgrades: chat bubbles, tool panels, mode headers,
+# message actions, tabs, empty state, quick prompts,
+# status banners, sidebar tools, response tabs
+# ═══════════════════════════════════════════════
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ── ENHANCED MESSAGE BUBBLES ── */
+[data-testid="stChatMessage"] {
+  border-radius: 18px !important;
+  margin-bottom: 10px !important;
+  padding: 14px 18px !important;
+  border: 1px solid transparent !important;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease !important;
+  animation: msgSlide 0.35s cubic-bezier(0.16,1,0.3,1) both !important;
+  position: relative !important;
+}
+@keyframes msgSlide {
+  from { opacity:0; transform:translateY(12px) scale(0.98); }
+  to   { opacity:1; transform:none; }
+}
+[data-testid="stChatMessage"]:hover {
+  box-shadow: 0 4px 24px rgba(124,106,247,0.12) !important;
+  border-color: rgba(124,106,247,0.15) !important;
+}
+/* User messages — distinct tinted treatment */
+[data-testid="stChatMessage"][data-testid*="user"],
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+  background: linear-gradient(135deg, rgba(124,106,247,0.06), rgba(167,139,250,0.04)) !important;
+  border-color: rgba(124,106,247,0.14) !important;
+}
+/* AI messages — clean glass card */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) {
+  background: rgba(14,14,26,0.65) !important;
+  border-color: rgba(80,80,140,0.18) !important;
+  backdrop-filter: blur(16px) !important;
+}
+
+/* ── AVATAR GLOW ── */
+[data-testid="stChatMessageAvatarAssistant"] {
+  box-shadow: 0 0 0 2px rgba(124,106,247,0.35), 0 0 16px rgba(124,106,247,0.2) !important;
+  border-radius: 50% !important;
+  transition: box-shadow 0.3s ease !important;
+}
+[data-testid="stChatMessageAvatarUser"] {
+  box-shadow: 0 0 0 2px rgba(167,139,250,0.3) !important;
+  border-radius: 50% !important;
+}
+
+/* ── CHAT INPUT MEGA UPGRADE ── */
+[data-testid="stChatInput"] {
+  border-radius: 18px !important;
+  overflow: hidden !important;
+}
+[data-testid="stChatInput"] > div {
+  background: rgba(19,19,31,0.9) !important;
+  border: 1.5px solid rgba(124,106,247,0.25) !important;
+  border-radius: 18px !important;
+  backdrop-filter: blur(20px) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3), 0 0 0 0 rgba(124,106,247,0) !important;
+  transition: all 0.3s cubic-bezier(0.16,1,0.3,1) !important;
+}
+[data-testid="stChatInput"]:focus-within > div {
+  border-color: rgba(124,106,247,0.6) !important;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.4), 0 0 0 3px rgba(124,106,247,0.12) !important;
+}
+[data-testid="stChatInput"] textarea {
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 0.95rem !important;
+  line-height: 1.6 !important;
+  color: var(--text) !important;
+  caret-color: var(--accent) !important;
+}
+[data-testid="stChatInput"] textarea::placeholder {
+  color: rgba(144,144,184,0.5) !important;
+  font-style: italic !important;
+}
+/* Send button */
+[data-testid="stChatInput"] button {
+  background: linear-gradient(135deg, var(--accent), var(--accent2)) !important;
+  border-radius: 12px !important;
+  border: none !important;
+  box-shadow: 0 2px 12px rgba(124,106,247,0.35) !important;
+  transition: all 0.25s ease !important;
+}
+[data-testid="stChatInput"] button:hover {
+  transform: scale(1.08) !important;
+  box-shadow: 0 4px 20px rgba(124,106,247,0.55) !important;
+}
+
+/* ── HERO EMPTY STATE UPGRADE ── */
+.hero-wrap {
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, rgba(124,106,247,0.07), transparent 70%) !important;
+  border-radius: 28px !important;
+  border: 1px solid rgba(124,106,247,0.1) !important;
+  margin-bottom: 1.5rem !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.hero-wrap::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 48px,
+    rgba(124,106,247,0.03) 48px,
+    rgba(124,106,247,0.03) 49px
+  );
+  pointer-events: none;
+}
+.hero-badge {
+  font-family: 'JetBrains Mono', monospace !important;
+  letter-spacing: 0.06em !important;
+}
+.hero-title {
+  font-family: 'DM Sans', sans-serif !important;
+  letter-spacing: -1px !important;
+}
+
+/* ── QUICK PROMPT PILLS UPGRADE ── */
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] > button {
+  position: relative !important;
+  overflow: hidden !important;
+}
+/* Quick prompt buttons get special shimmer */
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] > button::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.5s ease;
+}
+[data-testid="stMainBlockContainer"] [data-testid="stButton"] > button:hover::after {
+  left: 160%;
+}
+
+/* ── PAGE HEADER GLOW LINE ── */
+.page-header {
+  position: relative !important;
+}
+.page-header::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0;
+  width: 60px; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2), transparent);
+  border-radius: 99px;
+  animation: headerLine 3s ease-in-out infinite alternate;
+}
+@keyframes headerLine {
+  from { width: 40px; opacity: 0.6; }
+  to   { width: 100px; opacity: 1; }
+}
+.page-header-title {
+  background: linear-gradient(135deg, var(--text) 0%, var(--accent2) 60%, var(--accent) 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-size: 1.65rem !important;
+}
+
+/* ── STUDY BANNER PULSE ── */
+.study-banner {
+  position: relative !important;
+  overflow: hidden !important;
+}
+.study-banner::before {
+  content: '';
+  position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(124,106,247,0.06), transparent);
+  animation: bannerShimmer 4s ease-in-out infinite;
+}
+@keyframes bannerShimmer {
+  0%   { left: -100%; }
+  60%  { left: 100%; }
+  100% { left: 100%; }
+}
+
+/* ── ENHANCED TABS (response area) ── */
+[data-testid="stTabs"] [data-testid="stTabBar"] {
+  gap: 4px !important;
+  padding: 4px !important;
+  border-radius: 14px !important;
+}
+[data-testid="stTabs"] [role="tab"] {
+  border-radius: 10px !important;
+  padding: 0.4rem 0.9rem !important;
+  font-size: 0.83rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  transition: all 0.2s cubic-bezier(0.16,1,0.3,1) !important;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+  box-shadow: 0 2px 12px rgba(124,106,247,0.4), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+  transform: translateY(-1px) !important;
+}
+[data-testid="stTabs"] [role="tabpanel"] {
+  animation: tabIn 0.3s cubic-bezier(0.16,1,0.3,1) both !important;
+}
+@keyframes tabIn {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:none; }
+}
+
+/* ── TOOL MODE HEADERS — page-header sub-text badge ── */
+.page-header-sub {
+  background: rgba(124,106,247,0.1) !important;
+  border: 1px solid rgba(124,106,247,0.2) !important;
+  border-radius: 99px !important;
+  padding: 2px 12px !important;
+  font-size: 0.72rem !important;
+  color: var(--accent2) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* ── STAT BOXES UPGRADE ── */
+.stat-box {
+  background: linear-gradient(145deg, rgba(19,19,31,0.9), rgba(26,26,46,0.7)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 16px rgba(0,0,0,0.3) !important;
+}
+.stat-val {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 1.15rem !important;
+}
+
+/* ── FLASHCARD ENHANCED ── */
+.flashcard {
+  background: linear-gradient(145deg, rgba(19,19,31,0.95), rgba(26,26,46,0.85)) !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(124,106,247,0.12), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+}
+.flashcard:hover {
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,106,247,0.3), inset 0 1px 0 rgba(255,255,255,0.07) !important;
+}
+
+/* ── SOURCE CHIPS UPGRADE ── */
+.source-chip {
+  background: linear-gradient(135deg, rgba(19,19,31,0.9), rgba(26,26,46,0.8)) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  font-weight: 500 !important;
+}
+
+/* ── SIDEBAR SECTION LABELS UPGRADE ── */
+.section-label {
+  background: linear-gradient(90deg, rgba(124,106,247,0.08), transparent) !important;
+  border-radius: 6px !important;
+  padding: 4px 8px 4px 6px !important;
+  margin: 1.1rem 0 0.5rem !important;
+}
+
+/* ── SIDEBAR TOOL BUTTONS ── */
+[data-testid="stSidebar"] [data-testid="stButton"] > button {
+  border-radius: 10px !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  transition: all 0.22s cubic-bezier(0.16,1,0.3,1) !important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] > button:hover {
+  transform: translateY(-1px) scale(1.01) !important;
+  box-shadow: 0 4px 14px rgba(124,106,247,0.2) !important;
+}
+
+/* ── EXPANDER UPGRADE ── */
+[data-testid="stExpander"] {
+  border-radius: 14px !important;
+  border: 1px solid var(--bd-glass) !important;
+  backdrop-filter: blur(12px) !important;
+  overflow: hidden !important;
+  transition: border-color 0.25s ease !important;
+}
+[data-testid="stExpander"]:hover {
+  border-color: rgba(124,106,247,0.25) !important;
+}
+[data-testid="stExpander"] summary {
+  border-radius: 13px !important;
+  padding: 0.6rem 0.9rem !important;
+  font-weight: 600 !important;
+  font-size: 0.87rem !important;
+  transition: background 0.2s ease !important;
+}
+[data-testid="stExpander"] summary:hover {
+  background: rgba(124,106,247,0.07) !important;
+}
+
+/* ── PROGRESS BARS ── */
+.prog-fill {
+  background: linear-gradient(90deg, var(--accent), var(--accent2), #60a5fa) !important;
+  background-size: 200% !important;
+  animation: progShift 3s ease infinite !important;
+}
+@keyframes progShift {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+/* ── DOWNLOAD BUTTONS UPGRADE ── */
+.stDownloadButton > button {
+  background: linear-gradient(135deg, rgba(19,19,31,0.9), rgba(26,26,46,0.8)) !important;
+  border-color: rgba(124,106,247,0.2) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.stDownloadButton > button::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(124,106,247,0.12), rgba(167,139,250,0.06));
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  border-radius: inherit;
+}
+.stDownloadButton > button:hover::before { opacity: 1 !important; }
+.stDownloadButton > button:hover {
+  border-color: rgba(124,106,247,0.45) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(124,106,247,0.18) !important;
+}
+
+/* ── KEY HEALTH BAR ANIMATED ── */
+.key-health-fill {
+  background: linear-gradient(90deg, #34d399, #60a5fa, #a78bfa) !important;
+  background-size: 200% !important;
+  animation: progShift 4s ease infinite !important;
+}
+
+/* ── FOCUS BANNER UPGRADE ── */
+.focus-banner {
+  background: linear-gradient(90deg, rgba(124,106,247,0.12), rgba(167,139,250,0.06), transparent) !important;
+  border-left: 3px solid transparent !important;
+  border-image: linear-gradient(180deg, var(--accent), var(--accent2)) 1 !important;
+  box-shadow: inset 4px 0 0 rgba(124,106,247,0.4) !important;
+  border-image: none !important;
+}
+
+/* ── BACK BUTTONS — tool navigation ── */
+[key*="_back"] button, [key*="back_"] button {
+  background: rgba(19,19,31,0.6) !important;
+  border-color: rgba(124,106,247,0.2) !important;
+  font-size: 0.82rem !important;
+}
+
+/* ── SPINNER DOTS UPGRADE ── */
+[data-testid="stSpinner"] {
+  background: rgba(14,14,26,0.8) !important;
+  border: 1px solid rgba(124,106,247,0.2) !important;
+  border-radius: 12px !important;
+  padding: 8px 14px !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+/* ── SUCCESS / ERROR / WARNING ALERTS UPGRADE ── */
+[data-testid="stAlert"] {
+  animation: alertIn 0.35s cubic-bezier(0.16,1,0.3,1) both !important;
+}
+@keyframes alertIn {
+  from { opacity:0; transform:translateY(-8px) scale(0.97); }
+  to   { opacity:1; transform:none; }
+}
+
+/* ── TOAST UPGRADE ── */
+[data-testid="stToast"] {
+  font-family: 'DM Sans', sans-serif !important;
+  font-weight: 500 !important;
+}
+
+/* ── SELECT / DROPDOWN UPGRADE ── */
+[data-testid="stSelectbox"] > div > div {
+  border-radius: 12px !important;
+  border-color: rgba(124,106,247,0.2) !important;
+  transition: all 0.22s ease !important;
+}
+[data-testid="stSelectbox"] > div > div:hover {
+  border-color: rgba(124,106,247,0.45) !important;
+  box-shadow: 0 2px 12px rgba(124,106,247,0.1) !important;
+}
+
+/* ── TEXT INPUT UPGRADE (tool modes) ── */
+[data-testid="stTextInput"] > div > div > input {
+  border-radius: 12px !important;
+  border-color: rgba(124,106,247,0.2) !important;
+  background: rgba(13,13,22,0.7) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  transition: all 0.22s ease !important;
+}
+[data-testid="stTextInput"] > div > div > input:focus {
+  border-color: rgba(124,106,247,0.55) !important;
+  box-shadow: 0 0 0 3px rgba(124,106,247,0.1) !important;
+}
+
+/* ── TEXTAREA UPGRADE ── */
+[data-testid="stTextArea"] textarea {
+  border-radius: 14px !important;
+  border-color: rgba(124,106,247,0.2) !important;
+  background: rgba(13,13,22,0.7) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 0.9rem !important;
+  line-height: 1.65 !important;
+  transition: all 0.22s ease !important;
+}
+[data-testid="stTextArea"] textarea:focus {
+  border-color: rgba(124,106,247,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(124,106,247,0.1) !important;
+}
+
+/* ── PERSONA CHIP UPGRADED ── */
+.persona-chip {
+  background: linear-gradient(135deg, rgba(124,106,247,0.15), rgba(167,139,250,0.08)) !important;
+  border-color: rgba(124,106,247,0.3) !important;
+  box-shadow: 0 2px 8px rgba(124,106,247,0.15) !important;
+  font-weight: 600 !important;
+}
+
+/* ── LOGO ICON UPGRADE ── */
+.eh-logo-icon {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, #60a5fa 100%) !important;
+  box-shadow: 0 4px 20px rgba(124,106,247,0.4), 0 0 0 1px rgba(255,255,255,0.1) inset !important;
+}
+
+/* ── SCROLLBAR STYLING ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124,106,247,0.3) transparent;
+}
+*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(124,106,247,0.4), rgba(167,139,250,0.2));
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(124,106,247,0.6); }
+
+/* ── MAIN CONTENT CONTAINER — subtle depth ── */
+[data-testid="stMainBlockContainer"] {
+  background: transparent !important;
+}
+
+/* ── CODE BLOCK UPGRADE (inside chat) ── */
+[data-testid="stChatMessage"] pre {
+  border: 1px solid rgba(124,106,247,0.2) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3) !important;
+  position: relative !important;
+}
+[data-testid="stChatMessage"] pre::before {
+  content: 'CODE';
+  position: absolute; top: 8px; right: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; letter-spacing: 2px;
+  color: rgba(124,106,247,0.5);
+  font-weight: 600;
+}
+
+/* ── DIVIDER UPGRADE ── */
+[data-testid="stMainBlockContainer"] hr {
+  background: linear-gradient(90deg, transparent, rgba(124,106,247,0.2), rgba(167,139,250,0.15), transparent) !important;
+  height: 1px !important;
+}
+
+/* ── MESSAGE ACTION BUTTONS (copy/bookmark/speak) ── */
+[data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"] [data-testid="stButton"] > button {
+  border-radius: 8px !important;
+  font-size: 0.8rem !important;
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  background: rgba(19,19,31,0.6) !important;
+  border-color: rgba(124,106,247,0.15) !important;
+  transition: all 0.2s ease !important;
+}
+[data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"] [data-testid="stButton"] > button:hover {
+  background: rgba(124,106,247,0.12) !important;
+  border-color: rgba(124,106,247,0.35) !important;
+  transform: translateY(-1px) scale(1.05) !important;
+}
+
+/* ── BADGE STYLES UPGRADE ── */
+.badge-green { box-shadow: 0 0 8px rgba(52,211,153,0.2) !important; }
+.badge-red   { box-shadow: 0 0 8px rgba(248,113,113,0.2) !important; }
+
+/* ── STALE CONTENT SMOOTHER FADE ── */
+[data-testid="stMainBlockContainer"] > * {
+  animation: contentIn 0.3s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes contentIn {
+  from { opacity:0.6; transform:translateY(4px); }
+  to   { opacity:1;   transform:none; }
+}
+
+/* ── POWERED BY TEXT ── */
+.poweredby {
+  background: linear-gradient(90deg, rgba(124,106,247,0.06), transparent) !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+}
+
+/* ── FILE UPLOADER UPGRADE ── */
+[data-testid="stFileUploader"] {
+  border-radius: 14px !important;
+}
+[data-testid="stFileUploaderDropzone"] {
+  border-color: rgba(124,106,247,0.25) !important;
+  border-radius: 14px !important;
+  background: rgba(13,13,22,0.5) !important;
+  transition: all 0.25s ease !important;
+}
+[data-testid="stFileUploaderDropzone"]:hover {
+  border-color: rgba(124,106,247,0.5) !important;
+  background: rgba(124,106,247,0.05) !important;
+}
+
+/* ── CHECKBOX UPGRADE ── */
+[data-testid="stCheckbox"] label {
+  font-size: 0.88rem !important;
+  transition: color 0.2s ease !important;
+}
+[data-testid="stCheckbox"] label:hover { color: var(--accent2) !important; }
+
+/* ── COLUMNS SPACING ── */
+[data-testid="stHorizontalBlock"] {
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════
+# END INNER UI ENHANCEMENT LAYER
+# ═══════════════════════════════════════════════
+
 # ─────────────────────────────────────────────
 # HELPERS
 # ─────────────────────────────────────────────
