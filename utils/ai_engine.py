@@ -26,7 +26,7 @@ from utils.prompts import get_engine_config
 
 # ── Model Priority (confirmed-working first) ──────────────────────────────────
 GEMINI_MODELS: List[str] = [
-    "gemini-2.5-flash",           # As requested, only use 2.5 flash
+    "gemini-2.5-flash",
 ]
 
 # ── In-memory response cache (prevents re-querying identical prompts) ─────────
@@ -136,12 +136,9 @@ def generate(
         except Exception as e:
             last_err = e
             err_str = str(e)
-            # If ALL keys are exhausted (engine gave up), re-raise immediately
-            # rather than trying the same exhausted pool with another model
-            if "exhausted" in err_str or "To make it work" in err_str:
-                import streamlit as st
-                st.error(f"🚨 **Free Tier Exhaustion**\n\n{err_str}")
-                st.stop()
+            # Re-raise immediately — engine already waited/exhausted all options
+            if any(kw in err_str for kw in ("rate-limited", "rate_limited", "cooling", "⏳", "⚠️")):
+                raise
             print(
                 f"[ai_engine] Model {model_name} failed: {err_str[:80]}. Trying next...",
                 file=sys.stderr
@@ -201,10 +198,8 @@ def generate_stream(
         except Exception as e:
             last_err = e
             err_str = str(e)
-            if "exhausted" in err_str or "To make it work" in err_str:
-                import streamlit as st
-                st.error(f"🚨 **Free Tier Exhaustion**\n\n{err_str}")
-                st.stop()
+            if any(kw in err_str for kw in ("rate-limited", "rate_limited", "cooling", "⏳", "⚠️")):
+                raise
             print(
                 f"[ai_engine] Stream model {model_name} failed: {err_str[:80]}. Trying next...",
                 file=sys.stderr
