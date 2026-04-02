@@ -1194,16 +1194,20 @@ def render_coming_soon(feature_name):
         st.rerun()
 
 def render_citation_generator():
-    render_coming_soon("Citation Generator")
+    from advanced_features import render_citation_generator_v2
+    render_citation_generator_v2()
 
 def render_regex_tester():
-    render_coming_soon("Regex Tester")
+    from advanced_features import render_regex_tester_v2
+    render_regex_tester_v2()
 
 def render_vit_academics():
-    render_coming_soon("VIT Academics Hub")
+    from advanced_features import render_vit_academics_v2
+    render_vit_academics_v2()
 
 def render_study_toolkit():
-    render_coming_soon("Study Toolkit")
+    from advanced_features import render_study_toolkit_v2
+    render_study_toolkit_v2()
 # ═══════════════════════════════════════════════════════════════
 # EXPERT ENGINES: CIRCUIT SOLVER
 # ═══════════════════════════════════════════════════════════════

@@ -4736,6 +4736,16 @@ if st.session_state.context_sources:
 app_mode = st.session_state.get("app_mode", "chat")
 
 # ─────────────────────────────────────────────
+# POWER MODE DISPATCHER (advanced_features.py)
+# ─────────────────────────────────────────────
+try:
+    from advanced_features import dispatch_power_mode
+    if dispatch_power_mode(app_mode):
+        st.stop()
+except Exception:
+    pass
+
+# ─────────────────────────────────────────────
 # FLASHCARD MODE
 # ─────────────────────────────────────────────
 if app_mode == "flashcards":
