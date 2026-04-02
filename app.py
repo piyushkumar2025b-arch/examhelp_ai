@@ -5459,18 +5459,21 @@ Answer the student's latest question thoroughly, with code examples in {learn_la
 # ══════════════════════════════════════════════════════
 elif app_mode == "essay_writer":
     from utils.essay_engine import (
-        generate_essay, improve_essay, generate_outline,
+        generate_essay, improve_essay, generate_outline, score_essay,
         ESSAY_TYPES, ACADEMIC_LEVELS, CITATION_STYLES,
     )
     st.markdown("""<style>
-.ew-header{background:linear-gradient(135deg,#1a0a3e 0%,#0d0d1a 100%);border:1px solid #4a2a8b;border-radius:16px;padding:28px 32px;margin-bottom:24px;}
+.ew-header{background:linear-gradient(135deg,#1a0a3e 0%,#0d0d1a 100%);border:1px solid rgba(192,132,252,0.4);border-radius:20px;padding:28px 32px;margin-bottom:24px;position:relative;overflow:hidden;}
+.ew-header::after{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,rgba(192,132,252,0.1),transparent 70%);border-radius:50%;}
 .ew-title{font-size:1.9rem;font-weight:800;color:#c084fc;margin:0 0 4px;}
 .ew-sub{font-size:.9rem;color:#9090b8;}
-.ew-box{background:rgba(20,10,40,.95);border:1px solid rgba(192,132,252,.2);border-radius:14px;padding:20px;margin-top:16px;}
+.ew-box{background:linear-gradient(145deg,rgba(20,10,40,.97),rgba(13,8,28,.95));border:1px solid rgba(192,132,252,.2);border-radius:16px;padding:24px 28px;margin-top:16px;line-height:1.8;}
+.ew-score-card{background:rgba(192,132,252,0.06);border:1px solid rgba(192,132,252,0.2);border-radius:14px;padding:18px 22px;margin-top:12px;}
+.ew-tone-badge{display:inline-block;background:rgba(192,132,252,0.1);border:1px solid rgba(192,132,252,0.25);border-radius:99px;padding:3px 12px;font-size:.75rem;color:#c084fc;font-weight:600;margin:2px;}
 </style>""", unsafe_allow_html=True)
-    st.markdown('<div class="ew-header"><div class="ew-title">📄 AI Essay Writer</div><div class="ew-sub">Academic essays, research papers, reports — fully structured, citation-ready</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="ew-header"><div class="ew-title">📄 Elite Essay Writer</div><div class="ew-sub">14 essay types · 5 academic levels · 7 citation styles · AI scoring · Outline → Draft → Polish pipeline</div></div>', unsafe_allow_html=True)
 
-    tab_write, tab_outline, tab_improve, tab_hist = st.tabs(["✍️ Write Essay", "📋 Outline First", "🔧 Improve Essay", "📜 History"])
+    tab_write, tab_outline, tab_improve, tab_score, tab_hist = st.tabs(["✍️ Write Essay", "📋 Outline First", "🔧 Improve", "🎯 Score My Essay", "📜 History"])
 
     with tab_write:
         c1, c2, c3 = st.columns(3)
@@ -5480,49 +5483,81 @@ elif app_mode == "essay_writer":
             elevel = st.selectbox("🎓 Academic Level", ACADEMIC_LEVELS, index=1, key="ew_level")
         with c3:
             ecite = st.selectbox("📚 Citation Style", CITATION_STYLES, key="ew_cite")
-        etopic = st.text_input("💡 Essay Topic", placeholder="e.g. The impact of AI on employment in the next decade", key="ew_topic")
-        c4, c5 = st.columns(2)
+
+        etopic = st.text_input("💡 Essay Topic / Question", placeholder="e.g. 'To what extent has AI transformed employment markets since 2020?'", key="ew_topic")
+
+        c4, c5, c6 = st.columns(3)
         with c4:
-            ewords = st.slider("📏 Word Count", 300, 3000, 800, 100, key="ew_words")
+            ewords = st.slider("📏 Target Word Count", 300, 4000, 800, 100, key="ew_words")
         with c5:
-            epoints = st.text_area("🔑 Key Points (optional)", height=80, placeholder="Arguments or points to include...", key="ew_points")
+            etone = st.selectbox("🎨 Tone", ["Academic", "Formal", "Persuasive", "Critical", "Reflective", "Technical"], key="ew_tone")
+        with c6:
+            eaudience = st.text_input("👥 Audience (optional)", placeholder="e.g. Journal reviewers, professors...", key="ew_audience")
+
+        epoints = st.text_area("🔑 Key Arguments / Points to Include (optional)", height=80, placeholder="Bullet your key arguments here...", key="ew_points")
+
         if st.session_state.get("context_text"):
-            use_ctx = st.checkbox("📎 Use uploaded study material as source", value=True, key="ew_ctx")
+            use_ctx = st.checkbox("📎 Reference uploaded study material as source", value=True, key="ew_ctx")
         else:
             use_ctx = False
-        cb1, cb2 = st.columns([2,1])
+
+        st.markdown(f'<div style="font-size:.8rem;color:#9090b8;margin:4px 0">📋 {ESSAY_TYPES.get(etype,"")}</div>', unsafe_allow_html=True)
+
+        cb1, cb2 = st.columns([3, 1])
         with cb1:
-            write_btn = st.button("🚀 Generate Essay", type="primary", use_container_width=True, disabled=not etopic.strip(), key="ew_gen")
+            write_btn = st.button("🚀 Generate Complete Essay", type="primary", use_container_width=True, disabled=not etopic.strip(), key="ew_gen")
         with cb2:
-            if st.button("💬 Back to Chat", use_container_width=True, key="ew_back"):
+            if st.button("💬 Back", use_container_width=True, key="ew_back"):
                 st.session_state.app_mode = "chat"; st.rerun()
+
         if write_btn and etopic.strip():
-            with st.spinner("✍️ Writing your essay..."):
+            with st.spinner("✍️ Writing your essay — this uses the full Gemini engine for quality..."):
                 try:
                     ctx = st.session_state.context_text if use_ctx else ""
-                    result = generate_essay(etopic, etype, ewords, elevel, ecite, epoints, ctx)
+                    result = generate_essay(etopic, etype, ewords, elevel, ecite, epoints, ctx, etone, eaudience)
                     st.session_state.essay_result = result
-                    st.session_state.essay_history.append({"topic": etopic, "type": etype, "level": elevel, "result": result, "ts": time.strftime("%H:%M")})
+                    st.session_state.essay_history.append({"topic": etopic, "type": etype, "level": elevel, "words": ewords, "result": result, "ts": time.strftime("%H:%M")})
                 except Exception as e:
                     st.error(f"❌ Essay engine error: {e}")
+
         if st.session_state.get("essay_result"):
+            wc = len(st.session_state.essay_result.split())
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Words", f"~{wc}")
+            m2.metric("Type", etype.split()[0])
+            m3.metric("Level", elevel.split()[0])
             st.markdown('<div class="ew-box">', unsafe_allow_html=True)
             st.markdown(st.session_state.essay_result)
             st.markdown('</div>', unsafe_allow_html=True)
-            wc = len(st.session_state.essay_result.split())
-            st.caption(f"📊 ~{wc} words")
-            st.download_button("📥 Download Essay (.md)", st.session_state.essay_result,
-                file_name="essay.md", mime="text/markdown", use_container_width=True, key="ew_dl")
+            dl1, dl2, dl3 = st.columns(3)
+            with dl1:
+                st.download_button("📥 Download (.md)", st.session_state.essay_result, file_name="essay.md", mime="text/markdown", use_container_width=True, key="ew_dl")
+            with dl2:
+                if st.button("🎯 Score This Essay", use_container_width=True, key="ew_score_btn"):
+                    with st.spinner("Scoring..."):
+                        score_result = score_essay(st.session_state.essay_result)
+                        st.session_state["_essay_score_result"] = score_result
+            with dl3:
+                if st.button("🔧 Auto-Polish", use_container_width=True, key="ew_polish"):
+                    with st.spinner("Polishing..."):
+                        polished = improve_essay(st.session_state.essay_result, "Strengthen the thesis, tighten arguments, improve transitions, elevate vocabulary while maintaining clarity")
+                        st.session_state.essay_result = polished
+                        st.rerun()
+            if st.session_state.get("_essay_score_result"):
+                st.markdown('<div class="ew-score-card">', unsafe_allow_html=True)
+                st.markdown(st.session_state["_essay_score_result"])
+                st.markdown('</div>', unsafe_allow_html=True)
 
     with tab_outline:
-        ot = st.text_input("Topic for outline", key="eo_topic", placeholder="Enter topic...")
-        oc1, oc2 = st.columns(2)
+        ot = st.text_input("Topic / Question", key="eo_topic", placeholder="Enter essay topic or question...")
+        oc1, oc2, oc3 = st.columns(3)
         with oc1: otype = st.selectbox("Type", list(ESSAY_TYPES.keys()), key="eo_type")
-        with oc2: owords = st.slider("Target word count", 300, 3000, 800, 100, key="eo_words")
-        if st.button("📋 Generate Outline", type="primary", use_container_width=True, disabled=not ot.strip(), key="eo_btn"):
-            with st.spinner("Planning essay structure..."):
+        with oc2: owords = st.slider("Target word count", 300, 4000, 800, 100, key="eo_words")
+        with oc3: olevel = st.selectbox("Level", ACADEMIC_LEVELS, index=1, key="eo_level")
+        if st.button("📋 Generate Strategic Outline", type="primary", use_container_width=True, disabled=not ot.strip(), key="eo_btn"):
+            with st.spinner("Architecting essay structure..."):
                 try:
-                    result = generate_outline(ot, otype, owords)
+                    result = generate_outline(ot, otype, owords, olevel)
                     st.session_state.essay_outline = result
                 except Exception as e:
                     st.error(f"❌ {e}")
@@ -5530,31 +5565,62 @@ elif app_mode == "essay_writer":
             st.markdown('<div class="ew-box">', unsafe_allow_html=True)
             st.markdown(st.session_state.essay_outline)
             st.markdown('</div>', unsafe_allow_html=True)
+            if st.button("✍️ Write Full Essay from This Outline", use_container_width=True, key="eo_to_write"):
+                st.session_state.app_mode = "essay_writer"
+                st.rerun()
 
     with tab_improve:
-        orig = st.text_area("📄 Paste your essay", height=200, key="ei_orig", placeholder="Paste your existing essay here...")
+        orig = st.text_area("📄 Paste your essay", height=220, key="ei_orig", placeholder="Paste your existing essay here...")
         instr = st.text_input("🔧 Improvement instruction", key="ei_instr",
-            placeholder="e.g. Make the argument stronger, add more evidence, improve transitions...")
+            placeholder="e.g. 'Strengthen the thesis and add counter-arguments'")
+        quick_improvements = ["Strengthen argument", "Improve transitions", "Elevate vocabulary", "Add evidence", "Fix structure", "Academic tone"]
+        st.markdown("**Quick improvements:**")
+        qi_cols = st.columns(3)
+        for i, qi_label in enumerate(quick_improvements):
+            with qi_cols[i % 3]:
+                if st.button(qi_label, key=f"qi_{i}", use_container_width=True):
+                    st.session_state["_ei_instr_prefill"] = qi_label
+        if st.session_state.get("_ei_instr_prefill") and not instr:
+            instr = st.session_state.pop("_ei_instr_prefill", "")
         if st.button("⚡ Improve Essay", type="primary", use_container_width=True, disabled=not (orig.strip() and instr.strip()), key="ei_btn"):
             with st.spinner("Improving essay..."):
                 try:
                     result = improve_essay(orig, instr)
                     st.session_state.essay_result = result
+                    st.session_state["_improved_essay"] = result
                 except Exception as e:
                     st.error(f"❌ {e}")
-        if st.session_state.get("essay_result"):
+        if st.session_state.get("_improved_essay"):
             st.markdown('<div class="ew-box">', unsafe_allow_html=True)
-            st.markdown(st.session_state.essay_result)
+            st.markdown(st.session_state["_improved_essay"])
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.download_button("📥 Download Improved Essay", st.session_state["_improved_essay"], file_name="improved_essay.md", use_container_width=True, key="ei_dl")
+
+    with tab_score:
+        score_input = st.text_area("📄 Paste essay to score", height=220, placeholder="Paste any essay here for AI scoring...")
+        if st.button("🎯 Score Essay (6 Dimensions)", type="primary", use_container_width=True, disabled=not score_input.strip(), key="es_btn"):
+            with st.spinner("Evaluating essay quality..."):
+                try:
+                    result = score_essay(score_input)
+                    st.session_state["_score_result"] = result
+                except Exception as e:
+                    st.error(f"❌ {e}")
+        if st.session_state.get("_score_result"):
+            st.markdown('<div class="ew-score-card">', unsafe_allow_html=True)
+            st.markdown(st.session_state["_score_result"])
             st.markdown('</div>', unsafe_allow_html=True)
 
     with tab_hist:
         hist = st.session_state.get("essay_history", [])
         if not hist:
             st.info("No essays written yet.")
+        else:
+            st.markdown(f"**{len(hist)} essays in history**")
         for h in reversed(hist[-10:]):
-            with st.expander(f"📄 {h['ts']} · {h['type']} · {h['topic'][:40]}"):
+            with st.expander(f"📄 {h.get('ts','—')} · {h.get('type','')[:20]} · {h.get('topic','')[:40]}"):
+                st.markdown(f"**Level:** {h.get('level','')} · **Words:** ~{len(h['result'].split())}")
                 st.markdown(h["result"])
-                st.download_button("📥 Download", h["result"], file_name=f"essay_{h['ts']}.md", key=f"edl_{h['ts']}")
+                st.download_button("📥 Download", h["result"], file_name=f"essay_{h.get('ts','out')}.md", key=f"edl_{h.get('ts','x')}")
 
 
 # ══════════════════════════════════════════════════════
@@ -5563,26 +5629,40 @@ elif app_mode == "essay_writer":
 elif app_mode == "interview_coach":
     from utils.interview_engine import (
         generate_questions, evaluate_answer, mock_interview_response,
-        generate_company_research, INTERVIEW_TYPES, EXPERIENCE_LEVELS,
+        generate_company_research, generate_salary_negotiation,
+        INTERVIEW_TYPES, EXPERIENCE_LEVELS,
     )
     st.markdown("""<style>
-.ic-header{background:linear-gradient(135deg,#0a1e10 0%,#0d1a14 100%);border:1px solid #1a5a2a;border-radius:16px;padding:28px 32px;margin-bottom:24px;}
+.ic-header{background:linear-gradient(135deg,#0a1e10 0%,#0d1a14 100%);border:1px solid rgba(74,222,128,0.35);border-radius:20px;padding:28px 32px;margin-bottom:24px;position:relative;overflow:hidden;}
+.ic-header::after{content:'';position:absolute;top:-50px;right:-50px;width:200px;height:200px;background:radial-gradient(circle,rgba(74,222,128,0.1),transparent 70%);border-radius:50%;}
 .ic-title{font-size:1.9rem;font-weight:800;color:#4ade80;margin:0 0 4px;}
 .ic-sub{font-size:.9rem;color:#9090b8;}
-.ic-q{background:rgba(10,30,16,.9);border:1px solid rgba(74,222,128,.2);border-radius:12px;padding:16px;margin:8px 0;}
-.ic-a{background:rgba(26,46,26,.8);border:1px solid rgba(74,222,128,.15);border-radius:12px 12px 12px 4px;padding:14px;margin:6px 0;}
-.ic-u{background:rgba(124,106,247,.08);border:1px solid rgba(124,106,247,.2);border-radius:12px 12px 4px 12px;padding:14px;margin:6px 0;}
+.ic-q{background:rgba(10,30,16,.9);border:1px solid rgba(74,222,128,.22);border-radius:16px 16px 16px 4px;padding:16px 18px;margin:8px 0;animation:msgIn .3s ease;}
+.ic-a{background:rgba(124,106,247,.07);border:1px solid rgba(124,106,247,.2);border-radius:16px 16px 4px 16px;padding:14px 18px;margin:6px 0;animation:msgIn .3s ease;}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.ic-score{background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:14px;padding:18px 22px;margin-top:12px;}
+.ic-tip{background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.2);border-radius:10px;padding:10px 14px;font-size:.85rem;color:#fbbf24;margin-top:8px;}
 </style>""", unsafe_allow_html=True)
-    st.markdown('<div class="ic-header"><div class="ic-title">🎤 AI Interview Coach</div><div class="ic-sub">Mock interviews · STAR method · Real-time feedback · Company research</div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="ic-header"><div class="ic-title">🎤 Elite Interview Coach</div><div class="ic-sub">Live mock interviews · STAR coaching · Per-answer scoring · Company intel · Salary negotiation</div></div>', unsafe_allow_html=True)
 
-    tab_mock, tab_bank, tab_eval, tab_company = st.tabs(["🎭 Live Mock Interview", "❓ Question Bank", "🎯 Evaluate Answer", "🏢 Company Research"])
+    tab_mock, tab_bank, tab_eval, tab_company, tab_salary = st.tabs(["🎭 Live Mock", "❓ Question Bank", "🎯 Evaluate Answer", "🏢 Company Intel", "💰 Salary Negotiation"])
 
     with tab_mock:
         mc1, mc2, mc3 = st.columns(3)
-        with mc1: ic_role = st.text_input("Your Target Role", placeholder="e.g. Software Engineer at Google", key="ic_role")
+        with mc1: ic_role = st.text_input("Target Role", placeholder="e.g. Software Engineer at Google", key="ic_role")
         with mc2: ic_type = st.selectbox("Interview Type", list(INTERVIEW_TYPES.keys()), key="ic_type_mock")
         with mc3: ic_exp = st.selectbox("Experience Level", EXPERIENCE_LEVELS, key="ic_exp")
         st.session_state.interview_role = ic_role
+
+        # Interview tips for the selected type
+        type_tips = {
+            "Technical (CS/Engineering)": "💡 Think aloud while solving. Clarify requirements before coding. Start with brute force, then optimize.",
+            "Behavioural (STAR Method)": "💡 Use STAR: Situation → Task → Action → Result. Always end with a measurable outcome.",
+            "Case Interview (Consulting)": "💡 Structure first. Use MECE framework. Ask clarifying questions. Lead the case, don't follow.",
+            "Product Manager": "💡 Start with user needs. Define success metrics. Prioritize ruthlessly. Show trade-off thinking.",
+        }
+        tip = type_tips.get(ic_type, "💡 Listen carefully, ask clarifying questions, and give structured answers.")
+        st.markdown(f'<div class="ic-tip">{tip}</div>', unsafe_allow_html=True)
 
         mb1, mb2, mb3 = st.columns(3)
         with mb1:
@@ -5595,36 +5675,44 @@ elif app_mode == "interview_coach":
                     except Exception as e:
                         st.error(str(e))
         with mb2:
-            if st.button("📊 Get Feedback", use_container_width=True, disabled=len(st.session_state.interview_messages) < 2, key="ic_fb"):
-                with st.spinner("Generating feedback..."):
+            if st.button("📊 Get Full Feedback", use_container_width=True, disabled=len(st.session_state.interview_messages) < 2, key="ic_fb"):
+                with st.spinner("Generating comprehensive feedback..."):
                     try:
                         fb = mock_interview_response(st.session_state.interview_messages, ic_role, ic_type, "feedback")
                         st.session_state.interview_feedback = fb
                     except Exception as e:
                         st.error(str(e))
         with mb3:
-            if st.button("🗑️ Reset", use_container_width=True, key="ic_reset"):
+            if st.button("🗑️ Reset Session", use_container_width=True, key="ic_reset"):
                 st.session_state.interview_messages = []
                 st.session_state.interview_feedback = None
                 st.rerun()
 
-        # Chat display
+        # Message display
         for msg in st.session_state.interview_messages:
             if msg["role"] == "assistant":
-                st.markdown(f'<div class="ic-q">🎤 <b>Interviewer:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="ic-q">🎤 <b>Interviewer:</b><br><br>{msg["content"]}</div>', unsafe_allow_html=True)
             else:
-                st.markdown(f'<div class="ic-u">🧑 <b>You:</b><br>{msg["content"]}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="ic-a">🧑 <b>You:</b><br><br>{msg["content"]}</div>', unsafe_allow_html=True)
 
         # Answer input
         if st.session_state.interview_messages and st.session_state.interview_messages[-1]["role"] == "assistant":
-            user_ans = st.text_area("Your Answer", height=120, key="ic_ans", placeholder="Type your answer here...")
-            if st.button("📤 Submit Answer", type="primary", use_container_width=True, disabled=not user_ans.strip(), key="ic_submit"):
-                st.session_state.interview_messages.append({"role": "user", "content": user_ans})
-                st.rerun()
+            user_ans = st.text_area("Your Answer", height=130, key="ic_ans", placeholder="Type your answer here... (use STAR: Situation → Task → Action → Result)")
+            ans_c1, ans_c2 = st.columns([3, 1])
+            with ans_c1:
+                if st.button("📤 Submit Answer", type="primary", use_container_width=True, disabled=not user_ans.strip(), key="ic_submit"):
+                    st.session_state.interview_messages.append({"role": "user", "content": user_ans})
+                    st.rerun()
+            with ans_c2:
+                wc_ans = len(user_ans.split()) if user_ans else 0
+                color = "#34d399" if 80 <= wc_ans <= 300 else "#fbbf24" if wc_ans < 80 else "#f87171"
+                st.markdown(f'<div style="text-align:center;padding-top:8px;font-size:.85rem;color:{color}">📝 {wc_ans} words</div>', unsafe_allow_html=True)
 
         if st.session_state.get("interview_feedback"):
-            with st.expander("📊 Interview Feedback", expanded=True):
+            st.markdown('<div class="ic-score">', unsafe_allow_html=True)
+            with st.expander("📊 Full Interview Feedback", expanded=True):
                 st.markdown(st.session_state.interview_feedback)
+            st.markdown('</div>', unsafe_allow_html=True)
 
     with tab_bank:
         bc1, bc2 = st.columns(2)
@@ -5635,7 +5723,7 @@ elif app_mode == "interview_coach":
         with bc4: bq_exp = st.selectbox("Level", EXPERIENCE_LEVELS, key="bq_exp")
         with bc5: bq_n = st.slider("# Questions", 5, 20, 10, key="bq_n")
         if st.button("🎲 Generate Question Bank", type="primary", use_container_width=True, disabled=not bq_role.strip(), key="bq_btn"):
-            with st.spinner("Generating tailored questions..."):
+            with st.spinner("Generating tailored questions with approach hints..."):
                 try:
                     result = generate_questions(bq_role, bq_co, bq_type, bq_exp, bq_n)
                     st.session_state.interview_questions = result
@@ -5643,35 +5731,64 @@ elif app_mode == "interview_coach":
                     st.error(str(e))
         if st.session_state.get("interview_questions"):
             st.markdown(st.session_state.interview_questions)
-            st.download_button("📥 Save Question Bank", st.session_state.interview_questions, file_name="interview_questions.md", use_container_width=True, key="bq_dl")
+            dl_c1, dl_c2 = st.columns(2)
+            with dl_c1:
+                st.download_button("📥 Save Question Bank", st.session_state.interview_questions, file_name="interview_questions.md", use_container_width=True, key="bq_dl")
+            with dl_c2:
+                if st.button("🎭 Practice These in Mock Interview", use_container_width=True, key="bq_to_mock"):
+                    st.session_state.interview_messages = []
+                    st.rerun()
 
     with tab_eval:
         eq1 = st.text_area("❓ Interview Question", height=80, key="eq_q", placeholder="Paste the interview question...")
-        eq2 = st.text_area("💬 Your Answer", height=150, key="eq_a", placeholder="Type or paste your answer...")
+        eq2 = st.text_area("💬 Your Answer", height=160, key="eq_a", placeholder="Type or paste your full answer... Include context, actions, and results.")
         ec1, ec2 = st.columns(2)
-        with ec1: eq_role = st.text_input("Role context", key="eq_role", placeholder="e.g. Product Manager")
+        with ec1: eq_role = st.text_input("Role context", key="eq_role", placeholder="e.g. Product Manager at Amazon")
         with ec2: eq_type = st.selectbox("Interview type", list(INTERVIEW_TYPES.keys()), key="eq_type")
-        if st.button("🎯 Evaluate My Answer", type="primary", use_container_width=True, disabled=not (eq1.strip() and eq2.strip()), key="eq_btn"):
-            with st.spinner("Evaluating your answer..."):
+        if st.button("🎯 Score & Evaluate My Answer", type="primary", use_container_width=True, disabled=not (eq1.strip() and eq2.strip()), key="eq_btn"):
+            with st.spinner("Evaluating with hiring manager rubric..."):
                 try:
                     fb = evaluate_answer(eq1, eq2, eq_role, eq_type)
                     st.session_state.interview_feedback = fb
                 except Exception as e:
                     st.error(str(e))
         if st.session_state.get("interview_feedback"):
+            st.markdown('<div class="ic-score">', unsafe_allow_html=True)
             st.markdown(st.session_state.interview_feedback)
+            st.markdown('</div>', unsafe_allow_html=True)
 
     with tab_company:
         cr1, cr2 = st.columns(2)
-        with cr1: cr_co = st.text_input("Company Name", placeholder="e.g. Google", key="cr_co")
-        with cr2: cr_role = st.text_input("Target Role", placeholder="e.g. Software Engineer", key="cr_role")
-        if st.button("🏢 Research Company", type="primary", use_container_width=True, disabled=not (cr_co.strip() and cr_role.strip()), key="cr_btn"):
-            with st.spinner(f"Researching {cr_co}..."):
+        with cr1: cr_co = st.text_input("Company Name", placeholder="e.g. Google, McKinsey, JP Morgan", key="cr_co")
+        with cr2: cr_role = st.text_input("Target Role", placeholder="e.g. Software Engineer L4", key="cr_role")
+        if st.button("🏢 Generate Company Intel Brief", type="primary", use_container_width=True, disabled=not (cr_co.strip() and cr_role.strip()), key="cr_btn"):
+            with st.spinner(f"Researching {cr_co} — building full intel brief..."):
                 try:
                     result = generate_company_research(cr_co, cr_role)
-                    st.markdown(result)
+                    st.session_state["_company_research"] = result
                 except Exception as e:
                     st.error(str(e))
+        if st.session_state.get("_company_research"):
+            st.markdown(st.session_state["_company_research"])
+            st.download_button("📥 Save Intel Brief", st.session_state["_company_research"], file_name=f"{cr_co}_intel.md", use_container_width=True, key="cr_dl")
+
+    with tab_salary:
+        sal1, sal2 = st.columns(2)
+        with sal1: sal_role = st.text_input("Role", placeholder="Senior Software Engineer", key="sal_role")
+        with sal2: sal_co = st.text_input("Company", placeholder="Google", key="sal_co")
+        sal3, sal4 = st.columns(2)
+        with sal3: sal_exp = st.selectbox("Experience", EXPERIENCE_LEVELS, key="sal_exp")
+        with sal4: sal_offer = st.text_input("Current Offer (optional)", placeholder="e.g. ₹28 LPA or $140k base", key="sal_offer")
+        if st.button("💰 Get Negotiation Strategy", type="primary", use_container_width=True, disabled=not sal_role.strip(), key="sal_btn"):
+            with st.spinner("Building negotiation playbook..."):
+                try:
+                    result = generate_salary_negotiation(sal_role, sal_co, sal_exp, sal_offer)
+                    st.session_state["_salary_result"] = result
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("_salary_result"):
+            st.markdown(st.session_state["_salary_result"])
+
     if st.button("💬 Back to Chat", use_container_width=True, key="ic_back"):
         st.session_state.app_mode = "chat"; st.rerun()
 
