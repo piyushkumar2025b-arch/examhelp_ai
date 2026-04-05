@@ -205,7 +205,6 @@ def render_flashcard_battle_mode():
             else:
                 st.session_state.battle_streak = 0
                 st.error(f"❌ Incorrect. Answer: _{card.get('a','')}_")
-            time.sleep(1.5)
             st.session_state.battle_idx += 1
             st.session_state.battle_q_start = time.time()
             st.rerun()
@@ -306,8 +305,8 @@ def render_quiz_analytics():
         if all_scores:
             avg = sum(all_scores) / len(all_scores)
             total_questions = len(all_scores)
-            best_topic = max(scores, key=lambda t: sum(scores[t]) / len(scores[t])) if scores else "N/A"
-            worst_topic = min(scores, key=lambda t: sum(scores[t]) / len(scores[t])) if scores else "N/A"
+            best_topic = max(scores, key=lambda t: sum(scores[t]) / max(len(scores[t]), 1)) if scores else "N/A"
+            worst_topic = min(scores, key=lambda t: sum(scores[t]) / max(len(scores[t]), 1)) if scores else "N/A"
 
             c1, c2, c3, c4 = st.columns(4)
             with c1: st.markdown(f'<div class="score-card"><div class="score-val">{avg*100:.0f}%</div><div class="score-lbl">Overall Accuracy</div></div>', unsafe_allow_html=True)
@@ -319,9 +318,9 @@ def render_quiz_analytics():
             # Plotly bar chart if available
             try:
                 import plotly.graph_objects as go
-                topics_sorted = sorted(scores.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True)
+                topics_sorted = sorted(scores.items(), key=lambda x: sum(x[1])/max(len(x[1]),1), reverse=True)
                 labels = [t[:25] for t, _ in topics_sorted]
-                values = [round(sum(s)/len(s)*100, 1) for _, s in topics_sorted]
+                values = [round(sum(s)/max(len(s),1)*100, 1) for _, s in topics_sorted]
                 colors = ["#4ade80" if v > 75 else "#facc15" if v > 45 else "#f87171" for v in values]
                 fig = go.Figure(go.Bar(
                     x=values, y=labels, orientation='h',
@@ -336,10 +335,10 @@ def render_quiz_analytics():
                     yaxis=dict(autorange='reversed')
                 )
                 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-            except Exception:
+            except (ImportError, Exception):
                 # Fallback: HTML bars
-                for topic, topic_scores in sorted(scores.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True):
-                    topic_avg = sum(topic_scores) / len(topic_scores)
+                for topic, topic_scores in sorted(scores.items(), key=lambda x: sum(x[1])/max(len(x[1]),1), reverse=True):
+                    topic_avg = sum(topic_scores) / max(len(topic_scores), 1)
                     color = "#4ade80" if topic_avg > 0.75 else "#facc15" if topic_avg > 0.45 else "#f87171"
                     bar_width = int(topic_avg * 100)
                     st.markdown(f"""<div style="margin:6px 0;">
@@ -352,7 +351,7 @@ def render_quiz_analytics():
 
     st.markdown("### 🎯 AI Study Recommendations")
     if st.button("Generate Personalized Study Plan", type="primary", key="quiz_study_plan"):
-        weak_areas = [t for t, s in scores.items() if sum(s)/len(s) < 0.6] if scores else []
+        weak_areas = [t for t, s in scores.items() if sum(s)/max(len(s),1) < 0.6] if scores else []
         prompt = f"""Based on quiz performance:
 Weak topics (below 60%): {', '.join(weak_areas) if weak_areas else 'None identified yet'}
 Total questions answered: {len([s for ts in scores.values() for s in ts]) if scores else 0}
@@ -369,7 +368,7 @@ Keep it motivating and practical."""
                 messages=[{"role": "user", "content": prompt}],
                 context_text="", max_tokens=800
             )
-            st.markdown(plan)
+            st.markdown(plan or "⚠️ No response received. Please try again.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -440,7 +439,7 @@ Essay:
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=700
                 )
-                st.markdown(analysis)
+                st.markdown(analysis or "⚠️ Analysis unavailable. Please try again.")
 
     with tab_cowrite:
         st.markdown("**Tell the AI what you're trying to write, and co-create together:**")
@@ -467,9 +466,12 @@ Write ONLY the section, no meta-commentary."""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=500
                 )
-                st.markdown(f"### ✍️ {essay_section}")
-                st.markdown(result)
-                st.download_button("⬇️ Copy as Text", result, file_name="essay_section.txt", key="ep_dl")
+                if result:
+                    st.markdown(f"### ✍️ {essay_section}")
+                    st.markdown(result)
+                    st.download_button("⬇️ Copy as Text", result, file_name="essay_section.txt", key="ep_dl")
+                else:
+                    st.error("⚠️ Co-write failed. Please try again.")
 
     with tab_improve:
         improve_text = st.text_area("Paste text to instantly improve:", height=200, key="ep_improve_text")
@@ -489,16 +491,19 @@ Original:
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=600
                 )
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("**🔴 Original:**")
-                    st.markdown(f'<div style="background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.2);border-radius:10px;padding:12px;font-size:.88rem;line-height:1.7;white-space:pre-wrap;">{improve_text}</div>', unsafe_allow_html=True)
-                    st.caption(f"Words: {len(improve_text.split())}")
-                with col2:
-                    st.markdown("**🟢 Improved:**")
-                    st.markdown(f'<div style="background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:12px;font-size:.88rem;line-height:1.7;white-space:pre-wrap;">{improved}</div>', unsafe_allow_html=True)
-                    st.caption(f"Words: {len(improved.split())} · Style: {improve_style.split('(')[0].strip()}")
-                    st.download_button("⬇️ Download Improved", improved, file_name="improved_text.txt", key="ep_improved_dl")
+                if not improved:
+                    st.error("⚠️ Improvement failed. Please try again.")
+                else:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("**🔴 Original:**")
+                        st.markdown(f'<div style="background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.2);border-radius:10px;padding:12px;font-size:.88rem;line-height:1.7;white-space:pre-wrap;">{improve_text}</div>', unsafe_allow_html=True)
+                        st.caption(f"Words: {len(improve_text.split())}")
+                    with col2:
+                        st.markdown("**🟢 Improved:**")
+                        st.markdown(f'<div style="background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:12px;font-size:.88rem;line-height:1.7;white-space:pre-wrap;">{improved}</div>', unsafe_allow_html=True)
+                        st.caption(f"Words: {len(improved.split())} · Style: {improve_style.split('(')[0].strip()}")
+                        st.download_button("⬇️ Download Improved", improved, file_name="improved_text.txt", key="ep_improved_dl")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -552,11 +557,12 @@ Code:
 {code[:4000]}
 ```"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -583,14 +589,17 @@ Return ONLY the complete, runnable test file."""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=1000
                 )
-                lang_slug = test_lang.split("(")[0].strip().lower().replace("javascript", "javascript").replace("python", "python")
-                st.code(tests, language=lang_slug)
-                ext = {"python": "py", "javascript": "js", "java": "java", "go": "go", "ruby": "rb"}.get(lang_slug, "txt")
-                st.download_button(f"⬇️ Download Tests (.{ext})", tests, file_name=f"test_code.{ext}", key="test_dl")
-                if "pytest" in test_lang.lower() or "python" in test_lang.lower():
-                    st.info("💡 Run with: `pytest test_code.py -v` · Install: `pip install pytest`")
-                elif "jest" in test_lang.lower() or "javascript" in test_lang.lower():
-                    st.info("💡 Run with: `npx jest test_code.js` · Install: `npm install --save-dev jest`")
+                if not tests:
+                    st.error("⚠️ Test generation failed. Please try again.")
+                else:
+                    lang_slug = test_lang.split("(")[0].strip().lower().replace("javascript", "javascript").replace("python", "python")
+                    st.code(tests, language=lang_slug)
+                    ext = {"python": "py", "javascript": "js", "java": "java", "go": "go", "ruby": "rb"}.get(lang_slug, "txt")
+                    st.download_button(f"⬇️ Download Tests (.{ext})", tests, file_name=f"test_code.{ext}", key="test_dl")
+                    if "pytest" in test_lang.lower() or "python" in test_lang.lower():
+                        st.info("💡 Run with: `pytest test_code.py -v` · Install: `pip install pytest`")
+                    elif "jest" in test_lang.lower() or "javascript" in test_lang.lower():
+                        st.info("💡 Run with: `npx jest test_code.js` · Install: `npm install --save-dev jest`")
 
     with tab_doc:
         doc_lang = st.selectbox("Language", ["Python", "JavaScript/TypeScript", "Java", "C/C++", "Go", "Rust"], key="doc_lang")
@@ -615,8 +624,11 @@ Code:
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=1000
                 )
-                st.code(documented, language=doc_lang.split("/")[0].strip().lower())
-                st.download_button("⬇️ Download", documented, file_name="documented_code.py", key="doc_dl")
+                if not documented:
+                    st.error("⚠️ Documentation generation failed. Please try again.")
+                else:
+                    st.code(documented, language=doc_lang.split("/")[0].strip().lower())
+                    st.download_button("⬇️ Download", documented, file_name="documented_code.py", key="doc_dl")
 
     with tab_complex:
         cplx_code = st.text_area("Paste code to analyze:", height=200, key="cplx_code")
@@ -638,11 +650,12 @@ End with:
 Code:
 {cplx_code[:3000]}"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=800
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -692,9 +705,7 @@ Format numbers clearly. Be specific and data-driven."""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=900
                 )
-                st.markdown(result)
-
-    with tab_company:
+                st.markdown(result or "⚠️ Salary data unavailable. Please try again.")
         company = st.text_input("Company name:", placeholder="e.g., Google, Infosys, Zepto...", key="comp_name")
         role_at = st.text_input("Role you're interviewing for:", key="comp_role")
         if company and st.button("🏢 Research Company", type="primary", key="comp_research"):
@@ -714,11 +725,12 @@ Provide:
 
 Make it specific and actionable, not generic."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -744,11 +756,12 @@ Requirements:
 Write the COMPLETE script, word for word, ready to rehearse.
 Then add: KEY DELIVERY TIPS (3 bullet points on how to deliver it)."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=600
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -769,11 +782,12 @@ Include:
 Be specific and actionable. Include exact techniques."""
             with st.spinner("Creating guide..."):
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=700
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -938,6 +952,9 @@ Output:
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=500
                     )
+                    if not result:
+                        st.error("⚠️ No response from AI. Please try again.")
+                        st.stop()
                     safe_result = result.replace("'", "&#39;").replace('"', "&quot;")
                     st.markdown(f'''<div class="cit-box">{result.replace(chr(10), "<br>")}</div>
 <button onclick="navigator.clipboard.writeText(\'{safe_result}\').then(()=>this.textContent='✅ Copied!').catch(()=>this.textContent='❌ Copy failed')"
@@ -969,8 +986,11 @@ Number each citation and provide in-text citation format too."""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=900
                 )
-                st.markdown(result)
-                st.download_button("⬇️ Download All", result, file_name="citations.txt", key="batch_dl")
+                if result:
+                    st.markdown(result)
+                    st.download_button("⬇️ Download All", result, file_name="citations.txt", key="batch_dl")
+                else:
+                    st.error("⚠️ Generation failed. Please try again.")
 
     with tab_convert:
         st.markdown("**Convert an existing citation from one style to another:**")
@@ -997,11 +1017,12 @@ Output ONLY:
 **In-text:**
 [format]"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=350
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -1104,11 +1125,12 @@ Break down every token/group:
 
 Keep it clear and educational."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=600
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -1206,7 +1228,8 @@ def render_vit_academics_v2():
                 st.session_state.vit_courses[i]["grade"] = st.selectbox("Grade", list(grade_map.keys()), index=list(grade_map.keys()).index(course["grade"]) if course["grade"] in grade_map else 2, key=f"vit_gr_{i}", label_visibility="collapsed")
             with col4:
                 if st.button("🗑️", key=f"vit_del_{i}") and len(st.session_state.vit_courses) > 1:
-                    st.session_state.vit_courses.pop(i); st.rerun()
+                    st.session_state.vit_courses = [c for j, c in enumerate(st.session_state.vit_courses) if j != i]
+                    st.rerun()
 
         col_a, col_b = st.columns(2)
         with col_a:
@@ -1250,7 +1273,7 @@ def render_vit_academics_v2():
 
         total_required = {"B.Tech (UG)": 160, "M.Tech (PG)": 66, "MBA": 96, "MCA": 90, "BCA": 120, "M.Sc": 80}.get(program, 160)
         remaining = max(0, total_required - credits_done)
-        progress = credits_done / total_required
+        progress = credits_done / max(total_required, 1)
 
         st.progress(progress, text=f"{credits_done}/{total_required} credits ({progress*100:.1f}%)")
         st.markdown(f"**{remaining} credits remaining** to complete your {program}")
@@ -1294,11 +1317,12 @@ Answer this VIT student question accurately and helpfully:
 Include specific details about VIT policies, regulations, and systems where relevant."""
                 try:
                     try:
-                        st.markdown(generate(
+                        _gen_result = generate(
 
                             messages=[{"role": "user", "content": prompt}],
                             context_text="", max_tokens=500
-                        ))
+                        )
+                        st.markdown(_gen_result or "⚠️ No response. Please try again.")
                     except Exception as _e:
                         st.error(f"⚠️ AI generation failed: {_e}")
                 except Exception as _e:
@@ -1448,8 +1472,11 @@ Text:
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=700
                 )
-                st.markdown(summary)
-                st.download_button("⬇️ Download Summary", summary, file_name="summary.txt", key="sum_dl")
+                if summary:
+                    st.markdown(summary)
+                    st.download_button("⬇️ Download Summary", summary, file_name="summary.txt", key="sum_dl")
+                else:
+                    st.error("⚠️ Summary generation failed. Please try again.")
 
     with tab_cornell:
         cornell_topic = st.text_input("Topic:", key="cornell_topic")
@@ -1478,8 +1505,11 @@ Source notes:
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=800
                 )
-                st.markdown(result)
-                st.download_button("⬇️ Download Cornell Notes (.md)", result, file_name="cornell_notes.md", key="cornell_dl")
+                if result:
+                    st.markdown(result)
+                    st.download_button("⬇️ Download Cornell Notes (.md)", result, file_name="cornell_notes.md", key="cornell_dl")
+                else:
+                    st.error("⚠️ Cornell notes generation failed. Please try again.")
 
     with tab_schedule:
         sched_subject = st.text_input("Subjects to study:", placeholder="e.g., Math, Physics, Chemistry, History", key="sched_sub")
@@ -1510,8 +1540,11 @@ Format as a clear day-by-day table."""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=1000
                 )
-                st.markdown(schedule)
-                st.download_button("⬇️ Download Schedule (.md)", schedule, file_name="study_schedule.md", key="sched_dl")
+                if schedule:
+                    st.markdown(schedule)
+                    st.download_button("⬇️ Download Schedule (.md)", schedule, file_name="study_schedule.md", key="sched_dl")
+                else:
+                    st.error("⚠️ Schedule generation failed. Please try again.")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="toolkit_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -1561,11 +1594,12 @@ Provide:
 
 Be analytical, not just descriptive."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -1595,11 +1629,12 @@ For each gap, suggest:
 
 Rank by research impact and feasibility."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -1631,11 +1666,12 @@ Provide:
 
 Alternative methodology if resources are limited: [suggest simpler option]"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -1667,14 +1703,17 @@ Return ONLY the abstract text."""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=500
                 )
-                st.markdown(f'<div class="cit-box">{abstract}</div>', unsafe_allow_html=True)
-                wc = len(abstract.split())
-                limit = int(abs_words.split()[0])
-                wc_color = "green" if wc <= limit else "red"
-                st.markdown(f'Word count: <span style="color:{wc_color};font-weight:700;">{wc}/{limit}</span>', unsafe_allow_html=True)
-                if wc > limit:
-                    st.warning(f"⚠️ Over word limit by {wc - limit} words. Consider trimming.")
-                st.download_button("⬇️ Download Abstract", abstract, file_name="abstract.txt", key="abs_dl")
+                if not abstract:
+                    st.error("⚠️ Abstract generation failed. Please try again.")
+                else:
+                    st.markdown(f'<div class="cit-box">{abstract}</div>', unsafe_allow_html=True)
+                    wc = len(abstract.split())
+                    limit = int(abs_words.split()[0])
+                    wc_color = "green" if wc <= limit else "red"
+                    st.markdown(f'Word count: <span style="color:{wc_color};font-weight:700;">{wc}/{limit}</span>', unsafe_allow_html=True)
+                    if wc > limit:
+                        st.warning(f"⚠️ Over word limit by {wc - limit} words. Consider trimming.")
+                    st.download_button("⬇️ Download Abstract", abstract, file_name="abstract.txt", key="abs_dl")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="rp_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -1751,8 +1790,11 @@ def render_smart_notes_power():
                                     messages=[{"role": "user", "content": f"Summarize in 2 sentences: {note['content'][:2000]}"}],
                                     context_text="", max_tokens=100
                                 )
-                                note["summary"] = summary
-                                st.rerun()
+                                if summary:
+                                    note["summary"] = summary
+                                    st.rerun()
+                                else:
+                                    st.error("⚠️ Summarization failed. Try again.")
                     with col2:
                         if st.button("🏷️ Auto-tag", key=f"sn_tag_{note['id']}"):
                             with st.spinner("Tagging..."):
@@ -1760,9 +1802,12 @@ def render_smart_notes_power():
                                     messages=[{"role": "user", "content": f"Give 3-5 short topic tags (comma separated, no hashtags) for: {note['content'][:500]}"}],
                                     context_text="", max_tokens=50
                                 )
-                                new_tags = [t.strip().lower() for t in tags_resp.split(",") if t.strip()]
-                                note["tags"] = list(set(note.get("tags", []) + new_tags))
-                                st.rerun()
+                                if tags_resp:
+                                    new_tags = [t.strip().lower() for t in tags_resp.split(",") if t.strip()]
+                                    note["tags"] = list(set(note.get("tags", []) + new_tags))
+                                    st.rerun()
+                                else:
+                                    st.error("⚠️ Auto-tag failed. Try again.")
                     with col3:
                         if st.button("🗑️ Delete", key=f"sn_del_{note['id']}"):
                             st.session_state.smart_notes_list = [n for n in notes if n["id"] != note["id"]]
@@ -1885,11 +1930,12 @@ Text:
 {detect_text[:2000]}"""
                 try:
                     try:
-                        st.markdown(generate(
+                        _gen_result = generate(
 
                             messages=[{"role": "user", "content": prompt}],
                             context_text="", max_tokens=500
-                        ))
+                        )
+                        st.markdown(_gen_result or "⚠️ No response. Please try again.")
                     except Exception as _e:
                         st.error(f"⚠️ AI generation failed: {_e}")
                 except Exception as _e:
@@ -1931,8 +1977,11 @@ After the table, add:
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=1200
                 )
-                st.markdown(result)
-                st.download_button("⬇️ Download Phrasebook", result, file_name=f"{phrase_lang}_phrasebook.txt", key="ph_dl")
+                if result:
+                    st.markdown(result)
+                    st.download_button("⬇️ Download Phrasebook", result, file_name=f"{phrase_lang}_phrasebook.txt", key="ph_dl")
+                else:
+                    st.error("⚠️ Phrasebook generation failed. Please try again.")
 
     with tab_culture:
         st.markdown("**Get a deep cultural briefing before interacting with a culture:**")
@@ -1958,11 +2007,12 @@ Include:
 
 Be specific, practical, and culturally sensitive."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2037,11 +2087,12 @@ Provide:
 4. **Audio pronunciation tip** — describe the hardest sounds to produce"""
                 try:
                     try:
-                        st.markdown(generate(
+                        _gen_result = generate(
 
                             messages=[{"role": "user", "content": prompt}],
                             context_text="", max_tokens=500
-                        ))
+                        )
+                        st.markdown(_gen_result or "⚠️ No response. Please try again.")
                     except Exception as _e:
                         st.error(f"⚠️ AI generation failed: {_e}")
                 except Exception as _e:
@@ -2091,11 +2142,12 @@ Perform complete dimensional analysis:
 Show ALL working clearly with → notation."""
                 try:
                     try:
-                        st.markdown(generate(
+                        _gen_result = generate(
 
                             messages=[{"role": "user", "content": prompt}],
                             context_text="", max_tokens=500
-                        ))
+                        )
+                        st.markdown(_gen_result or "⚠️ No response. Please try again.")
                     except Exception as _e:
                         st.error(f"⚠️ AI generation failed: {_e}")
                 except Exception as _e:
@@ -2126,11 +2178,12 @@ Show:
 
 Show all working clearly."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=600
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2173,8 +2226,11 @@ Use scientific language appropriate for {lab_level}."""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=1200
                 )
-                st.markdown(report)
-                st.download_button("⬇️ Download Lab Report (.md)", report, file_name="lab_report.md", key="lab_dl")
+                if report:
+                    st.markdown(report)
+                    st.download_button("⬇️ Download Lab Report (.md)", report, file_name="lab_report.md", key="lab_dl")
+                else:
+                    st.error("⚠️ Lab report generation failed. Please try again.")
 
     with tab_predict:
         st.markdown("**AI predicts the most likely exam questions from your topic:**")
@@ -2202,11 +2258,12 @@ Provide:
 
 For each question: state why it's likely to appear."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2261,11 +2318,12 @@ For each slide:
 
 **Opening Line Suggestion** — a better way to start that immediately captures attention"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2295,11 +2353,12 @@ Why it works: [brief explanation]
 
 Make each hook genuinely compelling, specific, and memorable. Not generic."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=700
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2337,11 +2396,12 @@ Create a complete narrative structure:
 
 **💡 Presentation Pattern** — which story structure fits best (Hero's Journey / Problem-Solution / Sparkline / etc.)"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2373,11 +2433,12 @@ For each: Question | De-escalation technique | Substantive answer
 **✨ Great Questions to Invite** (3 — ones you WANT to be asked):
 For each: Question | Brilliant answer that reinforces your message"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2391,7 +2452,10 @@ For each: Question | Brilliant answer that reinforces your message"""
         notes_pace = st.selectbox("Speaking pace:", ["Fast (150wpm)", "Natural (130wpm)", "Deliberate (110wpm)"], key="sn_pace")
         if notes_slides and st.button("🎤 Generate Speaker Notes", type="primary", key="sn_go"):
             with st.spinner("Writing speaker notes..."):
-                wpm = int(notes_pace.split("(")[1].rstrip("wpm)"))
+                try:
+                    wpm = int(notes_pace.split("(")[1].rstrip("wpm)"))
+                except (IndexError, ValueError):
+                    wpm = 130
                 prompt = f"""Write detailed {notes_style} speaker notes for each slide.
 
 Speaking style: {notes_style}
@@ -2412,8 +2476,11 @@ End with: **Total estimated presentation time**"""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=1000
                 )
-                st.markdown(result)
-                st.download_button("⬇️ Download Speaker Notes", result, file_name="speaker_notes.txt", key="sn_dl_btn")
+                if result:
+                    st.markdown(result)
+                    st.download_button("⬇️ Download Speaker Notes", result, file_name="speaker_notes.txt", key="sn_dl_btn")
+                else:
+                    st.error("⚠️ Speaker notes generation failed. Please try again.")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="pres_power_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -2467,11 +2534,12 @@ For each recommendation:
 5. **🧠 BUYING TIPS** — 3 things to check/negotiate before buying
 6. **📅 TIMING** — is this a good time to buy or should they wait for sales?"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=800
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2518,8 +2586,11 @@ One significant weakness for each product that isn't obvious from the specs"""
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
                     )
-                    st.markdown(cmp_result)
-                    st.download_button("⬇️ Save Comparison", cmp_result, file_name="product_comparison.md", key="cmp_dl")
+                    if cmp_result:
+                        st.markdown(cmp_result)
+                        st.download_button("⬇️ Save Comparison", cmp_result, file_name="product_comparison.md", key="cmp_dl")
+                    else:
+                        st.error("⚠️ Comparison returned no response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ Comparison failed: {_e}")
 
@@ -2557,11 +2628,12 @@ For each:
 
 **✉️ Gift Message Template** — a heartfelt message to write"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=800
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2592,11 +2664,12 @@ Provide:
 
 If over budget: suggest specific cheaper alternatives for each item with price and trade-offs."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=700
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2656,11 +2729,12 @@ Hour-by-hour schedule if they have 8 hours
 
 **💡 PRO TIP:** One insight about their task list pattern"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=700
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2699,11 +2773,12 @@ Provide:
 
 **🎉 REWARD SYSTEM** — short, medium, and long-term rewards"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=800
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2746,11 +2821,12 @@ What to cut, what to simplify, what to do differently
 
 **💡 PROCRASTINATION TRAP:** The most dangerous distraction for this specific project"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=700
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2791,11 +2867,12 @@ When and how to take breaks for maximum recovery
 **💪 MOTIVATION BOOST:**
 One powerful quote or thought to keep going today"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=700
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2848,11 +2925,12 @@ For each project:
 
 Make projects genuinely useful and impressive for a portfolio. Not the same old todo app."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=1000
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2928,11 +3006,12 @@ Provide:
 7. **💡 Alternative Approach** — a different solution technique
 8. **Score: X/10** with breakdown"""
                     try:
-                        st.markdown(generate(
+                        _gen_result = generate(
 
                             messages=[{"role": "user", "content": review_prompt}],
                             context_text="", max_tokens=700
-                        ))
+                        )
+                        st.markdown(_gen_result or "⚠️ No response. Please try again.")
                     except Exception as _e:
                         st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -2967,11 +3046,12 @@ For each phase (divide into 4 phases within {timeline}):
 
 **⚠️ Common mistakes** people make on this path and how to avoid them"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=1000
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -3014,11 +3094,12 @@ Provide detailed review:
 
 **📚 Concept to Study:** One pattern/principle this code would benefit from"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=900
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -3061,11 +3142,12 @@ Approach: [explain]
 8. **When to Use vs Not Use** — compared to alternatives
 9. **Practice Problems** — 5 problems (Easy/Medium/Hard) with LeetCode # if applicable"""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=1200
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -3124,17 +3206,20 @@ Make it comprehensive with 5-7 main branches and 3-5 sub-branches each."""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=900
                 )
-                st.markdown(result)
-                # Extract mermaid code
-                mermaid_match = re.search(r'```mermaid\n(.*?)```', result, re.DOTALL)
-                if mermaid_match:
-                    st.code(mermaid_match.group(1), language="mermaid")
-                    col_mm1, col_mm2 = st.columns(2)
-                    with col_mm1:
-                        st.info("💡 Paste at [mermaid.live](https://mermaid.live) to see your visual mind map")
-                    with col_mm2:
-                        st.info("🔌 Or use the VS Code Markdown Preview Mermaid Support extension")
-                    st.download_button("⬇️ Download .mmd", mermaid_match.group(1), file_name="mindmap.mmd", key="mm_dl")
+                if not result:
+                    st.error("⚠️ Mind map generation failed. Please try again.")
+                else:
+                    st.markdown(result)
+                    # Extract mermaid code
+                    mermaid_match = re.search(r'```mermaid\n(.*?)```', result, re.DOTALL)
+                    if mermaid_match:
+                        st.code(mermaid_match.group(1), language="mermaid")
+                        col_mm1, col_mm2 = st.columns(2)
+                        with col_mm1:
+                            st.info("💡 Paste at [mermaid.live](https://mermaid.live) to see your visual mind map")
+                        with col_mm2:
+                            st.info("🔌 Or use the VS Code Markdown Preview Mermaid Support extension")
+                        st.download_button("⬇️ Download .mmd", mermaid_match.group(1), file_name="mindmap.mmd", key="mm_dl")
 
     with tab_from_topic:
         topic = st.text_input("Topic to map:", placeholder="e.g., Machine Learning, The French Revolution, DNA Replication", key="mm_topic2")
@@ -3162,11 +3247,14 @@ Include: key definitions, relationships, examples, and exam-important points."""
                     messages=[{"role": "user", "content": prompt}],
                     context_text="", max_tokens=800
                 )
-                st.markdown(result)
-                m = re.search(r'```mermaid\n(.*?)```', result, re.DOTALL)
-                if m:
-                    st.download_button("⬇️ Download .mmd", m.group(1), file_name="mindmap.mmd", key="mm_tpc_dl")
-                    st.info("💡 Paste at [mermaid.live](https://mermaid.live) to see the visual map")
+                if not result:
+                    st.error("⚠️ Mind map generation failed. Please try again.")
+                else:
+                    st.markdown(result)
+                    m = re.search(r'```mermaid\n(.*?)```', result, re.DOTALL)
+                    if m:
+                        st.download_button("⬇️ Download .mmd", m.group(1), file_name="mindmap.mmd", key="mm_tpc_dl")
+                        st.info("💡 Paste at [mermaid.live](https://mermaid.live) to see the visual map")
 
     with tab_concept_web:
         concept = st.text_input("Central concept:", placeholder="e.g., Entropy, Democracy, Neural Network, Photosynthesis", key="cw_concept")
@@ -3186,11 +3274,12 @@ Show:
 
 Format as a rich network of connections."""
                 try:
-                    st.markdown(generate(
+                    _gen_result = generate(
 
                         messages=[{"role": "user", "content": prompt}],
                         context_text="", max_tokens=700
-                    ))
+                    )
+                    st.markdown(_gen_result or "⚠️ No response. Please try again.")
                 except Exception as _e:
                     st.error(f"⚠️ AI generation failed: {_e}")
 
@@ -3211,4 +3300,3 @@ POWER_MODE_MAP.update({
     "learn_coding":            render_learn_coding_power,
     "mindmap":                 render_mindmap_power,
 })
-
