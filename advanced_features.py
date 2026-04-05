@@ -42,6 +42,20 @@ except ImportError:
 def _inject_power_css():
     st.markdown("""
 <style>
+/* CSS variable fallbacks (in case global CSS hasn't run yet) */
+:root {
+  --accent: #a78bfa;
+  --accent-bd: rgba(167,139,250,.45);
+  --accent-bg: rgba(167,139,250,.1);
+  --accent-glow: rgba(124,106,247,.25);
+  --bg2-glass: rgba(14,14,26,.8);
+  --bg3-glass: rgba(20,20,36,.7);
+  --bd-glass: rgba(124,106,247,.18);
+  --text: #e0e0ff;
+  --text2: #b0b0d0;
+  --text3: #9090b8;
+  --border: rgba(124,106,247,.25);
+}
 /* Power feature header */
 .pf-header{background:linear-gradient(135deg,#0d0520 0%,#050010 100%);
   border:1px solid rgba(167,139,250,0.4);border-radius:18px;
@@ -90,6 +104,19 @@ def _inject_power_css():
   margin:6px 0;overflow:hidden;}
 .sal-bar{height:100%;border-radius:99px;
   background:linear-gradient(90deg,#7c6af7,#60a5fa);}
+/* Severity badges */
+.sev-critical{display:inline-block;background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;
+  border-radius:4px;padding:1px 8px;font-size:.72rem;font-weight:700;}
+.sev-high{display:inline-block;background:#7c2d12;color:#fdba74;border:1px solid #f97316;
+  border-radius:4px;padding:1px 8px;font-size:.72rem;font-weight:700;}
+.sev-medium{display:inline-block;background:#713f12;color:#fde68a;border:1px solid #eab308;
+  border-radius:4px;padding:1px 8px;font-size:.72rem;font-weight:700;}
+.sev-low{display:inline-block;background:#14532d;color:#86efac;border:1px solid #22c55e;
+  border-radius:4px;padding:1px 8px;font-size:.72rem;font-weight:700;}
+/* Mock interview */
+.mock-score{font-size:2.2rem;font-weight:900;color:#a78bfa;text-align:center;}
+/* Responsive improvements */
+@media(max-width:640px){.pf-title{font-size:1.4rem;}.score-val{font-size:1.5rem;}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -163,18 +190,22 @@ def render_flashcard_battle_mode():
             correct_answer = card.get("a", "").lower().strip()
             user_answer = answer_input.lower().strip()
             keywords = [w for w in correct_answer.split() if len(w) > 3]
-            matched = sum(1 for k in keywords if k in user_answer)
-            is_correct = matched >= max(1, len(keywords) * 0.5)
+            # Smarter: exact match + stem match for plurals/conjugations
+            exact_matched = sum(1 for k in keywords if k in user_answer)
+            stem_matched = sum(1 for k in keywords if any(k[:5] in w[:5] for w in user_answer.split() if len(w) >= 4))
+            match_ratio = max(exact_matched, stem_matched) / max(len(keywords), 1)
             st.session_state.battle_total += 1
-            if is_correct:
+            if match_ratio >= 0.7:
                 st.session_state.battle_score += 1
                 st.session_state.battle_streak += 1
                 st.session_state.battle_best_streak = max(st.session_state.battle_streak, st.session_state.battle_best_streak)
-                st.success(f"✅ Correct! {card.get('a','')}")
+                st.success(f"✅ Correct! Full answer: _{card.get('a','')}_")
+            elif match_ratio >= 0.4:
+                st.warning(f"🟡 Partially correct! Full answer: _{card.get('a','')}_")
             else:
                 st.session_state.battle_streak = 0
-                st.error(f"❌ Answer: {card.get('a','')}")
-            time.sleep(1.2)
+                st.error(f"❌ Incorrect. Answer: _{card.get('a','')}_")
+            time.sleep(1.5)
             st.session_state.battle_idx += 1
             st.session_state.battle_q_start = time.time()
             st.rerun()
@@ -238,7 +269,7 @@ Question: {user_q}"""
         with st.spinner("Tutor thinking..."):
             response = generate(
                 messages=[{"role": "user", "content": prompt}],
-                context_text="", model="llama-3.3-70b-versatile", max_tokens=700, temperature=0.5
+                context_text="", max_tokens=700, temperature=0.5
             )
         st.session_state.tutor_messages.append({"role": "assistant", "content": response})
         st.rerun()
@@ -285,15 +316,36 @@ def render_quiz_analytics():
             with c4: st.markdown(f'<div class="score-card"><div class="score-val">⚠️</div><div class="score-lbl">Weak: {worst_topic[:15]}</div></div>', unsafe_allow_html=True)
 
             st.markdown("### 📈 Topic Mastery")
-            for topic, topic_scores in sorted(scores.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True):
-                topic_avg = sum(topic_scores) / len(topic_scores)
-                color = "#4ade80" if topic_avg > 0.75 else "#facc15" if topic_avg > 0.45 else "#f87171"
-                bar_width = int(topic_avg * 100)
-                st.markdown(f"""
-<div style="margin:6px 0;">
+            # Plotly bar chart if available
+            try:
+                import plotly.graph_objects as go
+                topics_sorted = sorted(scores.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True)
+                labels = [t[:25] for t, _ in topics_sorted]
+                values = [round(sum(s)/len(s)*100, 1) for _, s in topics_sorted]
+                colors = ["#4ade80" if v > 75 else "#facc15" if v > 45 else "#f87171" for v in values]
+                fig = go.Figure(go.Bar(
+                    x=values, y=labels, orientation='h',
+                    marker_color=colors,
+                    text=[f"{v}%" for v in values], textposition='outside',
+                    hovertemplate="%{y}: %{x:.1f}%<extra></extra>"
+                ))
+                fig.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    font_color='#e0e0ff', margin=dict(l=10, r=40, t=10, b=10),
+                    height=max(200, len(labels)*36), xaxis=dict(range=[0,115], showgrid=False),
+                    yaxis=dict(autorange='reversed')
+                )
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            except Exception:
+                # Fallback: HTML bars
+                for topic, topic_scores in sorted(scores.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True):
+                    topic_avg = sum(topic_scores) / len(topic_scores)
+                    color = "#4ade80" if topic_avg > 0.75 else "#facc15" if topic_avg > 0.45 else "#f87171"
+                    bar_width = int(topic_avg * 100)
+                    st.markdown(f"""<div style="margin:6px 0;">
   <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:3px;">
     <span style="color:#e0e0ff;">{topic}</span>
-    <span style="color:{color};font-weight:700;">{topic_avg*100:.0f}%  ({len(topic_scores)} attempts)</span>
+    <span style="color:{color};font-weight:700;">{topic_avg*100:.0f}% ({len(topic_scores)} attempts)</span>
   </div>
   <div class="sal-bar-wrap"><div class="sal-bar" style="width:{bar_width}%;background:{color};"></div></div>
 </div>""", unsafe_allow_html=True)
@@ -315,7 +367,7 @@ Keep it motivating and practical."""
         with st.spinner("Creating your personalized study plan..."):
             plan = generate(
                 messages=[{"role": "user", "content": prompt}],
-                context_text="", model="llama-3.3-70b-versatile", max_tokens=800
+                context_text="", max_tokens=800
             )
             st.markdown(plan)
 
@@ -362,10 +414,14 @@ def render_essay_power_tools():
             with c3: st.metric("Paragraphs", len(paragraphs))
             with c4: st.metric("Avg Words/Sentence", f"{avg_words_per_sentence:.1f}")
 
+            flesch_color = "#4ade80" if flesch > 70 else "#facc15" if flesch > 50 else "#f87171"
             st.markdown(f"""
 <div class="score-card" style="margin:12px 0;">
-  <div class="score-val">{flesch:.0f}/100</div>
+  <div class="score-val" style="color:{flesch_color};">{flesch:.0f}/100</div>
   <div class="score-lbl">Readability Score (Flesch) · {grade_level} level</div>
+  <div style="margin-top:8px;font-size:.72rem;color:#9090b8;">
+    0–30: Academic · 30–50: College · 50–70: High School · 70–100: Easy to read
+  </div>
 </div>""", unsafe_allow_html=True)
 
             with st.spinner("AI analyzing your essay..."):
@@ -382,7 +438,7 @@ Essay:
 {essay_text[:3000]}"""
                 analysis = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
+                    context_text="", max_tokens=700
                 )
                 st.markdown(analysis)
 
@@ -409,7 +465,7 @@ Write ONLY the section, no meta-commentary."""
             with st.spinner(f"Co-writing {essay_section}..."):
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=500
+                    context_text="", max_tokens=500
                 )
                 st.markdown(f"### ✍️ {essay_section}")
                 st.markdown(result)
@@ -431,15 +487,18 @@ Original:
 {improve_text}"""
                 improved = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=600
+                    context_text="", max_tokens=600
                 )
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown("**Original:**")
-                    st.markdown(f'<div style="background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.2);border-radius:10px;padding:12px;font-size:.88rem;">{improve_text}</div>', unsafe_allow_html=True)
+                    st.markdown("**🔴 Original:**")
+                    st.markdown(f'<div style="background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.2);border-radius:10px;padding:12px;font-size:.88rem;line-height:1.7;white-space:pre-wrap;">{improve_text}</div>', unsafe_allow_html=True)
+                    st.caption(f"Words: {len(improve_text.split())}")
                 with col2:
-                    st.markdown("**Improved:**")
-                    st.markdown(f'<div style="background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:12px;font-size:.88rem;">{improved}</div>', unsafe_allow_html=True)
+                    st.markdown("**🟢 Improved:**")
+                    st.markdown(f'<div style="background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:10px;padding:12px;font-size:.88rem;line-height:1.7;white-space:pre-wrap;">{improved}</div>', unsafe_allow_html=True)
+                    st.caption(f"Words: {len(improved.split())} · Style: {improve_style.split('(')[0].strip()}")
+                    st.download_button("⬇️ Download Improved", improved, file_name="improved_text.txt", key="ep_improved_dl")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -473,22 +532,33 @@ Perform a deep security audit of this {lang} code. Check for:
 5. **Logic flaws** that could be exploited
 6. **Input validation** issues
 
-For each finding:
-- Severity: CRITICAL / HIGH / MEDIUM / LOW
-- What is vulnerable
-- How it could be exploited
-- Exact fix with code
+For each finding use this exact format:
+🔴 CRITICAL | 🟠 HIGH | 🟡 MEDIUM | 🟢 LOW — [severity label]
+**Vulnerable:** [what is at risk]
+**Exploit:** [how it could be abused in one sentence]
+**Fix:**
+```
+[exact replacement code]
+```
 
-End with a **Security Score: X/10** and summary.
+End with:
+---
+**🛡️ Security Score: X/10**
+**Summary:** [2-sentence executive summary]
+**Top Priority Fix:** [the single most important thing to fix first]
 
 Code:
 ```{lang.lower()}
 {code[:4000]}
 ```"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_test:
         test_lang = st.selectbox("Language", ["Python (pytest)", "JavaScript (Jest)", "Java (JUnit)", "Go (testing)", "Ruby (RSpec)"], key="test_lang")
@@ -511,10 +581,16 @@ Code to test:
 Return ONLY the complete, runnable test file."""
                 tests = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=1000
+                    context_text="", max_tokens=1000
                 )
-                st.code(tests, language=test_lang.split("(")[0].strip().lower())
-                st.download_button("⬇️ Download Tests", tests, file_name="test_code.py", key="test_dl")
+                lang_slug = test_lang.split("(")[0].strip().lower().replace("javascript", "javascript").replace("python", "python")
+                st.code(tests, language=lang_slug)
+                ext = {"python": "py", "javascript": "js", "java": "java", "go": "go", "ruby": "rb"}.get(lang_slug, "txt")
+                st.download_button(f"⬇️ Download Tests (.{ext})", tests, file_name=f"test_code.{ext}", key="test_dl")
+                if "pytest" in test_lang.lower() or "python" in test_lang.lower():
+                    st.info("💡 Run with: `pytest test_code.py -v` · Install: `pip install pytest`")
+                elif "jest" in test_lang.lower() or "javascript" in test_lang.lower():
+                    st.info("💡 Run with: `npx jest test_code.js` · Install: `npm install --save-dev jest`")
 
     with tab_doc:
         doc_lang = st.selectbox("Language", ["Python", "JavaScript/TypeScript", "Java", "C/C++", "Go", "Rust"], key="doc_lang")
@@ -537,7 +613,7 @@ Code:
 {doc_code[:3000]}"""
                 documented = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=1000
+                    context_text="", max_tokens=1000
                 )
                 st.code(documented, language=doc_lang.split("/")[0].strip().lower())
                 st.download_button("⬇️ Download", documented, file_name="documented_code.py", key="doc_dl")
@@ -561,10 +637,14 @@ End with:
 
 Code:
 {cplx_code[:3000]}"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=800
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=800
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -580,7 +660,7 @@ def render_interview_power_tools():
   <div class="pf-sub">Salary benchmarking · Company intelligence · Video script · Body language guide</div>
 </div>""", unsafe_allow_html=True)
 
-    tab_sal, tab_company, tab_script, tab_body = st.tabs(["💰 Salary Intel", "🏢 Company Research", "🎬 Video Script", "🧍 Body Language"])
+    tab_sal, tab_company, tab_script, tab_body, tab_mock = st.tabs(["💰 Salary Intel", "🏢 Company Research", "🎬 Video Script", "🧍 Body Language", "🎤 Mock Interview"])
 
     with tab_sal:
         role_name = st.text_input("Job Role:", placeholder="e.g., Senior Software Engineer, Data Scientist...", key="sal_role")
@@ -610,7 +690,7 @@ Provide:
 Format numbers clearly. Be specific and data-driven."""
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
+                    context_text="", max_tokens=900
                 )
                 st.markdown(result)
 
@@ -633,10 +713,14 @@ Provide:
 7. **Insider Tips** — what impresses interviewers there, common mistakes
 
 Make it specific and actionable, not generic."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_script:
         script_role = st.text_input("Role/Company:", key="script_role")
@@ -659,10 +743,14 @@ Requirements:
 
 Write the COMPLETE script, word for word, ready to rehearse.
 Then add: KEY DELIVERY TIPS (3 bullet points on how to deliver it)."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=600
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=600
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_body:
         st.markdown("### 🧍 Body Language & Delivery Guide")
@@ -680,10 +768,74 @@ Include:
 
 Be specific and actionable. Include exact techniques."""
             with st.spinner("Creating guide..."):
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=700
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
+
+    with tab_mock:
+        st.markdown("### 🎤 AI Mock Interviewer")
+        st.markdown("Practice with a realistic AI interviewer and get scored on each answer.")
+        if "mock_iv_history" not in st.session_state:
+            st.session_state.mock_iv_history = []
+        if "mock_iv_q_num" not in st.session_state:
+            st.session_state.mock_iv_q_num = 0
+
+        mock_role = st.text_input("Role / Company:", placeholder="e.g., Software Engineer at Google", key="mock_role")
+        mock_type = st.selectbox("Interview type:", ["Behavioural (STAR)", "Technical", "Mixed", "HR / Cultural Fit"], key="mock_type_sel")
+
+        col_start, col_reset = st.columns(2)
+        with col_start:
+            if mock_role and not st.session_state.mock_iv_history:
+                if st.button("🚀 Start Mock Interview", type="primary", use_container_width=True, key="mock_start"):
+                    opening_prompt = f"""You are a senior interviewer conducting a {mock_type} interview for: {mock_role}.
+Greet the candidate professionally, then ask your FIRST question. Ask only one question at a time."""
+                    try:
+                        q = generate(messages=[{"role": "user", "content": opening_prompt}], context_text="", max_tokens=300)
+                        st.session_state.mock_iv_history = [{"role": "assistant", "content": q}]
+                        st.session_state.mock_iv_q_num = 1
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"⚠️ Could not start: {e}")
+        with col_reset:
+            if st.session_state.mock_iv_history:
+                if st.button("🔄 New Interview", use_container_width=True, key="mock_reset"):
+                    st.session_state.mock_iv_history = []
+                    st.session_state.mock_iv_q_num = 0
+                    st.rerun()
+
+        for msg in st.session_state.mock_iv_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        if st.session_state.mock_iv_history:
+            user_ans = st.chat_input("Your answer...")
+            if user_ans:
+                st.session_state.mock_iv_history.append({"role": "user", "content": user_ans})
+                q_num = st.session_state.mock_iv_q_num
+                history_str = "\n".join([f"{'Interviewer' if m['role']=='assistant' else 'Candidate'}: {m['content']}"
+                                         for m in st.session_state.mock_iv_history[-8:]])
+                follow_prompt = f"""You are a professional interviewer for: {mock_role} ({mock_type}).
+Conversation:
+{history_str}
+
+Do BOTH:
+1. Brief feedback on the candidate's last answer (2-3 sentences). Use ✅ for strengths, ⚠️ for gaps.
+2. Ask question {q_num + 1} (or if this is question 5+, give a final evaluation with Overall Score X/10, Top Strength, and Key Improvement)."""
+                try:
+                    resp = generate(messages=[{"role": "user", "content": follow_prompt}], context_text="", max_tokens=450)
+                    st.session_state.mock_iv_history.append({"role": "assistant", "content": resp})
+                    st.session_state.mock_iv_q_num += 1
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"⚠️ Response failed: {e}")
+
+    if st.button("💬 Back to Chat", use_container_width=True, key="interview_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -739,20 +891,39 @@ def render_citation_generator_v2():
 
         if title and st.button("📚 Generate Citation", type="primary", key="gen_cit"):
             with st.spinner("Generating citation..."):
+                # Build source-specific extra fields safely
+                _extra_fields = []
+                if source_type == "Journal Article":
+                    for _k, _sk in [("Journal","cit_journal"),("Volume(Issue)","cit_vol"),("Pages","cit_pages"),("DOI","cit_doi")]:
+                        _v = st.session_state.get(_sk, "")
+                        if _v: _extra_fields.append(f"{_k}: {_v}")
+                elif source_type in ("Book", "Book Chapter"):
+                    for _k, _sk in [("Publisher","cit_pub"),("Edition","cit_ed")]:
+                        _v = st.session_state.get(_sk, "")
+                        if _v: _extra_fields.append(f"{_k}: {_v}")
+                    if source_type == "Book Chapter":
+                        for _k, _sk in [("Editors","cit_eds"),("Book title","cit_booktitle"),("Pages","cit_pages2")]:
+                            _v = st.session_state.get(_sk, "")
+                            if _v: _extra_fields.append(f"{_k}: {_v}")
+                elif source_type == "Website/Webpage":
+                    for _k, _sk in [("URL","cit_url"),("Access date","cit_access"),("Website name","cit_site")]:
+                        _v = st.session_state.get(_sk, "")
+                        if _v: _extra_fields.append(f"{_k}: {_v}")
+                _fields_str = "\n".join(_extra_fields)
+
                 prompt = f"""You are an expert academic librarian. Generate a PERFECT {style} citation.
 
 Source type: {source_type}
 Authors: {authors}
 Year: {year}
 Title: {title}
+{_fields_str}
 Additional info: {extra}
-Other fields provided: {col2}
 
 Rules:
-1. Follow {style} format EXACTLY — correct punctuation, italics notation, and order
-2. Generate the citation for EVERY common variation if details are incomplete
-3. Flag anything missing that would make the citation incomplete
-4. Show the hanging indent format (use 5 spaces for second line indent)
+1. Follow {style} format EXACTLY — correct punctuation, italics notation, and field order
+2. If any required field is missing, note it but still produce the best possible citation
+3. Show hanging-indent format (indent continuation lines by 5 spaces)
 
 Output:
 **{style} Citation:**
@@ -761,13 +932,20 @@ Output:
 **In-text citation:**
 [format]
 
-**Checklist:** [any missing fields that would make it more complete]"""
-                result = generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=400
-                )
-                st.markdown('<div class="cit-box">' + result.replace('\n', '<br>') + '</div>', unsafe_allow_html=True)
-                st.download_button("⬇️ Copy Citation", result, file_name="citation.txt", key="cit_dl")
+**Checklist:** [list any missing fields that would improve completeness]"""
+                try:
+                    result = generate(
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=500
+                    )
+                    safe_result = result.replace("'", "&#39;").replace('"', "&quot;")
+                    st.markdown(f'''<div class="cit-box">{result.replace(chr(10), "<br>")}</div>
+<button onclick="navigator.clipboard.writeText(\'{safe_result}\').then(()=>this.textContent='✅ Copied!').catch(()=>this.textContent='❌ Copy failed')"
+  style="margin-top:8px;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.4);color:#a78bfa;
+  padding:6px 16px;border-radius:8px;cursor:pointer;font-size:.8rem;">📋 Copy to Clipboard</button>''', unsafe_allow_html=True)
+                    st.download_button("⬇️ Download Citation (.txt)", result, file_name="citation.txt", key="cit_dl")
+                except Exception as e:
+                    st.error(f"⚠️ Generation failed: {e}. Please try again.")
 
     with tab_batch:
         st.markdown("**Paste URLs or DOIs (one per line) to generate multiple citations:**")
@@ -789,7 +967,7 @@ Sources:
 Number each citation and provide in-text citation format too."""
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
+                    context_text="", max_tokens=900
                 )
                 st.markdown(result)
                 st.download_button("⬇️ Download All", result, file_name="citations.txt", key="batch_dl")
@@ -818,10 +996,14 @@ Output ONLY:
 
 **In-text:**
 [format]"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=350
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=350
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="cit_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -861,8 +1043,13 @@ def render_regex_tester_v2():
                 compiled = re.compile(pattern, flags)
                 matches = list(compiled.finditer(test_text))
 
+                import time as _time
+                _t0 = _time.perf_counter()
+                matches_timed = list(compiled.finditer(test_text))
+                _elapsed_ms = (_time.perf_counter() - _t0) * 1000
+                matches = matches_timed
                 if matches:
-                    st.success(f"✅ {len(matches)} match{'es' if len(matches) != 1 else ''} found")
+                    st.success(f"✅ {len(matches)} match{'es' if len(matches) != 1 else ''} found · {_elapsed_ms:.2f}ms · {len(test_text)} chars tested")
 
                     # Highlight matches
                     highlighted = test_text
@@ -916,10 +1103,14 @@ Break down every token/group:
 4. List any edge cases or gotchas
 
 Keep it clear and educational."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=400
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=600
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_build:
         st.markdown("**Describe what you want to match and the AI will write the regex:**")
@@ -945,7 +1136,7 @@ Provide:
 Make it production-ready and well-tested."""
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=500
+                    context_text="", max_tokens=500
                 )
                 st.markdown(result)
 
@@ -1035,10 +1226,21 @@ def render_vit_academics_v2():
             with c2: st.markdown(f'<div class="score-card"><div class="score-val">{total_credits}</div><div class="score-lbl">Total Credits</div></div>', unsafe_allow_html=True)
             with c3: st.markdown(f'<div class="score-card"><div class="score-val">{letter}</div><div class="score-lbl">Grade</div></div>', unsafe_allow_html=True)
 
+            target_cgpa_val = st.session_state.get('vit_target', 8.5)
             if prev_cgpa > 0:
                 # Weighted average (assuming prev = 20 credit-equivalent)
                 combined = (prev_cgpa * 20 + gpa * total_credits) / (20 + total_credits)
-                st.info(f"📈 Estimated Cumulative CGPA: **{combined:.2f}**")
+                delta = combined - prev_cgpa
+                delta_str = f"{'▲' if delta >= 0 else '▼'} {abs(delta):.2f} from previous"
+                col_cgpa1, col_cgpa2 = st.columns(2)
+                with col_cgpa1:
+                    st.info(f"📈 Estimated Cumulative CGPA: **{combined:.2f}** ({delta_str})")
+                with col_cgpa2:
+                    gap = target_cgpa_val - combined
+                    if gap > 0:
+                        st.warning(f"🎯 Need **{gap:.2f}** more points to reach target {target_cgpa_val}")
+                    else:
+                        st.success(f"✅ Above target by **{abs(gap):.2f}** points!")
 
     with tab_credits:
         st.markdown("### 📋 Degree Credit Planner")
@@ -1090,10 +1292,17 @@ Answer this VIT student question accurately and helpfully:
 {vit_q}
 
 Include specific details about VIT policies, regulations, and systems where relevant."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=500
-                ))
+                try:
+                    try:
+                        st.markdown(generate(
+
+                            messages=[{"role": "user", "content": prompt}],
+                            context_text="", max_tokens=500
+                        ))
+                    except Exception as _e:
+                        st.error(f"⚠️ AI generation failed: {_e}")
+                except Exception as _e:
+                    st.error(f"⚠️ AI unavailable: {_e}")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="vit_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -1135,51 +1344,60 @@ def render_study_toolkit_v2():
 
         # HTML timer
         timer_html = f"""
-<div style="text-align:center;padding:10px;">
-<div id="timer" style="font-size:5rem;font-weight:900;color:#a78bfa;font-family:monospace;">{pomo_work:02d}:00</div>
-<div id="phase" style="color:#9090b8;margin:8px 0;font-size:1rem;">🎯 Focus Time</div>
-<div id="cycle_info" style="color:#60a5fa;font-size:.85rem;margin-bottom:16px;">Cycle 1 of {pomo_cycles}</div>
-<button onclick="startTimer()" id="startBtn" style="background:linear-gradient(135deg,#7c6af7,#60a5fa);border:none;color:white;padding:12px 32px;border-radius:99px;font-size:1rem;font-weight:700;cursor:pointer;margin:4px;">▶ Start</button>
-<button onclick="resetTimer()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:white;padding:12px 24px;border-radius:99px;font-size:1rem;cursor:pointer;margin:4px;">↺ Reset</button>
-<div id="progress_bar" style="margin-top:16px;height:8px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;">
-  <div id="progress_fill" style="height:100%;width:0%;background:linear-gradient(90deg,#7c6af7,#60a5fa);border-radius:99px;transition:width .5s;"></div>
+<div style="text-align:center;padding:20px 10px;">
+<div id="phase_label" style="color:#a78bfa;font-size:.85rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;">🎯 Focus Time</div>
+<div id="timer" style="font-size:5.5rem;font-weight:900;color:#e0d4ff;font-family:'Courier New',monospace;line-height:1;letter-spacing:-.02em;">{pomo_work:02d}:00</div>
+<div id="cycle_info" style="color:#60a5fa;font-size:.85rem;margin:10px 0 16px;">Cycle 1 of {pomo_cycles} &nbsp;·&nbsp; {pomo_cycles * pomo_work} min focus today</div>
+<div id="progress_bar" style="margin:0 auto 20px;max-width:340px;height:6px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;">
+  <div id="progress_fill" style="height:100%;width:0%;background:linear-gradient(90deg,#7c6af7,#60a5fa);border-radius:99px;transition:width 1s linear;"></div>
 </div>
+<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+<button onclick="toggleTimer()" id="startBtn" style="background:linear-gradient(135deg,#7c6af7,#60a5fa);border:none;color:white;padding:13px 36px;border-radius:99px;font-size:1rem;font-weight:700;cursor:pointer;">▶ Start</button>
+<button onclick="resetTimer()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#ccc;padding:13px 26px;border-radius:99px;font-size:.95rem;cursor:pointer;">↺ Reset</button>
+</div>
+<div id="done_msg" style="display:none;margin-top:18px;font-size:1.1rem;color:#4ade80;font-weight:700;">🎉 All cycles complete! Great focus session!</div>
 </div>
 <script>
-let workSec={pomo_work*60}, breakSec={pomo_break*60}, totalCycles={pomo_cycles};
-let curSec=workSec, cycle=1, isWork=true, running=false, interval=null;
-const totalWorkSec=workSec;
-function pad(n){{return String(n).padStart(2,'0');}}
-function update(){{
-  document.getElementById('timer').textContent=pad(Math.floor(curSec/60))+':'+pad(curSec%60);
-  let total=isWork?workSec:breakSec;
-  let pct=(1-curSec/total)*100;
-  document.getElementById('progress_fill').style.width=pct+'%';
-  document.getElementById('cycle_info').textContent='Cycle '+cycle+' of '+totalCycles;
-  document.getElementById('phase').textContent=isWork?'🎯 Focus Time':'☕ Break Time';
-}}
-function tick(){{
-  if(curSec>0){{curSec--;update();}}
-  else{{
+(function(){{
+  const workSec={pomo_work*60}, breakSec={pomo_break*60}, totalCycles={pomo_cycles};
+  let curSec=workSec, cycle=1, isWork=true, running=false, iv=null;
+  function pad(n){{return String(n).padStart(2,'0');}}
+  function render(){{
+    document.getElementById('timer').textContent=pad(Math.floor(curSec/60))+':'+pad(curSec%60);
+    const total=isWork?workSec:breakSec;
+    document.getElementById('progress_fill').style.width=((1-curSec/total)*100)+'%';
+    document.getElementById('cycle_info').textContent='Cycle '+cycle+' of '+totalCycles+(isWork?' · Focus':' · Break');
+    document.getElementById('phase_label').textContent=isWork?'🎯 Focus Time':'☕ Break Time';
+    document.getElementById('phase_label').style.color=isWork?'#a78bfa':'#4ade80';
+  }}
+  function tick(){{
+    if(curSec>0){{curSec--;render();return;}}
     if(isWork){{
-      if(cycle>=totalCycles){{clearInterval(interval);running=false;
-        document.getElementById('phase').textContent='🎉 All done! Great work!';
-        document.getElementById('startBtn').textContent='▶ Restart';return;}}
+      if(cycle>=totalCycles){{
+        clearInterval(iv);running=false;
+        document.getElementById('startBtn').textContent='▶ Restart';
+        document.getElementById('done_msg').style.display='block';
+        return;
+      }}
       isWork=false;curSec=breakSec;
     }}else{{cycle++;isWork=true;curSec=workSec;}}
-    update();
+    render();
   }}
-}}
-function startTimer(){{
-  if(running){{clearInterval(interval);running=false;document.getElementById('startBtn').textContent='▶ Resume';}}
-  else{{interval=setInterval(tick,1000);running=true;document.getElementById('startBtn').textContent='⏸ Pause';}}
-}}
-function resetTimer(){{clearInterval(interval);running=false;curSec=workSec;cycle=1;isWork=true;
-  document.getElementById('startBtn').textContent='▶ Start';update();}}
-update();
+  window.toggleTimer=function(){{
+    if(running){{clearInterval(iv);running=false;document.getElementById('startBtn').textContent='▶ Resume';}}
+    else{{iv=setInterval(tick,1000);running=true;document.getElementById('startBtn').textContent='⏸ Pause';}}
+  }};
+  window.resetTimer=function(){{
+    clearInterval(iv);running=false;curSec=workSec;cycle=1;isWork=true;
+    document.getElementById('startBtn').textContent='▶ Start';
+    document.getElementById('done_msg').style.display='none';
+    render();
+  }};
+  render();
+}})();
 </script>"""
         import streamlit.components.v1 as components
-        components.html(timer_html, height=320)
+        components.html(timer_html, height=340)
 
     with tab_mindmap:
         mm_topic = st.text_input("Topic for mind map:", placeholder="e.g., Photosynthesis, World War II, Neural Networks", key="mm_topic")
@@ -1205,7 +1423,7 @@ mindmap
 Make it comprehensive and educational."""
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=800
+                    context_text="", max_tokens=800
                 )
                 st.markdown(result)
 
@@ -1228,7 +1446,7 @@ Text:
 {sum_text[:5000]}"""
                 summary = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
+                    context_text="", max_tokens=700
                 )
                 st.markdown(summary)
                 st.download_button("⬇️ Download Summary", summary, file_name="summary.txt", key="sum_dl")
@@ -1258,10 +1476,10 @@ Source notes:
 {cornell_notes[:4000]}"""
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=800
+                    context_text="", max_tokens=800
                 )
                 st.markdown(result)
-                st.download_button("⬇️ Download Cornell Notes", result, file_name="cornell_notes.txt", key="cornell_dl")
+                st.download_button("⬇️ Download Cornell Notes (.md)", result, file_name="cornell_notes.md", key="cornell_dl")
 
     with tab_schedule:
         sched_subject = st.text_input("Subjects to study:", placeholder="e.g., Math, Physics, Chemistry, History", key="sched_sub")
@@ -1290,10 +1508,10 @@ Schedule requirements:
 Format as a clear day-by-day table."""
                 schedule = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=1000
+                    context_text="", max_tokens=1000
                 )
                 st.markdown(schedule)
-                st.download_button("⬇️ Download Schedule", schedule, file_name="study_schedule.txt", key="sched_dl")
+                st.download_button("⬇️ Download Schedule (.md)", schedule, file_name="study_schedule.md", key="sched_dl")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="toolkit_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -1322,6 +1540,7 @@ def render_research_power_tools():
                                     key="rp_sources", placeholder="Source 1: ...\n---\nSource 2: ...\n---\nSource 3: ...")
         research_q = st.text_input("Your research question:", key="rp_question")
         synth_type = st.selectbox("Synthesis type:", ["Thematic synthesis", "Narrative synthesis", "Compare & contrast", "Evidence hierarchy", "Chronological development"], key="rp_synth_type")
+        show_quality = st.checkbox("📊 Include source quality assessment", value=True, key="rp_quality")
         if sources_text and research_q and st.button("🔗 Synthesize Sources", type="primary", key="rp_synth"):
             with st.spinner("Synthesizing..."):
                 prompt = f"""You are a senior research analyst. Perform a {synth_type} of these sources.
@@ -1338,12 +1557,17 @@ Provide:
 4. **Strongest Evidence** — which claims have most support
 5. **Synthesis Paragraph** — a cohesive analytical paragraph integrating all sources
 6. **Citation Suggestions** — how to cite each source together
+{"7. **Source Quality Scores** — rate each source 1–5 stars on: recency, authority, relevance, methodology" if show_quality else ""}
 
 Be analytical, not just descriptive."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_gap:
         topic = st.text_input("Research topic:", key="rp_gap_topic")
@@ -1370,10 +1594,14 @@ For each gap, suggest:
 - Why it matters
 
 Rank by research impact and feasibility."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_method:
         research_topic = st.text_input("Your research topic:", key="rp_meth_topic")
@@ -1402,10 +1630,14 @@ Provide:
 8. **Timeline Estimate** — realistic phases
 
 Alternative methodology if resources are limited: [suggest simpler option]"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_abstract:
         abs_title = st.text_input("Paper/research title:", key="abs_title")
@@ -1433,11 +1665,15 @@ Requirements:
 Return ONLY the abstract text."""
                 abstract = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=500
+                    context_text="", max_tokens=500
                 )
                 st.markdown(f'<div class="cit-box">{abstract}</div>', unsafe_allow_html=True)
                 wc = len(abstract.split())
-                st.caption(f"Word count: {wc}")
+                limit = int(abs_words.split()[0])
+                wc_color = "green" if wc <= limit else "red"
+                st.markdown(f'Word count: <span style="color:{wc_color};font-weight:700;">{wc}/{limit}</span>', unsafe_allow_html=True)
+                if wc > limit:
+                    st.warning(f"⚠️ Over word limit by {wc - limit} words. Consider trimming.")
                 st.download_button("⬇️ Download Abstract", abstract, file_name="abstract.txt", key="abs_dl")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="rp_back"):
@@ -1499,7 +1735,9 @@ def render_smart_notes_power():
 
             st.markdown(f"**{len(filtered)} note(s)**")
             for note in filtered:
-                with st.expander(f"📝 {note['title']} · {note['created']}"):
+                word_count = len(note["content"].split())
+                read_time = max(1, word_count // 200)
+                with st.expander(f"📝 {note['title']} · {note['created']} · {word_count} words · ~{read_time} min read"):
                     if note.get("tags"):
                         st.markdown(" ".join([f'`{t}`' for t in note["tags"]]))
                     st.markdown(note["content"])
@@ -1511,7 +1749,7 @@ def render_smart_notes_power():
                             with st.spinner("Summarizing..."):
                                 summary = generate(
                                     messages=[{"role": "user", "content": f"Summarize in 2 sentences: {note['content'][:2000]}"}],
-                                    context_text="", model="llama-3.3-70b-versatile", max_tokens=100
+                                    context_text="", max_tokens=100
                                 )
                                 note["summary"] = summary
                                 st.rerun()
@@ -1520,7 +1758,7 @@ def render_smart_notes_power():
                             with st.spinner("Tagging..."):
                                 tags_resp = generate(
                                     messages=[{"role": "user", "content": f"Give 3-5 short topic tags (comma separated, no hashtags) for: {note['content'][:500]}"}],
-                                    context_text="", model="llama-3.3-70b-versatile", max_tokens=50
+                                    context_text="", max_tokens=50
                                 )
                                 new_tags = [t.strip().lower() for t in tags_resp.split(",") if t.strip()]
                                 note["tags"] = list(set(note.get("tags", []) + new_tags))
@@ -1542,7 +1780,7 @@ def render_smart_notes_power():
                     with st.spinner("Extracting..."):
                         insights = generate(
                             messages=[{"role": "user", "content": f"Extract the 10 most important insights, facts, or action items from these notes:\n{all_content[:4000]}"}],
-                            context_text="", model="llama-3.3-70b-versatile", max_tokens=500
+                            context_text="", max_tokens=500
                         )
                         st.markdown("### 🔑 Key Insights")
                         st.markdown(insights)
@@ -1551,7 +1789,7 @@ def render_smart_notes_power():
                     with st.spinner("Organizing..."):
                         org = generate(
                             messages=[{"role": "user", "content": f"Suggest how to organize and group these notes into a logical structure with categories and connections:\n{all_content[:3000]}"}],
-                            context_text="", model="llama-3.3-70b-versatile", max_tokens=400
+                            context_text="", max_tokens=600
                         )
                         st.markdown("### 📊 Suggested Organization")
                         st.markdown(org)
@@ -1561,7 +1799,12 @@ def render_smart_notes_power():
                     f"# {n['title']}\nDate: {n['created']}\nTags: {', '.join(n.get('tags',[]))}\n\n{n['content']}\n\n{('AI Summary: ' + n['summary']) if n.get('summary') else ''}"
                     for n in notes
                 ])
-                st.download_button("⬇️ Download Notes (TXT)", export_text, file_name="my_notes.txt", key="sn_dl")
+                col_dl1, col_dl2 = st.columns(2)
+                with col_dl1:
+                    st.download_button("⬇️ Download (.txt)", export_text, file_name="my_notes.txt", key="sn_dl")
+                with col_dl2:
+                    md_text = "\n\n---\n\n".join([f"# {n['title']}\n> {n['created']} | Tags: {', '.join(n.get('tags',[]))}\n\n{n['content']}" for n in notes])
+                    st.download_button("⬇️ Download (.md)", md_text, file_name="my_notes.md", key="sn_md_dl")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="sn_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -1640,10 +1883,17 @@ Analyze this text and identify:
 
 Text:
 {detect_text[:2000]}"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=500
-                ))
+                try:
+                    try:
+                        st.markdown(generate(
+
+                            messages=[{"role": "user", "content": prompt}],
+                            context_text="", max_tokens=500
+                        ))
+                    except Exception as _e:
+                        st.error(f"⚠️ AI generation failed: {_e}")
+                except Exception as _e:
+                    st.error(f"⚠️ AI unavailable: {_e}")
 
     with tab_phrase:
         st.markdown("**Build an instant phrasebook for any language:**")
@@ -1679,7 +1929,7 @@ After the table, add:
 **🚨 Critical Mistakes to Avoid** (3 common errors for {native_lang} speakers learning {phrase_lang})"""
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=1200
+                    context_text="", max_tokens=1200
                 )
                 st.markdown(result)
                 st.download_button("⬇️ Download Phrasebook", result, file_name=f"{phrase_lang}_phrasebook.txt", key="ph_dl")
@@ -1707,10 +1957,14 @@ Include:
 10. **🗣️ 5 Phrases That Will Impress** — local language phrases with pronunciation
 
 Be specific, practical, and culturally sensitive."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_tutor:
         if "grammar_chat" not in st.session_state:
@@ -1747,7 +2001,7 @@ Keep it encouraging and motivating!"""
             with st.spinner("Tutor analyzing..."):
                 response = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=600
+                    context_text="", max_tokens=600
                 )
             st.session_state.grammar_chat.append({"role": "assistant", "content": response})
             st.rerun()
@@ -1781,10 +2035,17 @@ Provide:
 2. **Pronunciation Guide** — how to pronounce each word (syllable by syllable)
 3. **Word-by-word breakdown** — for sentences, show each word mapped
 4. **Audio pronunciation tip** — describe the hardest sounds to produce"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=500
-                ))
+                try:
+                    try:
+                        st.markdown(generate(
+
+                            messages=[{"role": "user", "content": prompt}],
+                            context_text="", max_tokens=500
+                        ))
+                    except Exception as _e:
+                        st.error(f"⚠️ AI generation failed: {_e}")
+                except Exception as _e:
+                    st.error(f"⚠️ AI unavailable: {_e}")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="lang_power_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -1828,10 +2089,17 @@ Perform complete dimensional analysis:
 6. **Derived unit name** — what the resulting unit is called (if applicable)
 
 Show ALL working clearly with → notation."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=500
-                ))
+                try:
+                    try:
+                        st.markdown(generate(
+
+                            messages=[{"role": "user", "content": prompt}],
+                            context_text="", max_tokens=500
+                        ))
+                    except Exception as _e:
+                        st.error(f"⚠️ AI generation failed: {_e}")
+                except Exception as _e:
+                    st.error(f"⚠️ AI unavailable: {_e}")
 
     with tab_err:
         st.markdown("**Calculate and propagate experimental errors:**")
@@ -1857,10 +2125,14 @@ Show:
 6. **How to reduce this error** in a real experiment
 
 Show all working clearly."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=600
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=600
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_lab:
         st.markdown("**Generate a professional lab report from your experiment details:**")
@@ -1899,10 +2171,10 @@ Generate a full lab report with:
 Use scientific language appropriate for {lab_level}."""
                 report = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=1200
+                    context_text="", max_tokens=1200
                 )
                 st.markdown(report)
-                st.download_button("⬇️ Download Lab Report", report, file_name="lab_report.txt", key="lab_dl")
+                st.download_button("⬇️ Download Lab Report (.md)", report, file_name="lab_report.md", key="lab_dl")
 
     with tab_predict:
         st.markdown("**AI predicts the most likely exam questions from your topic:**")
@@ -1929,10 +2201,14 @@ Provide:
 6. **💡 Examiner's Mindset** — what concept combinations are currently trending
 
 For each question: state why it's likely to appear."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="sci_power_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -1984,10 +2260,14 @@ For each slide:
 **Top 5 Power Improvements** that would most transform this presentation
 
 **Opening Line Suggestion** — a better way to start that immediately captures attention"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_hook:
         hook_topic = st.text_input("Presentation topic:", key="hook_topic")
@@ -2014,10 +2294,14 @@ For each hook:
 Why it works: [brief explanation]
 
 Make each hook genuinely compelling, specific, and memorable. Not generic."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=700
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_story:
         story_topic = st.text_input("Presentation topic:", key="sa_topic")
@@ -2052,10 +2336,14 @@ Create a complete narrative structure:
 **🔑 3 Core Messages** — the 3 things they must remember
 
 **💡 Presentation Pattern** — which story structure fits best (Hero's Journey / Problem-Solution / Sparkline / etc.)"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_qa:
         qa_topic = st.text_input("Presentation topic:", key="qa_topic")
@@ -2084,10 +2372,14 @@ For each: Question | De-escalation technique | Substantive answer
 
 **✨ Great Questions to Invite** (3 — ones you WANT to be asked):
 For each: Question | Brilliant answer that reinforces your message"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_notes:
         notes_slides = st.text_area("Paste slide content:", height=200, key="sn_slides",
@@ -2118,7 +2410,7 @@ For EACH slide write:
 End with: **Total estimated presentation time**"""
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=1000
+                    context_text="", max_tokens=1000
                 )
                 st.markdown(result)
                 st.download_button("⬇️ Download Speaker Notes", result, file_name="speaker_notes.txt", key="sn_dl_btn")
@@ -2174,10 +2466,14 @@ For each recommendation:
 
 5. **🧠 BUYING TIPS** — 3 things to check/negotiate before buying
 6. **📅 TIMING** — is this a good time to buy or should they wait for sales?"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=800
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=800
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_compare:
         st.markdown("**Compare 2-4 products on any specs you care about:**")
@@ -2217,10 +2513,15 @@ For each priority the user mentioned, which product wins and why (1-2 sentences)
 
 **⚠️ Deal-breakers to know:**
 One significant weakness for each product that isn't obvious from the specs"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    cmp_result = generate(
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    )
+                    st.markdown(cmp_result)
+                    st.download_button("⬇️ Save Comparison", cmp_result, file_name="product_comparison.md", key="cmp_dl")
+                except Exception as _e:
+                    st.error(f"⚠️ Comparison failed: {_e}")
 
     with tab_gift:
         recipient = st.text_input("Who is the gift for?", placeholder="e.g., my dad who loves cricket, my best friend who's into skincare", key="gf_who")
@@ -2255,10 +2556,14 @@ For each:
 **🚫 AVOID** — 2 common gift mistakes for this specific situation
 
 **✉️ Gift Message Template** — a heartfelt message to write"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=800
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=800
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_budget:
         st.markdown("**Optimize a list of items within your budget:**")
@@ -2286,10 +2591,14 @@ Provide:
 6. **🎯 Budget Allocation** — exact amounts to allocate per category
 
 If over budget: suggest specific cheaper alternatives for each item with price and trade-offs."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=700
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="shop_power_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -2346,10 +2655,14 @@ Organize into:
 Hour-by-hour schedule if they have 8 hours
 
 **💡 PRO TIP:** One insight about their task list pattern"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=700
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_habit:
         st.markdown("**Design a science-backed habit system:**")
@@ -2385,10 +2698,14 @@ Provide:
 **📊 HOW TO TRACK PROGRESS** — simple tracking method
 
 **🎉 REWARD SYSTEM** — short, medium, and long-term rewards"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=800
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=800
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_deadline:
         st.markdown("**Calculate realistic timelines for complex tasks:**")
@@ -2428,10 +2745,14 @@ Create a realistic project plan:
 What to cut, what to simplify, what to do differently
 
 **💡 PROCRASTINATION TRAP:** The most dangerous distraction for this specific project"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=700
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_daily:
         st.markdown("**Generate your personalized daily study/work digest:**")
@@ -2469,10 +2790,14 @@ When and how to take breaks for maximum recovery
 
 **💪 MOTIVATION BOOST:**
 One powerful quote or thought to keep going today"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=700
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="planner_power_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -2522,10 +2847,14 @@ For each project:
 🌟 **Why employers love this:** (how it helps career)
 
 Make projects genuinely useful and impressive for a portfolio. Not the same old todo app."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=1000
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=1000
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_challenge:
         ch_lang = st.selectbox("Language:", ["Python", "JavaScript", "Java", "C++", "SQL", "Any"], key="ch_lang")
@@ -2573,7 +2902,7 @@ Explanation: ...
 After the user submits, they can share their solution and I'll review it."""
                 st.session_state["current_challenge"] = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
+                    context_text="", max_tokens=700
                 )
 
         if "current_challenge" in st.session_state:
@@ -2598,10 +2927,14 @@ Provide:
 6. **🚀 Optimization** — how to make it faster/cleaner
 7. **💡 Alternative Approach** — a different solution technique
 8. **Score: X/10** with breakdown"""
-                    st.markdown(generate(
-                        messages=[{"role": "user", "content": review_prompt}],
-                        context_text="", model="llama-3.3-70b-versatile", max_tokens=700
-                    ))
+                    try:
+                        st.markdown(generate(
+
+                            messages=[{"role": "user", "content": review_prompt}],
+                            context_text="", max_tokens=700
+                        ))
+                    except Exception as _e:
+                        st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_roadmap:
         goal_role = st.text_input("Your target role:", placeholder="e.g., Frontend Developer, ML Engineer, Full-Stack, DevOps", key="rm_role")
@@ -2633,10 +2966,14 @@ For each phase (divide into 4 phases within {timeline}):
 - Salary expectations for this path in India
 
 **⚠️ Common mistakes** people make on this path and how to avoid them"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=1000
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=1000
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_review:
         rev_code = st.text_area("Paste your code for review:", height=250, key="rev_code")
@@ -2676,10 +3013,14 @@ Provide detailed review:
 [Key sections rewritten better, with explanations]
 
 **📚 Concept to Study:** One pattern/principle this code would benefit from"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=900
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     with tab_dsa:
         dsa_topic = st.selectbox("DSA Topic:", [
@@ -2719,10 +3060,14 @@ Approach: [explain]
 7. **Edge Cases to Always Handle**
 8. **When to Use vs Not Use** — compared to alternatives
 9. **Practice Problems** — 5 problems (Easy/Medium/Hard) with LeetCode # if applicable"""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=1200
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=1200
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="lcp_back"):
         st.session_state.app_mode = "chat"; st.rerun()
@@ -2777,14 +3122,18 @@ Provide:
 Make it comprehensive with 5-7 main branches and 3-5 sub-branches each."""
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=900
+                    context_text="", max_tokens=900
                 )
                 st.markdown(result)
                 # Extract mermaid code
                 mermaid_match = re.search(r'```mermaid\n(.*?)```', result, re.DOTALL)
                 if mermaid_match:
                     st.code(mermaid_match.group(1), language="mermaid")
-                    st.info("💡 Copy the mermaid code above and paste into [mermaid.live](https://mermaid.live) to visualize")
+                    col_mm1, col_mm2 = st.columns(2)
+                    with col_mm1:
+                        st.info("💡 Paste at [mermaid.live](https://mermaid.live) to see your visual mind map")
+                    with col_mm2:
+                        st.info("🔌 Or use the VS Code Markdown Preview Mermaid Support extension")
                     st.download_button("⬇️ Download .mmd", mermaid_match.group(1), file_name="mindmap.mmd", key="mm_dl")
 
     with tab_from_topic:
@@ -2811,7 +3160,7 @@ Then provide the text outline version as well.
 Include: key definitions, relationships, examples, and exam-important points."""
                 result = generate(
                     messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=800
+                    context_text="", max_tokens=800
                 )
                 st.markdown(result)
                 m = re.search(r'```mermaid\n(.*?)```', result, re.DOTALL)
@@ -2836,10 +3185,14 @@ Show:
 8. **Common Misconceptions** — 3 things people get wrong
 
 Format as a rich network of connections."""
-                st.markdown(generate(
-                    messages=[{"role": "user", "content": prompt}],
-                    context_text="", model="llama-3.3-70b-versatile", max_tokens=700
-                ))
+                try:
+                    st.markdown(generate(
+
+                        messages=[{"role": "user", "content": prompt}],
+                        context_text="", max_tokens=700
+                    ))
+                except Exception as _e:
+                    st.error(f"⚠️ AI generation failed: {_e}")
 
     if st.button("💬 Back to Chat", use_container_width=True, key="mm_back"):
         st.session_state.app_mode = "chat"; st.rerun()
