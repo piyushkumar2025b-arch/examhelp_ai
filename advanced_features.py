@@ -1345,8 +1345,8 @@ def render_study_toolkit_v2():
   <div class="pf-sub">Pomodoro timer · AI mind map · Smart summarizer · Cornell notes · Study schedule generator</div>
 </div>""", unsafe_allow_html=True)
 
-    tab_pomo, tab_mindmap, tab_summarize, tab_cornell, tab_schedule = st.tabs([
-        "⏱️ Pomodoro", "🗺️ Mind Map", "📝 Summarizer", "📋 Cornell Notes", "📅 Study Schedule"
+    tab_pomo, tab_music, tab_mindmap, tab_summarize, tab_cornell, tab_schedule = st.tabs([
+        "⏱️ Pomodoro", "🎵 Focus Music", "🗺️ Mind Map", "📝 Summarizer", "📋 Cornell Notes", "📅 Study Schedule"
     ])
 
     with tab_pomo:
@@ -1422,6 +1422,21 @@ def render_study_toolkit_v2():
 </script>"""
         import streamlit.components.v1 as components
         components.html(timer_html, height=340)
+
+    with tab_music:
+        st.markdown("### 🎵 Focus Music")
+        st.markdown("Boost your concentration with ambient sounds and study playlists.")
+        music_choice = st.selectbox("Select Station:", ["Lofi Beats (YouTube)", "Deep Focus (Spotify)", "Binaural Beats", "Rain Sounds"])
+        
+        if music_choice == "Lofi Beats (YouTube)":
+            st.components.v1.iframe("https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=0", height=315)
+        elif music_choice == "Deep Focus (Spotify)":
+            st.components.v1.iframe("https://open.spotify.com/embed/playlist/37i9dQZF1DWZeKCadgRdKQ", height=352)
+        elif music_choice == "Binaural Beats":
+            st.components.v1.iframe("https://www.youtube.com/embed/PjH5Xy-AItQ?autoplay=0", height=315)
+        elif music_choice == "Rain Sounds":
+            st.components.v1.iframe("https://www.youtube.com/embed/mPZkdNFkNps?autoplay=0", height=315)
+
 
     with tab_mindmap:
         mm_topic = st.text_input("Topic for mind map:", placeholder="e.g., Photosynthesis, World War II, Neural Networks", key="mm_topic")

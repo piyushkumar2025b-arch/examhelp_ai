@@ -13,10 +13,10 @@ import zlib
 import streamlit as st
 import ssl
 
-try:
-    ssl._create_default_https_context = ssl._create_unverified_context
-except AttributeError:
-    pass
+# try:
+#     ssl._create_default_https_context = ssl._create_unverified_context
+# except AttributeError:
+#     pass
 
 
 # ── Auth + Integrations — MASKED (Supabase/Google/Stripe disabled for direct access) ──
@@ -53,7 +53,7 @@ from utils.pdf_handler import extract_text_from_pdf, get_pdf_metadata, get_pdf_s
 from utils.youtube_handler import get_youtube_transcript, format_transcript_as_context, extract_video_id, get_transcript_stats
 from utils.web_handler import scrape_web_page, format_web_context, get_web_stats
 from utils import key_manager
-from utils.personas import PERSONAS, get_persona_names, get_persona_by_name, build_persona_prompt
+from utils.personas import PERSONAS, get_persona_names, get_persona_by_name, build_persona_prompt, apply_persona_theme
 from utils.ocr_handler import extract_text_from_image
 from utils.analytics import get_subject_mastery_radar, get_study_intensity_heatmap, estimate_required_velocity
 from utils.app_controller import AppController
@@ -120,6 +120,16 @@ def init_state():
         "last_context_summary": "",
         "card_mastery": {},
         "key_health_expanded": False,
+        "pomodoro_log": [],
+        "note_tags": {},
+        "error_log": [],
+        "feedback_log": [],
+        "session_dates": [],
+        "news_cache": {},
+        "news_cache_time": 0,
+        "battle_session": {},
+        "battle_lifetime_points": 0,
+        "result_cache": {},
         # ── Code Debugger ──────────────────────────────────────────
         "debug_language": "Python",
         "debug_mode": "Full Debug",
@@ -162,7 +172,7 @@ def init_state():
         "story_characters": {}, "story_world": "", "story_branches": {},
         "message_ratings": {}, "chat_followups": [],
         "shopping_wishlist": [], "shopping_cache": {},
-        "research_cache": {}, "presentation_slides": [],
+        "presentation_slides": [],
         "service_availability": {},
     }
     for k, v in defaults.items():
@@ -3983,6 +3993,20 @@ def _key_health_html() -> str:
     from utils.ai_engine import get_dashboard_html
     return get_dashboard_html()
 
+def render_api_status():
+    from utils.ai_engine import OMNI_ENGINE, get_token_usage_summary
+    report = OMNI_ENGINE.get_status_report()
+    health = report["health"]
+    icon = {"good": "🟢", "degraded": "🟡", "critical": "🔴"}.get(health, "⚪")
+    st.sidebar.metric(f"{icon} API Pool", f"{report['ready_keys']}/{report['total_keys']} keys")
+    if report["next_key_ready_in"] > 0:
+        st.sidebar.caption(f"Next key ready in {report['next_key_ready_in']}s")
+    try:
+        usage = get_token_usage_summary()
+        st.sidebar.caption(f"Tokens used: {usage['total_in'] + usage['total_out']:,}")
+    except Exception:
+        pass
+
 
 # ─────────────────────────────────────────────
 # SIDEBAR
@@ -4035,6 +4059,11 @@ with st.sidebar:
 
         # ── Upgrade nudge (free users) ──────────────
         # render_upgrade_banner()
+
+        # ── API Status and Health ──────────────────
+        st.markdown('<div class="section-label">⚙️ System health</div>', unsafe_allow_html=True)
+        render_api_status()
+        st.divider()
 
         # ── Stats row ──────────────────────────────
         msg_count = len(st.session_state.messages)
@@ -4160,6 +4189,21 @@ with st.sidebar:
             if st.button("🏗️ Proj Architect", use_container_width=True, key="side_arch"):
                 st.session_state.app_mode = "project_architect"; st.rerun()
 
+        st.divider()
+
+        with st.expander("⚠️ Advanced"):
+            if st.button("🔄 Emergency Reset", use_container_width=True):
+                if st.session_state.get("_confirm_reset", False):
+                    keys_to_keep = [k for k in st.session_state if "key" in k.lower()]
+                    for k in list(st.session_state.keys()):
+                        if k not in keys_to_keep:
+                            del st.session_state[k]
+                    st.success("Session reset!")
+                    st.rerun()
+                else:
+                    st.session_state["_confirm_reset"] = True
+                    st.warning("Click again to confirm reset.")
+        
         st.divider()
 
     # ── Toolbar icons ──────────────────────────────
@@ -4713,6 +4757,7 @@ persona     = get_persona_by_name(st.session_state.selected_persona)
 persona_tag = ""
 if persona and st.session_state.selected_persona != "Default (ExamHelp)":
     persona_tag = f' · <span style="color:var(--accent);font-weight:600;">{persona["emoji"]} {persona["name"]}</span>'
+    st.markdown(apply_persona_theme(persona), unsafe_allow_html=True)
 
 st.markdown(f"""
 <div class="page-header">

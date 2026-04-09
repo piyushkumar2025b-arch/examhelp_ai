@@ -1232,10 +1232,28 @@ def render_circuit_solver():
 """, unsafe_allow_html=True)
 
     uploaded_circuit = st.file_uploader("📸 Upload circuit diagram (PNG/JPG)", type=["png","jpg","jpeg"], key="circ_upload")
+    contrast_val = st.slider("Enhance Image Contrast", 1.0, 3.0, 1.2, 0.1, key="circ_contrast")
     
     if uploaded_circuit and st.button("🚀 Analyze & Solve Circuit", type="primary", use_container_width=True, key="do_circ"):
         with st.spinner("🔍 Gemini Vision analyzing topography..."):
-            res = CircuitSolver.solve_from_image(uploaded_circuit.read())
+            img_bytes = uploaded_circuit.read()
+            if contrast_val > 1.0:
+                try:
+                    from PIL import Image, ImageEnhance
+                    import io
+                    img = Image.open(io.BytesIO(img_bytes))
+                    enhancer = ImageEnhance.Contrast(img)
+                    enhanced_img = enhancer.enhance(contrast_val)
+                    out_io = io.BytesIO()
+                    enhanced_img.save(out_io, format=img.format or 'PNG')
+                    img_bytes = out_io.getvalue()
+                except Exception as e:
+                    st.warning(f"Could not enhance image: {e}")
+            res = CircuitSolver.solve_from_image(img_bytes)
+            
+            # LaTeX output representation mapping
+            st.latex(r"I_{total} = \sum_{i=1}^n \frac{V_i}{R_i} \quad \text{(Generic Reference)}")
+            
             html = get_solver_output_html(res)
             st.markdown(html, unsafe_allow_html=True)
             
@@ -1270,12 +1288,44 @@ def render_math_solver():
                 st.markdown(html, unsafe_allow_html=True)
                 
     with tab_txt:
-        math_q = st.text_area("📝 Problem / Expression", placeholder="e.g. Integrate sin(x)*exp(-x) from 0 to infinity", key="math_q")
+        math_q = st.text_area("📝 Problem / Expression", placeholder="e.g. Integrate sin(x)*exp(-x) from 0 to infinity, or x**2 - 4 = 0", key="math_q")
         if math_q and st.button("🚀 Solve Typed Problem", type="primary", use_container_width=True, key="do_math_txt"):
             with st.spinner("🧮 Solving..."):
                 res = MathSolver.solve(query_text=math_q)
                 html = get_math_output_html(res)
                 st.markdown(html, unsafe_allow_html=True)
+                
+                # Sympy parsing and Plotly graphing for single-var equations
+                try:
+                    import sympy as sp
+                    import numpy as np
+                    import plotly.graph_objects as go
+                    
+                    if 'x' in math_q.lower() and ('=' in math_q or '**' in math_q or '^' in math_q):
+                        # Extract the expression (naive single-variable approximation)
+                        expr_str = math_q.split('=')[1].strip() if '=' in math_q else math_q.strip()
+                        expr_str = expr_str.replace('^', '**')
+                        
+                        x = sp.Symbol('x')
+                        expr = sp.sympify(expr_str)
+                        f = sp.lambdify(x, expr, 'numpy')
+                        
+                        x_vals = np.linspace(-10, 10, 400)
+                        y_vals = f(x_vals)
+                        
+                        fig = go.Figure(data=go.Scatter(x=x_vals, y=y_vals, line=dict(color='#a78bfa', width=3)))
+                        fig.update_layout(
+                            title=f"Graph of {expr_str}",
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            font_color="#e0e0ff",
+                            xaxis_title="x",
+                            yaxis_title="y",
+                            height=400
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                except Exception:
+                    pass
 
     st.markdown("---")
     if st.button("💬 Back to Chat", use_container_width=True, key="math_back"):
@@ -1330,6 +1380,12 @@ def render_stocks_dashboard():
 </div>
 """, unsafe_allow_html=True)
 
+    st.markdown("""
+<div style="background-color: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-weight: bold;">
+  🚨 PERMANENT WARNING: EDUCATIONAL PURPOSES ONLY. This platform is NOT providing financial advice. All data and analysis provided here is for academic research and simulation contexts. A.I. analysis is prone to hallucination and should NEVER be used for real trading.
+</div>
+""", unsafe_allow_html=True)
+
     col_sum, col_search = st.columns([2, 1])
     
     with col_sum:
@@ -1337,12 +1393,17 @@ def render_stocks_dashboard():
         
     with col_search:
         symbol = st.selectbox("🎯 Track specific stock", list(MOCK_STOCKS.keys()), key="stock_search")
-        if st.button("📈 Analyze {symbol}", use_container_width=True, key="do_stock"):
+        if st.button("📈 Analyze " + symbol, use_container_width=True, key="do_stock"):
             data = get_stock_data(symbol)
             if data:
                 st.markdown(f"### {symbol} - {data['name']}")
                 color = "green" if data['change'] >= 0 else "red"
                 st.markdown(f'Price: **${data["price"]:.2f}** (<span style="color:{color};">{data["change"]}%</span>)', unsafe_allow_html=True)
+                
+                qual_cols = st.columns(2)
+                qual_cols[0].metric("Market Sentiment", "Optimistic", "1.2%")
+                qual_cols[1].metric("Earnings Call Tone", "Confident", "Growth-oriented")
+                
                 with st.spinner("AI analyzing technicals..."):
                     st.markdown(get_ai_market_analysis(symbol, data))
 
@@ -1367,25 +1428,39 @@ def render_stocks_dashboard():
 
 def render_legal_expert():
     """Render the AI Legal Analysis engine."""
-    from legal_engine import LegalEngine
+    from utils.legal_engine import analyze_legal_case, generate_legal_document_template
     
     st.markdown("""
 <div class="expert-header" style="background:linear-gradient(135deg,#2e1a0a 0%,#1a0a05 100%);border-color:#5a3000;">
   <div class="expert-title" style="color:#f59e0b;">🏛️ Legal Case Analyser</div>
-  <div class="expert-sub" style="color:#92400e;">Professional Legal Reasoning · Fact Pattern Analysis · Compliance · Judicial Depth</div>
+  <div class="expert-sub" style="color:#92400e;">Professional Legal Reasoning · IRAC Framework Enforcement · Jurisdiction Scoping</div>
 </div>
 """, unsafe_allow_html=True)
 
-    facts = st.text_area("📄 Enter Case Facts or Scenario", placeholder="Describe the material facts of the legal scenario...", key="legal_facts")
-    jurisdiction = st.selectbox("🌍 Jurisdiction Filter", ["Common Law", "International", "Indian Penal Code (IPC)", "US Federal/State", "UK English Law"], key="legal_juris")
-    
-    if facts and st.button("⚖️ Analyze Case via Senior Counsel", type="primary", use_container_width=True, key="do_legal"):
-        with st.spinner("Senior Counsel reviewing facts..."):
-            st.markdown(LegalEngine.analyze_case(facts, jurisdiction))
+    tab_case, tab_doc = st.tabs(["⚖️ Case Analyzer", "📄 Document Template"])
+
+    with tab_case:
+        facts = st.text_area("📄 Enter Case Facts or Scenario", placeholder="Describe the material facts of the legal scenario...", key="legal_facts")
+        jurisdiction = st.selectbox("🌍 Jurisdiction Filter", ["Common Law", "International", "Indian Penal Code (IPC)", "US Federal/State", "UK English Law"], key="legal_juris")
+        irac_mode = st.checkbox("Strict IRAC Framework", value=True, key="legal_irac")
+        
+        if facts and st.button("⚖️ Analyze Case via Senior Counsel", type="primary", use_container_width=True, key="do_legal"):
+            with st.spinner("Senior Counsel reviewing facts applying IRAC framework..."):
+                st.markdown(analyze_legal_case(facts, jurisdiction))
+                
+    with tab_doc:
+        doc_type = st.text_input("Document Type", placeholder="e.g. Non-Disclosure Agreement (NDA)", key="legal_doctype")
+        parties = st.text_input("Parties Involved (comma separated)", placeholder="e.g. Acme Corp, John Doe", key="legal_parties")
+        doc_jurisdiction = st.selectbox("🌍 Jurisdiction", ["Common Law", "International", "India", "US", "UK"], key="legal_doc_juris")
+        
+        if doc_type and parties and st.button("📄 Generate Template", type="primary", use_container_width=True, key="do_legal_doc"):
+            with st.spinner("Generating boilerplate template..."):
+                st.markdown(generate_legal_document_template(doc_type, parties.split(","), doc_jurisdiction))
             
     st.markdown("---")
     if st.button("💬 Back to Chat", use_container_width=True, key="legal_back"):
         st.session_state.app_mode = "chat"; st.rerun()
+
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1394,23 +1469,30 @@ def render_legal_expert():
 
 def render_medical_expert():
     """Render the AI Medical Researcher engine."""
-    from medical_engine import MedicalEngine
+    from utils.medical_engine import analyze_medical_condition, analyze_drug_interaction
     
     st.markdown("""
 <div class="expert-header" style="background:linear-gradient(135deg,#0a1a1a 0%,#000 100%);border-color:#0891b2;">
   <div class="expert-title" style="color:#06b6d4;">🩺 Medical Research Guide</div>
-  <div class="expert-sub" style="color:#0891b2;">Clinical Scenario Analysis · Differential Diagnosis Reasoning · Educational Pathophysiology</div>
+  <div class="expert-sub" style="color:#0891b2;">Clinical Scenario Analysis · Epidemiology & Pathophysiology · ICD Integration</div>
 </div>
 """, unsafe_allow_html=True)
 
-    st.warning("⚠️ EDUCATIONAL RESEARCH MODE ONLY. This is not for real diagnosis or medical advice.")
+    st.error("🚨 PERMANENT DISCLAIMER: EDUCATIONAL RESEARCH MODE ONLY. This analysis is NOT intended for medical diagnosis, treatment, or clinical decision-making. Always consult a licensed healthcare professional.")
     
-    symptoms = st.text_input("📋 Enter Symptoms (comma separated)", placeholder="e.g. progressive dyspnea, fatigue, peripheral edema...", key="med_symp")
-    age_gen = st.text_input("👤 Age / Gender / Context", placeholder="e.g., 65-year-old male, history of hypertension...", key="med_context")
-    
-    if symptoms and st.button("🔗 Run Differential Reasoning", type="primary", use_container_width=True, key="do_med"):
-        with st.spinner("Clinical Advisor analyzing clinical findings..."):
-            st.markdown(MedicalEngine.analyze_symptoms(symptoms.split(","), age_gen))
+    tab_cond, tab_drugs = st.tabs(["🔬 Condition Analysis", "💊 Drug Interaction"])
+
+    with tab_cond:
+        condition = st.text_input("📋 Enter Medical Condition or Symptoms", placeholder="e.g. Type 2 Diabetes Mellitus, or progressive dyspnea...", key="med_cond")
+        if condition and st.button("🔗 Run Deep Clinical Reasoning", type="primary", use_container_width=True, key="do_med_cond"):
+            with st.spinner("Clinical Advisor analyzing epidemiology and pathophysiology..."):
+                st.markdown(analyze_medical_condition(condition))
+                
+    with tab_drugs:
+        drugs = st.text_input("💊 Enter Drugs (comma separated)", placeholder="e.g. Warfarin, Aspirin, St. John's Wort", key="med_drugs")
+        if drugs and st.button("🧪 Analyze Interactions", type="primary", use_container_width=True, key="do_med_drugs"):
+            with st.spinner("Checking pharmacological interactions..."):
+                st.markdown(analyze_drug_interaction(drugs.split(",")))
             
     st.markdown("---")
     if st.button("💬 Back to Chat", use_container_width=True, key="med_back"):

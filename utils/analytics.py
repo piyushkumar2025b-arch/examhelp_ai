@@ -105,3 +105,34 @@ def estimate_required_velocity(exam_date: datetime.date, total_topics: int, mast
         return 0.0
     topics_remaining = max(0, total_topics - mastered_topics)
     return round(topics_remaining / days_left, 1)
+
+
+import streamlit as st
+
+def track_engine_usage(engine_name: str, tokens: int = 0):
+    """Stub to track API usage and engine preference."""
+    if "telemetry_log" not in st.session_state:
+        st.session_state.telemetry_log = []
+    
+    st.session_state.telemetry_log.append({
+        "engine": engine_name,
+        "tokens": tokens,
+        "timestamp": datetime.datetime.now().isoformat()
+    })
+
+def generate_performance_report() -> str:
+    """Generate a markdown report of platform performance."""
+    if "telemetry_log" not in st.session_state or not st.session_state.telemetry_log:
+        return "No telemetry data collected yet."
+    
+    logs = st.session_state.telemetry_log
+    total_calls = len(logs)
+    total_tokens = sum(log.get("tokens", 0) for log in logs)
+    
+    report = f"### System Performance Report\n"
+    report += f"- **Total Engine Calls:** {total_calls}\n"
+    report += f"- **Est. Tokens Used:** {total_tokens}\n"
+    report += f"- **Last Active:** {logs[-1]['timestamp']}\n"
+    
+    return report
+

@@ -556,3 +556,32 @@ def build_persona_prompt(persona: dict, language: str = "English") -> str:
         f"4. HIGH-YIELD FORMATTING: Despite your ancient or eccentric persona, strictly format your output optimally for modern students: use bullet points, bolding for key terms, and always provide clear, scannable academic takeaways.\n"
         f"5. LIMIT YOUR EGO: Do not spend more than 2 sentences introducing yourself or your quirks; spend 95% of the response teaching the actual subject matter through your unique worldview lens.\n"
     )
+
+def apply_persona_theme(persona: dict) -> str:
+    """Returns CSS injection for the specified persona's category."""
+    cat = persona.get("cat", "Default")
+    
+    themes = {
+        "Science": "linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)",
+        "Philosophy": "linear-gradient(135deg, #18191a 0%, #1c1917 100%)",
+        "Leaders": "linear-gradient(135deg, #2e1065 0%, #1e1b4b 100%)",
+        "Arts": "linear-gradient(135deg, #3b0764 0%, #1e1b4b 100%)",
+        "Revolution": "linear-gradient(135deg, #450a0a 0%, #000000 100%)",
+        "History": "linear-gradient(135deg, #3f2a14 0%, #1a1005 100%)",
+        "Spirituality": "linear-gradient(135deg, #064e3b 0%, #022c22 100%)",
+        "Strategy": "linear-gradient(135deg, #020617 0%, #0f172a 100%)",
+    }
+    
+    bg = themes.get(cat, "")
+    if not bg:
+        return ""
+        
+    css = f"""
+    <style>
+    [data-testid="stAppViewContainer"] > .main {{
+        background: {bg} !important;
+        transition: background 0.5s ease;
+    }}
+    </style>
+    """
+    return css

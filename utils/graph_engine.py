@@ -462,3 +462,47 @@ def plot_parametric_3d(x_function, y_function, z_function, t_min=0, t_max=31.415
         return fig, []
     except Exception as e:
         return None, [f"Parametric 3D Error: {e}"]
+
+def render_knowledge_graph(nodes, edges, theme="dark"):
+    """
+    Stub for plotting a NetworkX/Plotly Knowledge graph.
+    nodes: list of dicts [{"id": "str", "group": 1}, ...]
+    edges: list of dicts [{"source": "id1", "target": "id2", "weight": float}, ...]
+    """
+    try:
+        import networkx as nx
+        if not go: return None
+        
+        G = nx.Graph()
+        for node in nodes:
+            G.add_node(node["id"], group=node.get("group", 1))
+        for edge in edges:
+            G.add_edge(edge["source"], edge["target"], weight=edge.get("weight", 1.0))
+            
+        pos = nx.spring_layout(G, dim=3, seed=42)
+        
+        edge_x, edge_y, edge_z = [], [], []
+        for edge in G.edges():
+            x0, y0, z0 = pos[edge[0]]
+            x1, y1, z1 = pos[edge[1]]
+            edge_x.extend([x0, x1, None])
+            edge_y.extend([y0, y1, None])
+            edge_z.extend([z0, z1, None])
+            
+        edge_trace = go.Scatter3d(x=edge_x, y=edge_y, z=edge_z, line=dict(width=1.5, color='rgba(200,200,200,0.5)'), hoverinfo='none', mode='lines')
+            
+        node_x, node_y, node_z, hover_text = [], [], [], []
+        for node in G.nodes():
+            x, y, z = pos[node]
+            node_x.append(x); node_y.append(y); node_z.append(z)
+            hover_text.append(str(node))
+            
+        node_trace = go.Scatter3d(x=node_x, y=node_y, z=node_z, mode='markers+text', hoverinfo='text', text=hover_text, marker=dict(size=12, color="#a78bfa", line=dict(width=2, color='white')))
+            
+        fig = go.Figure(data=[edge_trace, node_trace])
+        _setup_layout(fig, theme, "Knowledge Graph", "", "", "")
+        fig.update_layout(showlegend=False)
+        return fig
+    except Exception as e:
+        return None
+

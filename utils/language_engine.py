@@ -112,3 +112,18 @@ Include:
 
 Format each question clearly. Include answers at the end with explanations."""
     return _call_gemini_debug(prompt, TRANS_SYSTEM)
+
+
+def analyze_morphology_syntax(text: str, language: str) -> str:
+    """Provides a full linguistic breakdown: morphology, syntax tree, glossing."""
+    prompt = f"""Provide a professional, university-level linguistic morphology and syntax breakdown for the following {language} text.
+
+TEXT: {text}
+
+Include:
+1. **Clause Structure (Syntax Tree Breakdown):** Analyze how the clauses are constructed.
+2. **Morphological Parsing (Interlinear Glossing):** Provide standard linguistic glossing (root, affixes, tense, case, gender, etc.) for each word.
+3. **Lexical Analysis:** Highlight the origins (etymology) or interesting phonetic processes occurring.
+4. **Pragmatics/Register:** Note the perceived level of formality, politeness markers, or cultural inferences embedded in the grammar.
+"""
+    return _call_gemini_debug(prompt, TRANS_SYSTEM)

@@ -292,13 +292,20 @@ def render_shopping_finder():
     with tab_wishlist:
         st.markdown("### ❤️ Your Wishlist")
         if st.session_state.shop_wishlist:
+            import json
+            export_data = json.dumps(st.session_state.shop_wishlist, indent=2)
+            st.download_button("📥 Export Wishlist (JSON)", export_data, file_name="wishlist_export.json", mime="application/json")
+            
             for i, item in enumerate(st.session_state.shop_wishlist):
-                c1, c2, c3 = st.columns([5, 2, 1])
+                c1, c2, c3, c4 = st.columns([5, 2, 1, 1])
                 with c1:
                     st.markdown(f"**{item['name'][:60]}** — {item.get('price', 'N/A')}")
                 with c2:
                     st.markdown(f'<span class="platform-badge">{item.get("icon", "🛒")} {item.get("platform", "")}</span>', unsafe_allow_html=True)
                 with c3:
+                    if st.button("📈", key=f"wl_hist_{i}", help="View Price History"):
+                        st.info(f"Price History for {item['name'][:20]}: [Graph Stub]")
+                with c4:
                     if st.button("✕", key=f"wl_rm_{i}"):
                         st.session_state.shop_wishlist.pop(i)
                         st.rerun()
