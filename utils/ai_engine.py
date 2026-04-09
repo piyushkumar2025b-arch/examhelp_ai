@@ -14,7 +14,9 @@ Changes v3.0:
 
 from __future__ import annotations
 
+import concurrent.futures
 import hashlib
+import json
 import re
 import sys
 import time
@@ -222,28 +224,110 @@ def vision_generate(prompt: str, image_b64: str, mime: str = "image/jpeg", **kwa
 
 def json_generate(prompt: str, system: str = "", **kwargs) -> str:
     """
-    Generate a response and extract the first JSON object/array from it.
-    Also handles callers that pass json_mode=True kwarg (silently consumed).
-    Falls back to raw text if no JSON block is found.
+    Generate a response, extract JSON, and VALIDATE it with json.loads().
+    ADD-3: On parse failure, retries once with stricter system prompt.
+    Falls back to raw text if no JSON block is found after retry.
     """
     import re as _re
     kwargs.pop("json_mode", None)  # consume silently — we handle JSON ourselves
-    # Inject JSON instruction into system prompt
+
+    def _extract_and_validate(raw: str) -> Optional[str]:
+        """Try to extract + validate JSON from raw string. Returns valid JSON str or None."""
+        fence_match = _re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
+        if fence_match:
+            candidate = fence_match.group(1).strip()
+        else:
+            candidate = None
+            for start_char in ("{" , "["):
+                idx = raw.find(start_char)
+                if idx != -1:
+                    candidate = raw[idx:].rstrip()
+                    break
+        if candidate is None:
+            return None
+        try:
+            json.loads(candidate)  # Validate
+            return candidate
+        except json.JSONDecodeError:
+            return None
+
+    # First attempt
     json_system = (
         (system + "\n\n" if system else "") +
         "IMPORTANT: Respond with ONLY valid JSON. No markdown, no preamble, no explanation."
     )
     raw = generate(prompt=prompt, system=json_system, temperature=0.2, **kwargs)
-    # Try to extract JSON from code fences or raw text
-    fence_match = _re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
-    if fence_match:
-        return fence_match.group(1).strip()
-    # Find first { or [ and pair it
-    for start_char, end_char in (("{", "}"), ("[", "]")):
-        idx = raw.find(start_char)
-        if idx != -1:
-            return raw[idx:].rstrip()
-    return raw  # fallback — return raw if no JSON found
+    result = _extract_and_validate(raw)
+    if result:
+        return result
+
+    # Retry with stricter prompt
+    strict_system = "Return ONLY a raw JSON object. No text before or after it. No markdown. No code fences."
+    try:
+        raw2 = generate(prompt=prompt, system=strict_system, temperature=0.1, **kwargs)
+        result2 = _extract_and_validate(raw2)
+        if result2:
+            return result2
+    except Exception:
+        pass
+
+    return raw  # final fallback — return raw if still no valid JSON
+
+
+# ── Retry + Batch wrappers (ADD-1, ADD-2) ─────────────────────────────────────
+def generate_with_retry(
+    prompt: str,
+    max_retries: int = 3,
+    **kwargs,
+) -> str:
+    """
+    ADD-1: Wrapper around generate() with exponential backoff.
+    Retries on RuntimeError but NOT on rate-limit errors.
+    Backoff: 1s, 2s, 4s between attempts.
+    """
+    delay = 1.0
+    last_err: Optional[Exception] = None
+    for attempt in range(max_retries + 1):
+        try:
+            return generate(prompt=prompt, **kwargs)
+        except RuntimeError as e:
+            err_str = str(e)
+            # Do NOT retry on rate-limit — surface immediately
+            if any(kw in err_str for kw in ("rate-limited", "⏳", "⚠️", "rate_limited")):
+                raise
+            last_err = e
+            if attempt < max_retries:
+                print(
+                    f"[ai_engine] Retry {attempt + 1}/{max_retries} after {delay:.0f}s: {err_str[:60]}",
+                    file=sys.stderr,
+                )
+                time.sleep(delay)
+                delay *= 2
+    raise last_err or RuntimeError("generate_with_retry: all retries exhausted.")
+
+
+def batch_generate(prompts: List[str], **kwargs) -> List[str]:
+    """
+    ADD-2: Send all prompts concurrently using ThreadPoolExecutor (max 3 workers).
+    Returns results in the same order as input prompts.
+    Rate limits respected — each thread uses a different key via OmniKeyEngine.
+    """
+    results: List[str] = [""] * len(prompts)
+
+    def _task(idx: int, p: str) -> None:
+        try:
+            results[idx] = generate(prompt=p, **kwargs)
+        except Exception as e:
+            results[idx] = f"[Error: {str(e)[:100]}]"
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [
+            executor.submit(_task, i, p)
+            for i, p in enumerate(prompts)
+        ]
+        concurrent.futures.wait(futures)
+
+    return results
 
 
 # ── Status & Admin ────────────────────────────────────────────────────────────
@@ -265,6 +349,25 @@ def get_dashboard_html() -> str:
 def reset_all_keys() -> None:
     """Reset all key cooldowns (emergency override)."""
     OMNI_ENGINE.reset_all_cooldowns()
+
+
+def get_token_usage_summary() -> dict:
+    """
+    ADD-4: Return total tokens used across all keys with estimated cost.
+    Gemini 2.5 Flash pricing: $0.075/1M input tokens, $0.30/1M output tokens.
+    """
+    report = OMNI_ENGINE.get_status_report()
+    total_in  = sum(k.get("total_tokens_in",  0) for k in report.get("keys", []))
+    total_out = sum(k.get("total_tokens_out", 0) for k in report.get("keys", []))
+    # Pull token totals from KeySlot objects directly (snapshots don't include token counts)
+    total_in  = sum(s.total_tokens_in  for s in OMNI_ENGINE.slots)
+    total_out = sum(s.total_tokens_out for s in OMNI_ENGINE.slots)
+    cost = (total_in / 1_000_000 * 0.075) + (total_out / 1_000_000 * 0.30)
+    return {
+        "total_in":           total_in,
+        "total_out":          total_out,
+        "estimated_cost_usd": round(cost, 6),
+    }
 
 
 # ── Removed integration stubs (backward compat) ──────────────────────────────

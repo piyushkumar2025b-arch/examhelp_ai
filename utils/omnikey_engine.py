@@ -271,8 +271,17 @@ class GeminiHTTPExecutor:
 
     @staticmethod
     def _make_ssl():
+        """Create SSL context using certifi bundle (FIX-5: secure, not global override)."""
         try:
-            return ssl._create_unverified_context()
+            import certifi
+            ctx = ssl.create_default_context(cafile=certifi.where())
+            return ctx
+        except ImportError:
+            # certifi not installed — fall back to default (still verifies system CAs)
+            try:
+                return ssl.create_default_context()
+            except Exception:
+                return None
         except Exception:
             return None
 

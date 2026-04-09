@@ -191,10 +191,24 @@ def debug_code(
 ) -> str:
     """
     Main debug function. Returns formatted debug report.
+    FIX-5.1a: Uses XML tags to wrap code — safe against triple-backtick prompt injection.
+    FIX-5.1b: Python AST pre-check runs BEFORE the AI call.
     """
     lang_info = SUPPORTED_LANGUAGES.get(language, {})
     runner = lang_info.get("runner", "interpreter")
-    
+
+    # FIX-5.1b: Python static analysis BEFORE API call
+    syntax_error_report = ""
+    if language == "Python":
+        import ast
+        try:
+            ast.parse(code)
+        except SyntaxError as se:
+            syntax_error_report = (
+                f"⚠️ **Python Syntax Error detected locally (no API used):**\n"
+                f"- Line {se.lineno}: `{se.text.strip() if se.text else ''}` — {se.msg}\n\n"
+            )
+
     mode_instructions = {
         "Quick Fix":    "Focus ONLY on the critical bug causing the error. Provide the minimal fix. Be concise.",
         "Full Debug":   "Complete analysis: all bugs, root causes, fixed code, and explanations.",
@@ -202,24 +216,114 @@ def debug_code(
         "Explain Code": "Don't debug — EXPLAIN what this code does step by step. Great for learning.",
         "Optimize":     "Focus on performance optimization, time/space complexity, and algorithmic improvements.",
     }
-    
+
     mode_instr = mode_instructions.get(debug_mode, mode_instructions["Full Debug"])
-    
+
+    # FIX-5.1a: XML-wrapped prompt (safe from backtick injection)
     prompt = f"""LANGUAGE: {language} ({runner})
 DEBUG MODE: {debug_mode}
 INSTRUCTION: {mode_instr}
 
-CODE TO DEBUG:
-```{language.lower()}
+<code language="{language}">
 {code}
-```
+</code>
+<error>{error_message.strip() or 'No error provided — find bugs proactively.'}</error>
+<expected>{expected_behavior.strip() or 'Not specified'}</expected>
 """
-    if error_message.strip():
-        prompt += f"\nERROR / EXCEPTION:\n```\n{error_message.strip()}\n```\n"
-    if expected_behavior.strip():
-        prompt += f"\nEXPECTED BEHAVIOR:\n{expected_behavior.strip()}\n"
+    result = _call_gemini_debug(prompt, DEBUG_SYSTEM_PROMPT)
+    return syntax_error_report + result
+
+
+def security_audit_code(code: str, language: str) -> str:
+    """
+    ADD-5.1d: Security Audit Mode — OWASP Top 10, injection, hardcoded secrets, unsafe deserialization.
+    """
+    import re as _re
+    # Quick regex scan for common secret patterns
+    secret_patterns = [
+        (r'password\s*=\s*["\'][^"\']+["\']', "Hardcoded password"),
+        (r'api_key\s*=\s*["\'][^"\']+["\']', "Hardcoded API key"),
+        (r'secret\s*=\s*["\'][^"\']+["\']', "Hardcoded secret"),
+        (r'token\s*=\s*["\'][^"\']+["\']', "Hardcoded token"),
+    ]
+    instant_findings = []
+    for pattern, label in secret_patterns:
+        if _re.search(pattern, code, _re.IGNORECASE):
+            instant_findings.append(f"🔴 **{label}** detected via static scan")
+
+    prompt = f"""Perform a comprehensive SECURITY AUDIT on this {language} code.
+Focus exclusively on:
+1. OWASP Top 10 vulnerabilities
+2. Injection vulnerabilities (SQL, command, LDAP, XPath)
+3. Hardcoded secrets (passwords, API keys, tokens)
+4. Unsafe deserialization / eval / exec usage
+5. Path traversal risks
+6. Authentication/authorization bypass risks
+7. Insecure cryptography
+
+<code language="{language}">
+{code}
+</code>
+
+For each vulnerability: severity (CRITICAL/HIGH/MEDIUM/LOW), location, description, and fix."""
+
+    ai_result = _call_gemini_debug(prompt, DEBUG_SYSTEM_PROMPT)
+    if instant_findings:
+        prefix = "**🔍 Static Scan Findings:**\n" + "\n".join(instant_findings) + "\n\n---\n\n"
+        return prefix + ai_result
+    return ai_result
+
+
+def generate_tests_for_code(code: str, language: str) -> str:
+    """
+    ADD-5.1e: Test Generator — generates pytest unit tests for every function detected.
+    Includes happy path, edge cases (None, empty, max int), and exception handling.
+    """
+    prompt = f"""Generate comprehensive pytest unit tests for every function in this {language} code.
+
+<code language="{language}">
+{code}
+</code>
+
+Requirements:
+- Happy path test for each function
+- Edge case tests: None/null inputs, empty strings, empty lists, max int values
+- Expected exception handling tests (pytest.raises)
+- At minimum 3 test cases per function
+- Include descriptive docstrings on each test
+- Output complete, runnable pytest file"""
 
     return _call_gemini_debug(prompt, DEBUG_SYSTEM_PROMPT)
+
+
+def generate_code_diff_html(original: str, fixed: str) -> str:
+    """
+    ADD-5.2: Character-level unified diff between original and fixed code.
+    Returns styled HTML with red deletions and green additions.
+    """
+    import difflib
+    diff = list(difflib.unified_diff(
+        original.splitlines(),
+        fixed.splitlines(),
+        fromfile="original",
+        tofile="fixed",
+        lineterm="",
+        n=3,
+    ))
+    html_parts = ['<div style="font-family:monospace;font-size:0.82rem;line-height:1.6;overflow-x:auto;">']
+    for line in diff:
+        if line.startswith("+++") or line.startswith("---"):
+            html_parts.append(f'<div style="color:#7c83f5;padding:1px 6px;">{line}</div>')
+        elif line.startswith("@@"):
+            html_parts.append(f'<div style="color:#60a5fa;padding:1px 6px;background:rgba(96,165,250,0.06);">{line}</div>')
+        elif line.startswith("+"):
+            html_parts.append(f'<div style="background:#123d12;color:#86efac;padding:1px 6px;">+ {line[1:]}</div>')
+        elif line.startswith("-"):
+            html_parts.append(f'<div style="background:#3d1212;color:#fca5a5;padding:1px 6px;">- {line[1:]}</div>')
+        else:
+            html_parts.append(f'<div style="color:#9090b8;padding:1px 6px;"> {line}</div>')
+    html_parts.append("</div>")
+    return "\n".join(html_parts) if len(html_parts) > 2 else '<div style="color:#34d399;">No differences found.</div>'
 
 
 def teach_concept(

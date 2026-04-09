@@ -151,3 +151,157 @@ Score each dimension 1-10 with brief justification:
 **Top 3 Improvements:**
 **One-Sentence Verdict:**"""
     return _call_gemini_debug(prompt, ESSAY_SYSTEM)
+
+
+def generate_essay_chunked(
+    topic: str,
+    essay_type: str,
+    word_count: int = 2500,
+    academic_level: str = "Undergraduate",
+    citation_style: str = "APA 7th",
+    key_points: str = "",
+    context_text: str = "",
+    tone: str = "Academic",
+    audience: str = "",
+) -> str:
+    """
+    FIX-4.1b: Chunked essay generation for very long essays (>2000 words).
+    Pipeline: outline → per-section generation → coherence pass.
+    """
+    from utils.ai_engine import generate as _gen
+    type_guidance = ESSAY_TYPES.get(essay_type, "")
+
+    # Step 1: Generate outline
+    outline_prompt = f"""Create a detailed section outline for a {word_count}-word {essay_type} on: {topic}
+Academic Level: {academic_level} | Style: {citation_style}
+{type_guidance}
+
+Return ONLY a JSON array of sections:
+[{{"title": "Introduction", "summary": "one sentence", "target_words": 250}}, ...]"""
+    import json as _json
+    outline_raw = _gen(
+        prompt=outline_prompt,
+        system=OUTLINE_SYSTEM,
+        max_tokens=1500,
+        temperature=0.3,
+    )
+    try:
+        m = re.search(r'\[.*\]', outline_raw, re.DOTALL)
+        sections = _json.loads(m.group(0)) if m else []
+    except Exception:
+        sections = [
+            {"title": "Introduction", "summary": "Hook, context, thesis", "target_words": word_count // 5},
+            {"title": "Body", "summary": "Main arguments with evidence", "target_words": word_count * 3 // 5},
+            {"title": "Counter-argument & Rebuttal", "summary": "Opposing view + refutation", "target_words": word_count // 6},
+            {"title": "Conclusion", "summary": "Synthesis and implications", "target_words": word_count // 6},
+        ]
+
+    outline_text = "\n".join(f"{s['title']}: {s.get('summary','')}" for s in sections)
+
+    # Step 2: Generate each section independently
+    section_texts = []
+    for section in sections:
+        sec_prompt = f"""Write ONLY the '{section["title"]}' section of a {essay_type} on: {topic}
+Target: ~{section.get("target_words", 300)} words | Level: {academic_level}
+Essay Outline for context:
+{outline_text}
+{f"Key points to include: {key_points}" if key_points.strip() else ""}
+{f"Source material: {context_text[:3000]}" if context_text.strip() else ""}
+Do NOT write other sections. Write ONLY this section now:"""
+        sec_text = _gen(
+            prompt=sec_prompt,
+            system=ESSAY_SYSTEM,
+            max_tokens=3000,
+            temperature=0.6,
+        )
+        section_texts.append(sec_text)
+
+    combined = "\n\n".join(section_texts)
+
+    # Step 3: Coherence pass — smooth transitions only
+    coherence_prompt = f"""The following essay was written in separate sections. 
+Smooth the transitions between sections ONLY — do NOT rewrite the content.
+Make it flow as one unified piece.
+
+ESSAY:
+{combined[:12000]}
+
+Return the complete smoothed essay:"""
+    final = _gen(
+        prompt=coherence_prompt,
+        system="You are an expert editor. Only improve transitions and flow. Preserve all content.",
+        max_tokens=12288,
+        temperature=0.3,
+    )
+    return final
+
+
+def check_essay_originality(essay_text: str) -> str:
+    """
+    FIX-4.2: AI-powered originality / plagiarism-style check.
+    Returns a styled scorecard with ratings per dimension.
+    """
+    from utils.ai_engine import generate as _gen
+    prompt = f"""Analyze the following essay for signs of AI-generated text or plagiarized style.
+Look for: repetitive sentence structures, generic transitions (furthermore, moreover, in conclusion),
+unnaturally uniform paragraph lengths, absence of personal voice or specific examples,
+excessive hedging language.
+
+Rate each dimension 1-10 (10=most human/original):
+- Voice Authenticity: X/10
+- Structural Variety: X/10
+- Specificity of Examples: X/10
+- Transition Naturalness: X/10
+- Overall Originality Score: X/10
+
+Then provide 3 specific rewrite suggestions to improve originality.
+
+ESSAY:
+{essay_text[:6000]}"""
+    return _gen(
+        prompt=prompt,
+        system="You are a plagiarism detection specialist and academic integrity expert.",
+        max_tokens=2048,
+        temperature=0.2,
+    )
+
+
+def generate_cowrite_addition(existing_essay: str, section_to_add: str, context_text: str = "") -> tuple:
+    """
+    FIX-4.3: Co-write AI with full essay context. Returns (new_text, diff_html).
+    Uses the FULL existing essay (up to 8000 chars) as context.
+    """
+    from utils.ai_engine import generate as _gen
+    import difflib
+
+    prompt = f"""The following is an existing essay. Do NOT rewrite what already exists.
+ONLY write the new '{section_to_add}' that comes AFTER the last sentence.
+
+EXISTING ESSAY (context only — do not reproduce):
+{existing_essay[-8000:]}
+
+Now write ONLY the new {section_to_add} content that continues seamlessly:"""
+
+    new_content = _gen(
+        prompt=prompt,
+        system=ESSAY_SYSTEM,
+        max_tokens=4096,
+        temperature=0.6,
+    )
+
+    # Build diff HTML
+    old_lines = existing_essay.splitlines()
+    new_lines = (existing_essay + "\n" + new_content).splitlines()
+    diff = list(difflib.unified_diff(old_lines, new_lines, lineterm="", n=0))
+    diff_html_parts = []
+    for line in diff:
+        if line.startswith("+++") or line.startswith("---") or line.startswith("@@"):
+            continue
+        if line.startswith("+"):
+            diff_html_parts.append(f'<ins style="background:#1a3d1a;color:#86efac;text-decoration:none;display:block;padding:1px 4px;">{line[1:]}</ins>')
+        elif line.startswith("-"):
+            diff_html_parts.append(f'<del style="background:#3d1212;color:#fca5a5;display:block;padding:1px 4px;">{line[1:]}</del>')
+    diff_html = "\n".join(diff_html_parts) or f'<ins style="background:#1a3d1a;color:#86efac;display:block;">{new_content}</ins>'
+
+    return new_content, diff_html
+

@@ -23,15 +23,52 @@ except ImportError:
 from utils.ai_engine import generate
 
 
-# ─── ADAPTIVE DIFFICULTY ─────────────────────────────────────────────────────
+# ─── ADAPTIVE DIFFICULTY (ADD-3.2) ──────────────────────────────────────────
 def get_adaptive_difficulty(topic: str) -> str:
     scores = st.session_state.get("quiz_v2_adaptive_scores", {})
     history = scores.get(topic, [])
-    if not history: return "medium"
+    if not history:
+        return "medium"
     avg = sum(history[-5:]) / len(history[-5:])
-    if avg > 0.80: return "hard"
-    if avg < 0.45: return "easy"
+    if avg > 0.80:
+        return "hard"
+    if avg < 0.45:
+        return "easy"
     return "medium"
+
+
+def calculate_battle_mode_score(base_points: int, time_taken_sec: float, difficulty: str) -> int:
+    """
+    FIX-9.1: Battle Mode scoring formula.
+    Awards bonus points for rapid responses, scaled by difficulty.
+    Expected time: Easy=10s, Medium=20s, Hard=30s.
+    """
+    diff_multiplier = {"easy": 1.0, "medium": 1.5, "hard": 2.0}.get(difficulty.lower(), 1.0)
+    expected_time = {"easy": 10.0, "medium": 20.0, "hard": 30.0}.get(difficulty.lower(), 15.0)
+
+    if time_taken_sec <= 0:
+        time_taken_sec = 0.1
+
+    time_bonus = max(0, int((expected_time - time_taken_sec) * diff_multiplier))
+    
+    # Cap time bonus to 200% of base points to prevent point farming
+    time_bonus = min(time_bonus, int(base_points * 2.0))
+    
+    total_score = base_points + time_bonus
+    return total_score
+
+
+def get_next_question_difficulty(scores: dict, topic: str) -> str:
+    """ADD-3.2: Adjusts difficulty based on recent performance for a topic."""
+    topic_scores = scores.get(topic, [])
+    if len(topic_scores) < 3:
+        return "Medium"
+    recent_avg = sum(topic_scores[-3:]) / 3
+    if recent_avg > 0.8:
+        return "Hard"
+    elif recent_avg < 0.4:
+        return "Easy"
+    return "Medium"
 
 
 # ─── QUIZ GENERATION ─────────────────────────────────────────────────────────
@@ -237,6 +274,12 @@ def render_quiz():
 
     quiz = st.session_state.quiz_v2_data
     qi = st.session_state.quiz_v2_current
+
+    # FIX-3.1: Bounds check before EVERY render
+    if qi >= len(quiz):
+        st.session_state.quiz_v2_current = 0
+        st.warning("Quiz reset — question index out of range.")
+        st.rerun()
 
     # ── Timer ──
     if st.session_state.quiz_v2_timer:

@@ -42,30 +42,63 @@ def get_leitner_box(card: dict) -> int:
     return 1
 
 
+# ─── CARD VALIDATION (FIX-2.1b) ─────────────────────────────────────────────
+def validate_cards(cards: list) -> list:
+    """Validate and sanitize generated flashcards. Returns only fully valid cards."""
+    required = {"q", "a", "topic", "hint", "difficulty"}
+    valid = []
+    for c in cards:
+        if not isinstance(c, dict):
+            continue
+        if not all(k in c for k in required):
+            continue
+        if not c["q"].strip() or not c["a"].strip():
+            continue
+        if c["difficulty"] not in ("Easy", "Medium", "Hard"):
+            # Normalize case variations
+            normalized = c["difficulty"].capitalize()
+            c["difficulty"] = normalized if normalized in ("Easy", "Medium", "Hard") else "Medium"
+        if not c.get("topic", "").strip():
+            c["topic"] = "General"
+        valid.append(c)
+    return valid
+
+
 # ─── AI CARD GENERATION (background thread) ──────────────────────────────────
-def _generate_cards_task(context_text: str, lang: str, count: int = 15):
+def _generate_cards_task(context_text: str, lang: str, count: int = 15,
+                          easy_pct: int = 30, medium_pct: int = 50, hard_pct: int = 20):
+    """FIX-2.1a: Inject explicit difficulty distribution into prompt."""
+    easy_n  = max(1, round(count * easy_pct   / 100))
+    medium_n = max(1, round(count * medium_pct / 100))
+    hard_n  = max(1, count - easy_n - medium_n)
+
     prompt = f"""You are an expert educator. Create exactly {count} high-quality Q&A flashcards from this text in {lang}.
+
+DIFFICULTY DISTRIBUTION (strictly enforce):
+- Easy: {easy_n} cards
+- Medium: {medium_n} cards
+- Hard: {hard_n} cards
+Every card MUST have a non-empty 'topic' field derived from the content.
 
 Rules:
 - Questions should test UNDERSTANDING, not just memorization
 - Include concept, application, and analysis-level questions (Bloom's Taxonomy)
-- Keep answers concise but complete
+- Keep answers concise but complete (1-3 sentences max)
 - Each card must be self-contained
 
 Output ONLY a valid JSON array, no extra text:
-[{{"q":"...","a":"...","topic":"...","difficulty":"easy|medium|hard","keyword_for_image":"...","hint":"one-sentence hint without giving away the answer","bloom_level":"remember|understand|apply|analyze"}}]
+[{{"q":"...","a":"...","topic":"...","difficulty":"Easy|Medium|Hard","keyword_for_image":"...","hint":"one-word clue","bloom_level":"remember|understand|apply|analyze"}}]
 
 Text:
 {context_text[:5000]}"""
     try:
-        resp = generate(
-            messages=[{"role": "user", "content": prompt}],
-            context_text="", model="llama-3.3-70b-versatile",
-            max_tokens=3000, temperature=0.3
-        )
+        from utils.ai_engine import generate as _gen
+        resp = _gen(prompt=prompt, max_tokens=3000, temperature=0.3)
         m = re.search(r'\[.*\]', resp, re.DOTALL)
         if m:
-            cards = json.loads(m.group(0))
+            raw_cards = json.loads(m.group(0))
+            # FIX-2.1b: Validate all cards
+            cards = validate_cards(raw_cards)
             today = datetime.date.today().isoformat()
             for c in cards:
                 c.setdefault("repetitions", 0)
@@ -75,8 +108,15 @@ Text:
                 c.setdefault("streak", 0)
                 c.setdefault("times_seen", 0)
                 c.setdefault("times_correct", 0)
-                c.setdefault("hint", "")
                 c.setdefault("bloom_level", "remember")
+
+            # FIX-2.1c: Auto-regen if fewer than 3 valid cards
+            if len(cards) < 3:
+                resp2 = _gen(prompt=prompt + "\n\nIMPORTANT: The previous response was invalid. Return ONLY a JSON array.", max_tokens=3000, temperature=0.2)
+                m2 = re.search(r'\[.*\]', resp2, re.DOTALL)
+                if m2:
+                    cards = validate_cards(json.loads(m2.group(0)))
+
             if "bg_flashcards" not in st.session_state:
                 st.session_state.bg_flashcards = []
             st.session_state.bg_flashcards.extend(cards)

@@ -59,10 +59,61 @@ def _clean_text(text: str) -> str:
     return "\n".join(lines).strip()
 
 
+def _get_longest_content_block(soup) -> object:
+    """
+    FIX-10.3a: Find the longest article/main/div content block by character count.
+    This avoids navbars, footers, and cookie banners polluting AI context.
+    """
+    # Priority: semantic elements first
+    for selector in ["article", "main", "[role='main']"]:
+        el = soup.select_one(selector)
+        if el and len(el.get_text()) > 200:
+            return el
+
+    # Fallback: find the longest <div> by text length
+    all_divs = soup.find_all("div")
+    if all_divs:
+        return max(all_divs, key=lambda d: len(d.get_text()))
+
+    return soup.find("body") or soup
+
+
+def check_robots_txt(url: str) -> tuple[bool, str]:
+    """
+    FIX-10.3b: Check if the URL is disallowed by the site's robots.txt.
+    Returns (is_allowed, message).
+    """
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = f"{parsed.scheme}://{parsed.netloc}"
+        robots_url = f"{domain}/robots.txt"
+        resp = requests.get(robots_url, headers=HEADERS, timeout=5)
+        if resp.status_code != 200:
+            return True, ""  # No robots.txt — assume allowed
+
+        path = parsed.path or "/"
+        disallowed = []
+        in_user_agent_all = False
+        for line in resp.text.splitlines():
+            line = line.strip()
+            if line.lower().startswith("user-agent:"):
+                agent = line.split(":", 1)[1].strip()
+                in_user_agent_all = (agent == "*")
+            elif line.lower().startswith("disallow:") and in_user_agent_all:
+                disallowed_path = line.split(":", 1)[1].strip()
+                if disallowed_path and path.startswith(disallowed_path):
+                    return False, f"⚠️ This page (`{path}`) is disallowed by `robots.txt` at {domain}. Proceed with caution."
+        return True, ""
+    except Exception:
+        return True, ""  # On failure, assume allowed
+
+
 def scrape_web_page(url: str) -> tuple[str, str]:
     """
     Scrape the main text content from a URL.
-    Uses smart content detection, with specialized hooks for Wikipedia and similar Wikis.
+    FIX-10.3a: Uses smart content detection — removes noise tags, picks longest block.
+    FIX-10.3b: Checks robots.txt (result stored, but scraping still happens after warning).
     """
     try:
         resp = requests.get(url, headers=HEADERS, timeout=20)
@@ -72,28 +123,31 @@ def scrape_web_page(url: str) -> tuple[str, str]:
 
     soup = BeautifulSoup(resp.text, "html.parser")
 
-    # Remove non-content elements
-    for selector in _REMOVE_TAGS:
-        for tag in soup.select(selector):
+    # FIX-10.3a: Remove all non-content tags
+    _NOISE_TAGS = [
+        "nav", "footer", "header", "aside", "script", "style",
+        "form", "button", "iframe", "noscript", "svg", "select",
+    ]
+    for tag_name in _NOISE_TAGS:
+        for tag in soup.find_all(tag_name):
             tag.decompose()
-    for tag in soup(["script", "style"]):
+    # Also remove cookie/popup/social divs by class/id patterns
+    for tag in soup.find_all(True, class_=lambda c: c and any(kw in str(c).lower() for kw in ("cookie", "popup", "banner", "social", "share", "sidebar", "related"))):
         tag.decompose()
 
     # Get page title
-    title = soup.find("meta", property="og:title")
-    title = title.get("content", "") if title else (soup.title.string if soup.title else "")
-    title = title.strip()[:200] or url
+    title_meta = soup.find("meta", property="og:title")
+    title = title_meta.get("content", "") if title_meta else (soup.title.string if soup.title else "")
+    title = (title or "").strip()[:200] or url
 
-    # Wiki Specific Processing
+    # Wiki-specific processing
     is_wiki = "wikipedia.org" in url.lower()
-    
     if is_wiki:
-        # For Wikipedia, target the precise content div
         main_content = soup.select_one(".mw-parser-output")
         if main_content:
             text_blocks = []
-            for elem in main_content.find_all(['p', 'h2', 'h3', 'li']):
-                if elem.name in ['h2', 'h3']:
+            for elem in main_content.find_all(["p", "h2", "h3", "li"]):
+                if elem.name in ["h2", "h3"]:
                     text_blocks.append(f"\n\n### {elem.get_text()}\n")
                 else:
                     text_blocks.append(elem.get_text())
@@ -101,24 +155,15 @@ def scrape_web_page(url: str) -> tuple[str, str]:
         else:
             raw_text = soup.get_text(separator="\n")
     else:
-        # Standard processing
-        main_content: Tag | None = None
-        for selector in _CONTENT_SELECTORS:
-            found = soup.select_one(selector)
-            if found and len(found.get_text().split()) > 100:
-                main_content = found
-                break
-        
-        if not main_content:
-            main_content = soup.find("body") or soup
+        # FIX-10.3a: Use longest content block
+        main_content = _get_longest_content_block(soup)
         raw_text = main_content.get_text(separator="\n")
 
     cleaned = _clean_text(raw_text)
-    
-    # Wikipedia often has a massive references section that wastes tokens
+
     if is_wiki:
         refs_index = cleaned.lower().rfind("### references")
-        if refs_index > len(cleaned) * 0.5: # only slice if references are at the bottom half
+        if refs_index > len(cleaned) * 0.5:
             cleaned = cleaned[:refs_index]
 
     return cleaned[:MAX_CHARS], title
