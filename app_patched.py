@@ -1460,216 +1460,571 @@ if not st.session_state["passcode_verified"]:
       letter-spacing:2px; margin-top:14px;
     }
 
-    /* ── STEP 02: Sidebar Nav Groups ── */
-    .nav-group-header {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:10px 14px; border-radius:10px; cursor:pointer;
-      background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
-      margin-bottom:6px; margin-top:10px;
-      font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:700;
-      color:rgba(255,255,255,0.7); letter-spacing:1px;
-      transition:all 0.25s ease;
-      user-select:none;
-    }
-    .nav-group-header:hover { background:rgba(99,102,241,0.08); border-color:rgba(99,102,241,0.25); color:#fff; }
-    .nav-group-count {
-      font-family:'Space Mono',monospace; font-size:10px;
-      background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.2);
-      border-radius:100px; padding:2px 8px; color:#a5b4fc;
-    }
-    .active-tool-banner {
-      display:flex; align-items:center; gap:8px;
-      background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3);
-      border-radius:10px; padding:9px 13px; margin-bottom:10px;
-      font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:700;
-      color:#a5b4fc; letter-spacing:1px;
-      animation:activeBannerIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
-    }
-    @keyframes activeBannerIn {
-      from{opacity:0;transform:translateX(-10px);}
-      to{opacity:1;transform:translateX(0);}
-    }
-    .active-tool-dot { width:7px;height:7px;background:#818cf8;border-radius:50%;animation:blinkGreen 1.6s ease-in-out infinite; }
+/* ── STEP 02: Sidebar Nav Groups ── */
+.nav-group-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px; border-radius:10px; cursor:pointer;
+  background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);
+  margin-bottom:6px; margin-top:10px;
+  font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:700;
+  color:rgba(255,255,255,0.7); letter-spacing:1px;
+  transition:all 0.25s ease;
+  user-select:none;
+}
+.nav-group-header:hover { background:rgba(99,102,241,0.08); border-color:rgba(99,102,241,0.25); color:#fff; }
+.nav-group-count {
+  font-family:'Space Mono',monospace; font-size:10px;
+  background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.2);
+  border-radius:100px; padding:2px 8px; color:#a5b4fc;
+}
+.active-tool-banner {
+  display:flex; align-items:center; gap:8px;
+  background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3);
+  border-radius:10px; padding:9px 13px; margin-bottom:10px;
+  font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:700;
+  color:#a5b4fc; letter-spacing:1px;
+  animation:activeBannerIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes activeBannerIn {
+  from{opacity:0;transform:translateX(-10px);}
+  to{opacity:1;transform:translateX(0);}
+}
+.active-tool-dot { width:7px;height:7px;background:#818cf8;border-radius:50%;animation:blinkGreen 1.6s ease-in-out infinite; }
 
-    /* ── STEP 03: Stats Mini Dashboard ── */
-    .stats-dashboard-card {
-      background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.07);
-      border-radius:14px; padding:14px 16px; margin:8px 0;
-    }
-    .stats-dash-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-    .stats-dash-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.3); text-transform:uppercase; }
-    .stats-dash-val { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:#a5b4fc; }
-    .stats-mini-bar-wrap { margin-bottom:8px; }
-    .stats-mini-bar-label { display:flex; justify-content:space-between; font-family:'Rajdhani',sans-serif; font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:4px; }
-    .stats-mini-bar { height:3px; background:rgba(255,255,255,0.06); border-radius:100px; overflow:hidden; }
-    .stats-mini-fill { height:100%; border-radius:100px; transition:width 1s cubic-bezier(0.16,1,0.3,1); }
-    .fill-indigo { background:linear-gradient(90deg,#6366f1,#8b5cf6); }
-    .fill-cyan   { background:linear-gradient(90deg,#06b6d4,#3b82f6); }
-    .fill-green  { background:linear-gradient(90deg,#10b981,#06b6d4); }
+/* ── STEP 03: Stats Mini Dashboard ── */
+.stats-dashboard-card {
+  background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.07);
+  border-radius:14px; padding:14px 16px; margin:8px 0;
+}
+.stats-dash-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.stats-dash-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.3); text-transform:uppercase; }
+.stats-dash-val { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:#a5b4fc; }
+.stats-mini-bar-wrap { margin-bottom:8px; }
+.stats-mini-bar-label { display:flex; justify-content:space-between; font-family:'Rajdhani',sans-serif; font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:4px; }
+.stats-mini-bar { height:3px; background:rgba(255,255,255,0.06); border-radius:100px; overflow:hidden; }
+.stats-mini-fill { height:100%; border-radius:100px; transition:width 1s cubic-bezier(0.16,1,0.3,1); }
+.fill-indigo { background:linear-gradient(90deg,#6366f1,#8b5cf6); }
+.fill-cyan   { background:linear-gradient(90deg,#06b6d4,#3b82f6); }
+.fill-green  { background:linear-gradient(90deg,#10b981,#06b6d4); }
 
-    /* ── STEP 04: Floating Quick-Actions Toolbar ── */
-    .float-toolbar {
-      display:flex; align-items:center; justify-content:center; gap:6px;
-      flex-wrap:wrap; margin:16px auto 8px; max-width:600px;
-    }
-    .ftb-btn {
-      display:inline-flex; align-items:center; gap:7px;
-      padding:8px 16px; border-radius:100px;
-      background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.1);
-      font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:700;
-      color:rgba(255,255,255,0.6); letter-spacing:1px;
-      backdrop-filter:blur(12px); cursor:pointer;
-      transition:all 0.25s ease;
-      white-space:nowrap;
-    }
-    .ftb-btn:hover { background:rgba(99,102,241,0.15); border-color:rgba(99,102,241,0.4); color:#fff; transform:translateY(-2px); }
-    .ftb-btn-icon { font-size:14px; }
-    .ftb-separator { width:1px; height:22px; background:rgba(255,255,255,0.08); margin:0 4px; }
+/* ── STEP 04: Floating Quick-Actions Toolbar ── */
+.float-toolbar {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  flex-wrap:wrap; margin:16px auto 8px; max-width:600px;
+}
+.ftb-btn {
+  display:inline-flex; align-items:center; gap:7px;
+  padding:8px 16px; border-radius:100px;
+  background:rgba(15,23,42,0.85); border:1px solid rgba(255,255,255,0.1);
+  font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:700;
+  color:rgba(255,255,255,0.6); letter-spacing:1px;
+  backdrop-filter:blur(12px); cursor:pointer;
+  transition:all 0.25s ease;
+  white-space:nowrap;
+}
+.ftb-btn:hover { background:rgba(99,102,241,0.15); border-color:rgba(99,102,241,0.4); color:#fff; transform:translateY(-2px); }
+.ftb-btn-icon { font-size:14px; }
+.ftb-separator { width:1px; height:22px; background:rgba(255,255,255,0.08); margin:0 4px; }
 
-    /* ── STEP 05: Premium Chat Bubbles ── */
-    .chat-bubble-wrap { display:flex; gap:12px; margin-bottom:20px; animation:bubbleFadeIn 0.4s ease both; }
-    @keyframes bubbleFadeIn { from{opacity:0;transform:translateY(10px);} to{opacity:1;transform:translateY(0);} }
-    .bubble-avatar {
-      width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center;
-      font-size:18px; flex-shrink:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
-    }
-    .bubble-content {
-      background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.08);
-      border-radius:14px; padding:16px 20px; width:100%; position:relative;
-      font-family:'Rajdhani',sans-serif; font-size:15px; color:rgba(255,255,255,0.85); line-height:1.6;
-    }
-    .bubble-user .bubble-content { background:rgba(99,102,241,0.08); border-color:rgba(99,102,241,0.2); }
-    .bubble-assistant .bubble-content { background:rgba(15,23,42,0.8); }
-    .bubble-actions {
-      display:flex; gap:6px; margin-top:10px; justify-content:flex-end;
-      opacity:0; transition:opacity 0.2s ease;
-    }
-    .bubble-content:hover .bubble-actions { opacity:1; }
-    .b-action-btn {
-      padding:4px 8px; border-radius:6px; cursor:pointer;
-      background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
-      font-size:12px; color:rgba(255,255,255,0.5); transition:all 0.2s ease;
-    }
-    .b-action-btn:hover { background:rgba(99,102,241,0.2); color:#fff; }
+/* ── STEP 05: Premium Chat Bubbles ── */
+.msg-bubble-ai {
+  position:relative; padding:18px 22px 14px;
+  background:rgba(15,23,42,0.6); border:1px solid rgba(99,102,241,0.15);
+  border-left:3px solid rgba(99,102,241,0.6);
+  border-radius:4px 16px 16px 16px; margin-bottom:14px;
+  animation:bubbleIn 0.35s cubic-bezier(0.16,1,0.3,1) both;
+}
+.msg-bubble-user {
+  position:relative; padding:14px 20px;
+  background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.2);
+  border-radius:16px 4px 16px 16px; margin-bottom:14px; margin-left:10%;
+  animation:bubbleIn 0.3s cubic-bezier(0.16,1,0.3,1) both;
+  text-align:right;
+}
+@keyframes bubbleIn {
+  from{opacity:0;transform:translateY(8px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.msg-header {
+  display:flex; align-items:center; gap:10px; margin-bottom:10px;
+}
+.msg-avatar {
+  width:28px; height:28px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; font-weight:700;
+}
+.msg-avatar-ai { background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; }
+.msg-avatar-user { background:linear-gradient(135deg,#0ea5e9,#6366f1); color:#fff; }
+.msg-name {
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px;
+  color:rgba(255,255,255,0.4); text-transform:uppercase;
+}
+.msg-time { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,0.2); margin-left:auto; }
+.msg-reaction-row {
+  display:flex; gap:8px; margin-top:12px; padding-top:10px;
+  border-top:1px solid rgba(255,255,255,0.05);
+  align-items:center;
+}
+.msg-react-btn {
+  background:none; border:1px solid rgba(255,255,255,0.08);
+  border-radius:100px; padding:3px 10px; cursor:pointer;
+  font-size:12px; color:rgba(255,255,255,0.35);
+  transition:all 0.2s ease;
+}
+.msg-react-btn:hover { background:rgba(99,102,241,0.1); border-color:rgba(99,102,241,0.3); color:#fff; }
+.msg-react-active { background:rgba(99,102,241,0.15)!important; border-color:rgba(99,102,241,0.4)!important; color:#a5b4fc!important; }
+.msg-char-count { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,0.15); margin-left:auto; }
 
-    /* ── STEP 06: Smart Context Sources ── */
-    .ctx-panel { display:flex; gap:12px; padding:12px 0; overflow-x:auto; }
-    .ctx-panel::-webkit-scrollbar { height:4px; }
-    .ctx-card {
-      min-width:150px; background:rgba(15,23,42,0.8);
-      border:1px solid rgba(255,255,255,0.1); border-radius:12px;
-      padding:12px; position:relative; overflow:hidden;
-      transition:all 0.25s ease; cursor:pointer;
-      animation:cardIn 0.3s cubic-bezier(0.16,1,0.3,1) both;
-    }
-    @keyframes cardIn { from{opacity:0;transform:scale(0.9);} to{opacity:1;transform:scale(1);} }
-    .ctx-card:hover { transform:translateY(-3px); border-color:rgba(99,102,241,0.5); box-shadow:0 10px 20px rgba(0,0,0,0.5); }
-    .ctx-card-bg { position:absolute; right:-20px; bottom:-20px; font-size:64px; opacity:0.03; transition:all 0.3s ease; }
-    .ctx-card:hover .ctx-card-bg { transform:scale(1.2) rotate(-10deg); opacity:0.06; }
-    .ctx-card-type { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:rgba(99,102,241,0.8); margin-bottom:4px; text-transform:uppercase; }
-    .ctx-card-label { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* ── STEP 06: Source Cards ── */
+.source-card-grid { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+.source-card {
+  background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.08);
+  border-radius:14px; padding:14px 16px; min-width:200px; max-width:280px;
+  position:relative; transition:all 0.25s ease;
+  animation:bubbleIn 0.3s cubic-bezier(0.16,1,0.3,1) both;
+}
+.source-card:hover { border-color:rgba(99,102,241,0.3); transform:translateY(-3px); }
+.source-card-header { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.source-card-icon { font-size:20px; flex-shrink:0; }
+.source-card-title { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:700; color:#fff; word-break:break-all; }
+.source-card-meta { font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,0.3); letter-spacing:1px; margin-top:4px; }
+.source-card-badge {
+  display:inline-block; padding:2px 8px; border-radius:100px;
+  font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1px;
+  background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.2); color:#22d3ee;
+  margin-top:6px;
+}
+.source-summary-box {
+  margin-top:10px; padding:10px 12px; border-radius:10px;
+  background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.12);
+  font-family:'Rajdhani',sans-serif; font-size:13px; color:rgba(255,255,255,0.6);
+  line-height:1.6;
+}
 
-    /* ── STEP 08: Persona Carousel ── */
-    .persona-carousel {
-      display:flex; gap:10px; overflow-x:auto; padding-bottom:12px;
-      scrollbar-width:none;
-    }
-    .persona-carousel::-webkit-scrollbar { display:none; }
-    .persona-card {
-      min-width:130px; background:rgba(15,23,42,0.6);
-      border:1px solid rgba(255,255,255,0.08); border-radius:12px;
-      padding:14px; text-align:center; cursor:pointer;
-      transition:all 0.3s cubic-bezier(0.16,1,0.3,1);
-      position:relative; overflow:hidden;
-    }
-    .persona-card:hover { transform:translateY(-4px); border-color:rgba(99,102,241,0.4); background:rgba(99,102,241,0.05); }
-    .persona-card-active { border-color:#6366f1; background:rgba(99,102,241,0.1); box-shadow:0 8px 24px rgba(99,102,241,0.2); }
-    .persona-icon { font-size:28px; margin-bottom:8px; transition:transform 0.3s ease; }
-    .persona-card:hover .persona-icon { transform:scale(1.15) rotate(5deg); }
-    .persona-name { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:700; color:#fff; }
+/* ── STEP 07: Typing Indicator ── */
+.typing-indicator {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:10px 18px; border-radius:100px;
+  background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.15);
+  margin-bottom:14px;
+}
+.typing-dot {
+  width:7px; height:7px; border-radius:50%; background:#818cf8;
+  animation:typingBounce 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2){animation-delay:0.2s;}
+.typing-dot:nth-child(3){animation-delay:0.4s;}
+@keyframes typingBounce {
+  0%,80%,100%{transform:translateY(0);opacity:0.4;}
+  40%{transform:translateY(-6px);opacity:1;}
+}
+.typing-label {
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px;
+  color:rgba(255,255,255,0.35); margin-left:6px;
+}
 
-    /* ── STEP 07: Typing Indicator ── */
-    .typing-indicator {
-      display:inline-flex; align-items:center; gap:5px;
-      padding:10px 18px; border-radius:100px;
-      background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.15);
-      margin-bottom:14px;
-    }
-    .typing-dot {
-      width:7px; height:7px; border-radius:50%; background:#818cf8;
-      animation:typingBounce 1.2s ease-in-out infinite;
-    }
-    .typing-dot:nth-child(2){animation-delay:0.2s;}
-    .typing-dot:nth-child(3){animation-delay:0.4s;}
-    @keyframes typingBounce {
-      0%,80%,100%{transform:translateY(0);opacity:0.4;}
-      40%{transform:translateY(-6px);opacity:1;}
-    }
-    .typing-label {
-      font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px;
-      color:rgba(255,255,255,0.35); margin-left:6px;
-    }
+/* ── STEP 08: Persona Carousel ── */
+.persona-carousel {
+  display:flex; gap:10px; overflow-x:auto; padding:6px 2px 10px;
+  scrollbar-width:none; -ms-overflow-style:none;
+  margin-bottom:16px;
+}
+.persona-carousel::-webkit-scrollbar { display:none; }
+.persona-chip-v2 {
+  display:inline-flex; flex-direction:column; align-items:center;
+  gap:5px; padding:10px 14px; min-width:72px;
+  background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.07);
+  border-radius:14px; cursor:pointer; flex-shrink:0;
+  transition:all 0.25s ease;
+  font-family:'Rajdhani',sans-serif;
+}
+.persona-chip-v2:hover { border-color:rgba(99,102,241,0.35); transform:translateY(-3px); }
+.persona-chip-active {
+  border-color:rgba(99,102,241,0.6)!important;
+  background:rgba(99,102,241,0.12)!important;
+  box-shadow:0 0 20px rgba(99,102,241,0.2);
+}
+.persona-chip-emoji { font-size:22px; }
+.persona-chip-name { font-size:10px; font-weight:700; color:rgba(255,255,255,0.5); letter-spacing:0.5px; text-align:center; }
+.persona-chip-active .persona-chip-name { color:#a5b4fc; }
 
-    /* ── STEP 09: Quick Prompt Grid ── */
-    .qprompt-section { margin:24px 0; }
-    .qprompt-title {
-      font-family:'Space Mono',monospace; font-size:10px; letter-spacing:4px;
-      color:rgba(255,255,255,0.25); text-transform:uppercase; text-align:center;
-      margin-bottom:18px;
-    }
-    .qprompt-grid {
-      display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-      gap:10px;
-    }
-    .qprompt-chip {
-      padding:14px 18px; border-radius:14px;
-      background:rgba(15,23,42,0.7); border:1px solid var(--qc,rgba(99,102,241,0.2));
-      cursor:pointer; transition:all 0.25s ease;
-      display:flex; align-items:flex-start; gap:12px;
-      animation:bubbleIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
-    }
-    .qprompt-chip:hover {
-      background:rgba(var(--qcr,99,102,241),0.12); border-color:var(--qc,rgba(99,102,241,0.5));
-      transform:translateY(-3px);
-    }
-    .qprompt-icon { font-size:18px; flex-shrink:0; margin-top:1px; }
-    .qprompt-text { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:600; color:rgba(255,255,255,0.65); line-height:1.4; }
-    .qprompt-tag { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--qc,#818cf8); margin-top:4px; display:block; }
+/* ── STEP 09: Quick Prompt Grid ── */
+.qprompt-section { margin:24px 0; }
+.qprompt-title {
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:4px;
+  color:rgba(255,255,255,0.25); text-transform:uppercase; text-align:center;
+  margin-bottom:18px;
+}
+.qprompt-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:10px;
+}
+.qprompt-chip {
+  padding:14px 18px; border-radius:14px;
+  background:rgba(15,23,42,0.7); border:1px solid var(--qc,rgba(99,102,241,0.2));
+  cursor:pointer; transition:all 0.25s ease;
+  display:flex; align-items:flex-start; gap:12px;
+  animation:bubbleIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.qprompt-chip:hover {
+  background:rgba(var(--qcr,99,102,241),0.12); border-color:var(--qc,rgba(99,102,241,0.5));
+  transform:translateY(-3px);
+}
+.qprompt-icon { font-size:18px; flex-shrink:0; margin-top:1px; }
+.qprompt-text { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:600; color:rgba(255,255,255,0.65); line-height:1.4; }
+.qprompt-tag { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--qc,#818cf8); margin-top:4px; display:block; }
 
-    /* ── STEP 10: Tool Transition Loader ── */
-    .tool-loader {
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      min-height:280px; gap:20px;
-      animation:loaderIn 0.3s ease both;
-    }
-    @keyframes loaderIn{from{opacity:0;}to{opacity:1;}}
-    .tool-loader-icon { font-size:56px; animation:iconSpin 1s ease-in-out; }
-    @keyframes iconSpin{0%{transform:scale(0.5) rotate(-20deg);opacity:0;}100%{transform:scale(1) rotate(0deg);opacity:1;}}
-    .tool-loader-title {
-      font-family:'Orbitron',monospace; font-size:18px; font-weight:700;
-      letter-spacing:3px; color:rgba(255,255,255,0.7);
-    }
-    .tool-loader-bar-wrap { width:240px; height:3px; background:rgba(255,255,255,0.06); border-radius:100px; overflow:hidden; }
-    .tool-loader-bar {
-      height:100%; border-radius:100px;
-      background:linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4);
-      animation:loadSweep 0.7s cubic-bezier(0.4,0,0.2,1) both;
-    }
-    @keyframes loadSweep{from{width:0%;}to{width:100%;}}
+/* ── STEP 10: Tool Transition Loader ── */
+.tool-loader {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-height:280px; gap:20px;
+  animation:loaderIn 0.3s ease both;
+}
+@keyframes loaderIn{from{opacity:0;}to{opacity:1;}}
+.tool-loader-icon { font-size:56px; animation:iconSpin 1s ease-in-out; }
+@keyframes iconSpin{0%{transform:scale(0.5) rotate(-20deg);opacity:0;}100%{transform:scale(1) rotate(0deg);opacity:1;}}
+.tool-loader-title {
+  font-family:'Orbitron',monospace; font-size:18px; font-weight:700;
+  letter-spacing:3px; color:rgba(255,255,255,0.7);
+}
+.tool-loader-bar-wrap { width:240px; height:3px; background:rgba(255,255,255,0.06); border-radius:100px; overflow:hidden; }
+.tool-loader-bar {
+  height:100%; border-radius:100px;
+  background:linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4);
+  animation:loadSweep 0.7s cubic-bezier(0.4,0,0.2,1) both;
+}
+@keyframes loadSweep{from{width:0%;}to{width:100%;}}
 
-    /* ── STEP 11: Follow-up Suggestion Chips ── */
-    .followup-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; margin-bottom:4px; }
-    .followup-chip {
-      padding:7px 14px; border-radius:100px;
-      background:rgba(15,23,42,0.7); border:1px solid rgba(99,102,241,0.2);
-      font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:600;
-      color:rgba(165,180,252,0.8); cursor:pointer; white-space:nowrap;
-      transition:all 0.2s ease;
-      animation:chipFadeIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
-    }
-    .followup-chip:hover { background:rgba(99,102,241,0.15); border-color:rgba(99,102,241,0.4); color:#fff; transform:translateY(-2px); }
-    @keyframes chipFadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
-    .followup-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.2); margin-bottom:6px; }
+/* ── STEP 11: Follow-up Suggestion Chips ── */
+.followup-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; margin-bottom:4px; }
+.followup-chip {
+  padding:7px 14px; border-radius:100px;
+  background:rgba(15,23,42,0.7); border:1px solid rgba(99,102,241,0.2);
+  font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:600;
+  color:rgba(165,180,252,0.8); cursor:pointer; white-space:nowrap;
+  transition:all 0.2s ease;
+  animation:chipFadeIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.followup-chip:hover { background:rgba(99,102,241,0.15); border-color:rgba(99,102,241,0.4); color:#fff; transform:translateY(-2px); }
+@keyframes chipFadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+.followup-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.2); margin-bottom:6px; }
+
+/* ── STEP 13: Premium Flashcard UI ── */
+.fc-container { max-width:680px; margin:0 auto; padding:16px 0; }
+.fc-progress-ring-wrap {
+  display:flex; align-items:center; justify-content:center; gap:20px;
+  margin-bottom:24px;
+}
+.fc-ring-svg { transform:rotate(-90deg); }
+.fc-ring-bg { fill:none; stroke:rgba(255,255,255,0.06); stroke-width:6; }
+.fc-ring-fill { fill:none; stroke:url(#fcGrad); stroke-width:6; stroke-linecap:round; transition:stroke-dashoffset 0.8s cubic-bezier(0.16,1,0.3,1); }
+.fc-ring-text { font-family:'Orbitron',monospace; font-size:14px; font-weight:700; fill:#a5b4fc; text-anchor:middle; dominant-baseline:middle; }
+.fc-card-scene { perspective:1200px; width:100%; min-height:220px; cursor:pointer; margin-bottom:20px; }
+.fc-card { width:100%; min-height:220px; position:relative; transform-style:preserve-3d; transition:transform 0.6s cubic-bezier(0.4,0,0.2,1); border-radius:20px; }
+.fc-card.flipped { transform:rotateY(180deg); }
+.fc-face { position:absolute; inset:0; backface-visibility:hidden; border-radius:20px; padding:32px 28px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
+.fc-front {
+  background:rgba(15,23,42,0.8); border:1px solid rgba(99,102,241,0.25);
+}
+.fc-back {
+  background:rgba(30,10,60,0.85); border:1px solid rgba(139,92,246,0.3);
+  transform:rotateY(180deg);
+}
+.fc-q-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:4px; color:rgba(99,102,241,0.6); margin-bottom:12px; }
+.fc-q-text { font-family:'Rajdhani',sans-serif; font-size:18px; font-weight:600; color:#fff; line-height:1.5; }
+.fc-a-text { font-family:'Rajdhani',sans-serif; font-size:16px; color:rgba(255,255,255,0.8); line-height:1.6; }
+.fc-flip-hint { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.2); margin-top:auto; padding-top:16px; }
+.fc-mastery-easy { border-color:rgba(34,197,94,0.4)!important; }
+.fc-mastery-hard  { border-color:rgba(239,68,68,0.4)!important; }
+.fc-action-row { display:flex; gap:10px; justify-content:center; }
+
+/* ── STEP 14: Quiz Feedback Animations ── */
+.quiz-option {
+  padding:14px 20px; border-radius:12px; cursor:pointer; margin-bottom:8px;
+  background:rgba(15,23,42,0.6); border:2px solid rgba(255,255,255,0.08);
+  font-family:'Rajdhani',sans-serif; font-size:15px; font-weight:600; color:#fff;
+  transition:all 0.2s ease;
+}
+.quiz-option:hover { border-color:rgba(99,102,241,0.35); background:rgba(99,102,241,0.08); }
+.quiz-option-correct {
+  border-color:rgba(34,197,94,0.7)!important; background:rgba(34,197,94,0.1)!important;
+  color:#4ade80!important; animation:correctPulse 0.5s ease both;
+}
+@keyframes correctPulse {
+  0%{transform:scale(1);}30%{transform:scale(1.03);}100%{transform:scale(1);}
+}
+.quiz-option-wrong {
+  border-color:rgba(239,68,68,0.6)!important; background:rgba(239,68,68,0.08)!important;
+  color:#f87171!important; animation:shakeWrong 0.4s ease both;
+}
+@keyframes shakeWrong {
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}
+}
+.score-surge {
+  display:inline-block; font-family:'Orbitron',monospace; font-size:20px; font-weight:900;
+  color:#4ade80; animation:scoreSurge 0.8s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes scoreSurge {
+  0%{opacity:0;transform:translateY(20px) scale(0.8);}
+  60%{opacity:1;transform:translateY(-8px) scale(1.2);}
+  100%{opacity:1;transform:translateY(0) scale(1);}
+}
+.explanation-box {
+  padding:16px 20px; border-radius:12px; margin-top:14px;
+  background:rgba(6,182,212,0.06); border:1px solid rgba(6,182,212,0.2);
+  font-family:'Rajdhani',sans-serif; font-size:14px; color:rgba(255,255,255,0.65); line-height:1.6;
+  animation:bubbleIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.explanation-box strong { color:#22d3ee; }
+
+/* ── STEP 16: Study Planner Upgrades ── */
+.planner-section-label {
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:4px;
+  color:rgba(255,255,255,0.3); text-transform:uppercase; margin-bottom:12px; margin-top:20px;
+}
+.planner-exam-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25);
+  border-radius:100px; padding:7px 16px;
+  font-family:'Space Mono',monospace; font-size:11px; color:#f87171;
+  letter-spacing:2px; margin-bottom:16px;
+}
+
+/* ── STEP 17: Debugger UI ── */
+.debug-severity-badge {
+  display:inline-flex; align-items:center; gap:7px;
+  padding:5px 14px; border-radius:100px;
+  font-family:'Space Mono',monospace; font-size:10px; font-weight:700;
+  letter-spacing:2px;
+}
+.sev-critical { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); color:#f87171; }
+.sev-warning  { background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3); color:#fbbf24; }
+.sev-info     { background:rgba(6,182,212,0.1);   border:1px solid rgba(6,182,212,0.25); color:#22d3ee; }
+.sev-dot { width:6px; height:6px; border-radius:50%; background:currentColor; animation:blinkGreen 1.5s ease-in-out infinite; }
+.debug-section-card {
+  background:rgba(15,23,42,0.65); border:1px solid rgba(255,255,255,0.07);
+  border-radius:14px; padding:16px 20px; margin-bottom:12px;
+}
+.debug-section-title {
+  font-family:'Orbitron',monospace; font-size:11px; font-weight:700;
+  letter-spacing:2px; color:rgba(255,255,255,0.5); margin-bottom:10px;
+}
+.debug-fix-card { border-left:3px solid rgba(34,197,94,0.6); }
+.debug-cause-card { border-left:3px solid rgba(239,68,68,0.5); }
+
+/* ── STEP 18: Essay Writer Enhancements ── */
+.essay-wc-bar-wrap { margin:8px 0 16px; }
+.essay-wc-row { display:flex; justify-content:space-between; font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,0.35); margin-bottom:5px; }
+.essay-wc-bar { height:3px; background:rgba(255,255,255,0.06); border-radius:100px; overflow:hidden; }
+.essay-wc-fill { height:100%; border-radius:100px; background:linear-gradient(90deg,#6366f1,#06b6d4); transition:width 0.5s ease; }
+.essay-outline-panel {
+  background:rgba(15,23,42,0.6); border:1px solid rgba(99,102,241,0.15);
+  border-radius:14px; padding:16px; margin-bottom:12px;
+}
+.essay-outline-item {
+  display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:8px; cursor:pointer;
+  font-family:'Rajdhani',sans-serif; font-size:13px; color:rgba(255,255,255,0.55);
+  transition:all 0.2s ease;
+}
+.essay-outline-item:hover { background:rgba(99,102,241,0.08); color:#fff; }
+.essay-outline-dot { width:6px; height:6px; background:#6366f1; border-radius:50%; flex-shrink:0; }
+.plag-badge {
+  display:inline-flex; align-items:center; gap:8px; padding:8px 16px; border-radius:100px;
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px;
+}
+.plag-low  { background:rgba(34,197,94,0.1);  border:1px solid rgba(34,197,94,0.25);  color:#4ade80; }
+.plag-med  { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); color:#fbbf24; }
+.plag-high { background:rgba(239,68,68,0.1);  border:1px solid rgba(239,68,68,0.25);  color:#f87171; }
+
+/* ── STEP 19: Interview Coach Scorecard ── */
+.scorecard-grid {
+  display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:16px;
+}
+.score-cell {
+  padding:16px 18px; border-radius:14px;
+  background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.07);
+  text-align:center;
+}
+.score-val { font-family:'Orbitron',monospace; font-size:28px; font-weight:900; line-height:1; margin-bottom:4px; }
+.score-dim { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.3); text-transform:uppercase; }
+.score-high { background:linear-gradient(135deg,#10b981,#059669); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.score-mid  { background:linear-gradient(135deg,#f59e0b,#d97706); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.score-low  { background:linear-gradient(135deg,#ef4444,#dc2626); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.coach-tip-box {
+  padding:16px 20px; border-radius:12px; margin-bottom:16px;
+  background:rgba(251,146,60,0.06); border:1px solid rgba(251,146,60,0.2);
+  border-left:3px solid rgba(251,146,60,0.6);
+}
+.coach-tip-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(251,146,60,0.7); margin-bottom:8px; }
+.coach-tip-text { font-family:'Rajdhani',sans-serif; font-size:14px; color:rgba(255,255,255,0.7); line-height:1.6; }
+
+/* ── STEP 21: Medical Expert Upgrades ── */
+.med-safety-banner {
+  padding:14px 20px; border-radius:12px; margin-bottom:20px;
+  background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3);
+  border-left:4px solid #ef4444;
+  display:flex; align-items:flex-start; gap:12px;
+}
+.med-safety-icon { font-size:22px; flex-shrink:0; }
+.med-safety-text { font-family:'Rajdhani',sans-serif; font-size:13px; color:rgba(255,255,255,0.6); line-height:1.6; }
+.med-safety-text strong { color:#f87171; }
+.severity-bar-wrap { margin:12px 0 20px; }
+.severity-label-row { display:flex; justify-content:space-between; font-family:'Space Mono',monospace; font-size:9px; color:rgba(255,255,255,0.3); margin-bottom:6px; }
+.severity-bar { height:6px; background:rgba(255,255,255,0.06); border-radius:100px; overflow:hidden; }
+.severity-fill {
+  height:100%; border-radius:100px;
+  background:linear-gradient(90deg,#10b981,#f59e0b,#ef4444);
+  transition:width 1s cubic-bezier(0.16,1,0.3,1);
+}
+.icd-chip {
+  display:inline-block; padding:4px 12px; border-radius:100px; margin:3px;
+  background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.25);
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1px; color:#22d3ee;
+}
+
+/* ── STEP 22: Research Pro Citation Cards ── */
+.citation-card {
+  padding:16px 18px; border-radius:14px; margin-bottom:10px;
+  background:rgba(15,23,42,0.65); border:1px solid rgba(255,255,255,0.07);
+  position:relative; transition:all 0.25s ease;
+}
+.citation-card:hover { border-color:rgba(99,102,241,0.3); transform:translateX(4px); }
+.citation-number {
+  position:absolute; top:-10px; left:16px;
+  width:22px; height:22px; border-radius:50%;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Space Mono',monospace; font-size:9px; font-weight:700; color:#fff;
+}
+.citation-title { font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:700; color:#fff; margin-bottom:4px; }
+.citation-meta  { font-family:'Space Mono',monospace; font-size:10px; color:rgba(255,255,255,0.35); letter-spacing:1px; }
+.cred-high { background:rgba(34,197,94,0.1);  border:1px solid rgba(34,197,94,0.25);  color:#4ade80; }
+.cred-med  { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); color:#fbbf24; }
+.cred-low  { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.35); }
+
+/* ── STEP 23: Stocks Dashboard Cards ── */
+.ticker-card {
+  padding:16px 18px; border-radius:14px;
+  background:rgba(15,23,42,0.7); border:1px solid rgba(255,255,255,0.07);
+  transition:all 0.25s ease; position:relative; overflow:hidden;
+}
+.ticker-card:hover { transform:translateY(-4px); border-color:rgba(99,102,241,0.3); }
+.ticker-symbol { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:#fff; }
+.ticker-price  { font-family:'Space Mono',monospace; font-size:24px; font-weight:700; color:#a5b4fc; }
+.ticker-change-pos { color:#4ade80; font-family:'Space Mono',monospace; font-size:13px; font-weight:700; }
+.ticker-change-neg { color:#f87171; font-family:'Space Mono',monospace; font-size:13px; font-weight:700; }
+.sentiment-gauge-wrap { text-align:center; margin:16px 0; }
+.sentiment-gauge-label { font-family:'Orbitron',monospace; font-size:12px; font-weight:700; letter-spacing:3px; margin-top:8px; }
+
+/* ── STEP 25: Pomodoro Ring Timer ── */
+.pomo-timer-wrap { display:flex; flex-direction:column; align-items:center; gap:16px; padding:24px 0; }
+.pomo-ring-svg { transform:rotate(-90deg); filter:drop-shadow(0 0 16px rgba(99,102,241,0.3)); }
+.pomo-ring-bg   { fill:none; stroke:rgba(255,255,255,0.05); stroke-width:8; }
+.pomo-ring-fill { fill:none; stroke:url(#pomoGrad); stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset 1s linear; }
+.pomo-time-label { font-family:'Orbitron',monospace; font-size:36px; font-weight:900; color:#fff; letter-spacing:4px; }
+.pomo-state-label { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:4px; color:rgba(255,255,255,0.4); text-transform:uppercase; }
+.pomo-controls { display:flex; gap:12px; }
+.pomo-sessions-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; justify-content:center; }
+.pomo-session-dot { width:12px; height:12px; border-radius:3px; }
+.pomo-done { background:linear-gradient(135deg,#6366f1,#8b5cf6); }
+.pomo-pending { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.1); }
+
+/* ── STEP 27: Smart Notes UI ── */
+.note-tag-strip { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.note-tag {
+  padding:4px 12px; border-radius:100px;
+  font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px;
+  transition:all 0.2s ease; cursor:default;
+}
+.nt1 { background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.25); color:#a5b4fc; }
+.nt2 { background:rgba(6,182,212,0.1);  border:1px solid rgba(6,182,212,0.25);  color:#22d3ee; }
+.nt3 { background:rgba(34,197,94,0.1);  border:1px solid rgba(34,197,94,0.25);  color:#4ade80; }
+.nt4 { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25); color:#fbbf24; }
+.note-tag:hover { transform:translateY(-2px); filter:brightness(1.3); }
+.note-card {
+  background:rgba(15,23,42,0.7); border:1px solid rgba(99,102,241,0.15);
+  border-radius:16px; padding:24px 28px;
+}
+.note-simplified-badge {
+  display:inline-flex; align-items:center; gap:7px; margin-bottom:12px;
+  padding:5px 14px; border-radius:100px;
+  background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.2);
+  font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:#4ade80;
+}
+
+/* ── STEP 28: Language Tools UI ── */
+.lang-counter-row {
+  display:flex; gap:16px; font-family:'Space Mono',monospace; font-size:10px;
+  color:rgba(255,255,255,0.25); letter-spacing:2px; margin-top:4px; margin-bottom:12px;
+}
+.lang-counter-val { color:rgba(165,180,252,0.7); font-weight:700; }
+.pronunciation-box {
+  padding:16px 20px; border-radius:12px; margin-top:12px;
+  background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.15);
+  border-left:3px solid rgba(99,102,241,0.5);
+}
+.pronunciation-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(99,102,241,0.6); margin-bottom:8px; }
+.pronunciation-ipa { font-family:'Space Mono',monospace; font-size:16px; color:#a5b4fc; letter-spacing:2px; }
+.lang-fact-card {
+  margin-top:16px; padding:16px 20px; border-radius:12px;
+  background:rgba(15,23,42,0.5); border:1px solid rgba(255,255,255,0.07);
+  border-left:3px solid rgba(6,182,212,0.5); position:relative;
+}
+.lang-fact-quote { font-size:32px; color:rgba(6,182,212,0.2); position:absolute; top:8px; left:12px; font-family:Georgia,serif; line-height:1; }
+.lang-fact-text { font-family:'Rajdhani',sans-serif; font-size:14px; color:rgba(255,255,255,0.6); line-height:1.6; padding-left:20px; }
+
+/* ── STEP 29: Graph Plotter Enhancements ── */
+.eq-preset-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.eq-preset-chip {
+  padding:7px 14px; border-radius:100px; cursor:pointer;
+  background:rgba(15,23,42,0.7); border:1px solid rgba(99,102,241,0.2);
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1px; color:#a5b4fc;
+  transition:all 0.2s ease;
+}
+.eq-preset-chip:hover { background:rgba(99,102,241,0.12); border-color:rgba(99,102,241,0.45); color:#fff; transform:translateY(-2px); }
+.graph-library-item {
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+  background:rgba(15,23,42,0.5); border:1px solid rgba(255,255,255,0.07);
+  border-radius:10px; margin-bottom:6px;
+  font-family:'Rajdhani',sans-serif; font-size:13px; color:rgba(255,255,255,0.6);
+  transition:all 0.2s ease;
+}
+.graph-library-item:hover { border-color:rgba(99,102,241,0.3); color:#fff; }
+.eq-mono { font-family:'Space Mono',monospace; font-size:12px; color:#a5b4fc; }
+
+/* ── STEP 30: Study Recommendation Engine ── */
+.study-recs-section { margin:24px 0 8px; }
+.study-recs-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px;
+}
+.study-recs-title {
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:4px;
+  color:rgba(255,255,255,0.3); text-transform:uppercase;
+}
+.rec-card {
+  padding:16px 20px; border-radius:14px; margin-bottom:10px;
+  background:rgba(15,23,42,0.65); border:1px solid rgba(255,255,255,0.07);
+  display:flex; align-items:center; gap:16px;
+  transition:all 0.25s ease;
+  animation:bubbleIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  position:relative; overflow:hidden;
+}
+.rec-card::before {
+  content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+  background:var(--rec-color, linear-gradient(180deg,#6366f1,#8b5cf6));
+}
+.rec-card:hover { border-color:rgba(99,102,241,0.25); transform:translateX(4px); }
+.rec-icon { font-size:28px; flex-shrink:0; }
+.rec-body { flex:1; min-width:0; }
+.rec-topic { font-family:'Rajdhani',sans-serif; font-size:15px; font-weight:700; color:#fff; margin-bottom:4px; }
+.rec-meta  { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.rec-tag   { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:rgba(255,255,255,0.3); }
+.rec-time  { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1px; color:rgba(6,182,212,0.7); }
+.rec-diff-beginner    { background:rgba(34,197,94,0.1);  border:1px solid rgba(34,197,94,0.2);  color:#4ade80;  font-family:'Space Mono',monospace; font-size:8px; letter-spacing:2px; padding:2px 8px; border-radius:100px; }
+.rec-diff-intermediate{ background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.2); color:#fbbf24; font-family:'Space Mono',monospace; font-size:8px; letter-spacing:2px; padding:2px 8px; border-radius:100px; }
+.rec-diff-advanced    { background:rgba(239,68,68,0.1);  border:1px solid rgba(239,68,68,0.2);  color:#f87171;  font-family:'Space Mono',monospace; font-size:8px; letter-spacing:2px; padding:2px 8px; border-radius:100px; }
 
     </style>
     <div class="lp-bg"></div>
@@ -4400,7 +4755,19 @@ with st.sidebar:
         render_api_status()
         st.divider()
 
-        render_stats_dashboard()
+        # ── Stats row ──────────────────────────────
+        msg_count = len(st.session_state.messages)
+        src_count = len(st.session_state.context_sources)
+        ctx_kb    = round(len(st.session_state.context_text) / 1024, 1)
+        tok_used  = st.session_state.get("total_tokens_used", 0)
+        st.markdown(f"""
+        <div class="stat-row">
+          <div class="stat-box"><div class="stat-val">{msg_count}</div><div class="stat-lbl">Msgs</div></div>
+          <div class="stat-box"><div class="stat-val">{src_count}</div><div class="stat-lbl">Sources</div></div>
+          <div class="stat-box"><div class="stat-val">{ctx_kb}k</div><div class="stat-lbl">Context</div></div>
+          <div class="stat-box"><div class="stat-val">{tok_used//1000}k</div><div class="stat-lbl">Tokens</div></div>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.divider()
 
@@ -4996,32 +5363,33 @@ with st.sidebar:
     except Exception as _se:
         st.caption(f"Sound player unavailable: {_se}")
 
-    # STEP 02: Active tool banner
-    current_mode = st.session_state.get("app_mode", "chat")
-    mode_labels = {
-        "chat": "💬 Chat Mode", "flashcards": "🃏 Flashcards",
-        "quiz": "📝 Quiz Mode", "mindmap": "📊 Mind Map",
-        "debugger": "🐛 Code Debugger", "essay_writer": "📄 Essay Writer",
-        "interview_coach": "🎤 Interview Coach", "legal_expert": "⚖️ Legal Expert",
-        "medical_expert": "🩺 Medical Guide", "math_solver": "🎯 Math Solver",
-        "stocks": "💹 Stocks Dashboard", "research_pro": "🔬 Research Pro",
-        "circuit_solver": "⚡ Circuit Solver", "dictionary": "📚 Dictionary",
-    }
-    mode_display = mode_labels.get(current_mode, f"⚙️ {current_mode.replace('_',' ').title()}")
-    st.markdown(f"""
-    <div class="active-tool-banner">
-      <div class="active-tool-dot"></div>
-      ACTIVE: {mode_display}
-    </div>""", unsafe_allow_html=True)
+    
+# STEP 02: Active tool banner
+current_mode = st.session_state.get("app_mode", "chat")
+mode_labels = {
+    "chat": "💬 Chat Mode", "flashcards": "🃏 Flashcards",
+    "quiz": "📝 Quiz Mode", "mindmap": "📊 Mind Map",
+    "debugger": "🐛 Code Debugger", "essay_writer": "📄 Essay Writer",
+    "interview_coach": "🎤 Interview Coach", "legal_expert": "⚖️ Legal Expert",
+    "medical_expert": "🩺 Medical Guide", "math_solver": "🎯 Math Solver",
+    "stocks": "💹 Stocks Dashboard", "research_pro": "🔬 Research Pro",
+    "circuit_solver": "⚡ Circuit Solver", "dictionary": "📚 Dictionary",
+}
+mode_display = mode_labels.get(current_mode, f"⚙️ {current_mode.replace('_',' ').title()}")
+st.markdown(f"""
+<div class="active-tool-banner">
+  <div class="active-tool-dot"></div>
+  ACTIVE: {mode_display}
+</div>""", unsafe_allow_html=True)
 
-    with st.expander("🛠️ Study Toolbox", expanded=True):
-        _tools = [
-            ("🃏", "Flashcards",      "Generate Q&A deck",           "flashcards"),
-            ("📝", "Quiz Mode",       "MCQ assessment",               "quiz"),
-            ("📊", "Mind Map",        "Visual concept map",           "mindmap"),
-            ("📅", "Study Planner",   "Revision timetable",          "planner"),
-            ("📈", "Graph Plotter",   "Plot equations",               "graph"),
-            ("✍️", "Story Builder",   "AI creative writing",          "story"),
+st.markdown('<div class="section-label">🛠️ Study Toolbox</div>', unsafe_allow_html=True)
+    _tools = [
+        ("🃏", "Flashcards",      "Generate Q&A deck",           "flashcards"),
+        ("📝", "Quiz Mode",       "MCQ assessment",               "quiz"),
+        ("📊", "Mind Map",        "Visual concept map",           "mindmap"),
+        ("📅", "Study Planner",   "Revision timetable",          "planner"),
+        ("📈", "Graph Plotter",   "Plot equations",               "graph"),
+        ("✍️", "Story Builder",   "AI creative writing",          "story"),
         ("🐛", "Code Debugger",   "Fix code in any language",     "debugger"),
         ("🎓", "Learn Coding",    "Interactive coding tutor",     "learn_coding"),
         ("📄", "Essay Writer",    "AI academic essay generator",  "essay_writer"),
@@ -5033,53 +5401,54 @@ with st.sidebar:
         ("🧮", "Science Solver",  "Math & science step solver",   "science_solver"),
         ("📓", "Smart Notes",     "AI notes from any content",    "smart_notes"),
         ("💬", "Chat",            "Standard AI study chat",       "chat"),
-        ]
-        for icon, name, desc, mode in _tools:
-            col_icon, col_info, col_btn = st.columns([1, 4, 2])
-            with col_icon:
-                st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
-            with col_info:
-                st.markdown(
-                    f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
-                    f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
-                    unsafe_allow_html=True)
-            with col_btn:
-                if st.button("Open", key=f"tool_{mode}", use_container_width=True):
-                    st.session_state.app_mode = mode
-                    st.rerun()
+    ]
+    for icon, name, desc, mode in _tools:
+        col_icon, col_info, col_btn = st.columns([1, 4, 2])
+        with col_icon:
+            st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
+        with col_info:
+            st.markdown(
+                f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
+                f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
+                unsafe_allow_html=True)
+        with col_btn:
+            if st.button("Open", key=f"tool_{mode}", use_container_width=True):
+                st.session_state.app_mode = mode
+                st.rerun()
 
-    with st.expander("⚡ Exotic Power Tools", expanded=False):
-        _power_tools = [
-            ("🔄", "Universal Converter", "Convert any file format instantly", "file_converter"),
-            ("📚", "Citation Gen",        "IEEE/APA/MLA AI generator",      "citation_gen"),
-            ("🔣", "Regex Builder",      "AI regex architect & tester",    "regex_tester"),
-            ("🔲", "QR Code Engine",      "Generate pro QR codes & data links", "qr_creator"),
-            ("🤖", "AI Text Humaniser",   "Bypass AI detectors & sound human", "ai_humaniser"),
-            ("🎨", "HTML Generator",      "AI to beautiful single-page website", "html_generator"),
-            ("🕵️", "Reverse Image Search", "AI vision lookup & deep analysis", "image_searcher"),
-            ("📰", "AI News Hub",         "Live AI news & tool recommendations", "news_hub"),
-            ("🗺️", "Campus & India Map",  "VIT Campus Guide & Trip Planner", "map_planner"),
-            ("🔀", "Code Converter",      "AI code translation + diff + zip",   "code_converter"),
-            ("🛒", "Smart Shopping",      "Compare prices across platforms",     "smart_shopping"),
-            ("🔬", "Context Focus",       "Deep internet research engine",      "context_focus"),
-            ("🎯", "Presentation AI",     "Generate slide decks with real data", "presentation_builder"),
-            ("🔥", "AI Companion",         "Nova · Luna · Zara — personas, scenarios & stories", "ai_companion"),
-            ("📎", "Doc Analyser",         "Review any file: what\u2019s good, what to add", "doc_analyser"),
-            ("🎵", "Sound Library",        "50+ ambient background sounds for focus", "bg_sounds"),
-        ]
-        for icon, name, desc, mode in _power_tools:
-            col_icon, col_info, col_btn = st.columns([1, 4, 2])
-            with col_icon:
-                st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
-            with col_info:
-                st.markdown(
-                    f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
-                    f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
-                    unsafe_allow_html=True)
-            with col_btn:
-                if st.button("Launch", key=f"ptool_{mode}", use_container_width=True):
-                    st.session_state.app_mode = mode
-                    st.rerun()
+    # ── Exotic Power Tools ──────────────────────
+    st.markdown('<div class="section-label">⚡ Exotic Power Tools</div>', unsafe_allow_html=True)
+    _power_tools = [
+        ("🔄", "Universal Converter", "Convert any file format instantly", "file_converter"),
+        ("📚", "Citation Gen",        "IEEE/APA/MLA AI generator",      "citation_gen"),
+        ("🔣", "Regex Builder",      "AI regex architect & tester",    "regex_tester"),
+        ("🔲", "QR Code Engine",      "Generate pro QR codes & data links", "qr_creator"),
+        ("🤖", "AI Text Humaniser",   "Bypass AI detectors & sound human", "ai_humaniser"),
+        ("🎨", "HTML Generator",      "AI to beautiful single-page website", "html_generator"),
+        ("🕵️", "Reverse Image Search", "AI vision lookup & deep analysis", "image_searcher"),
+        ("📰", "AI News Hub",         "Live AI news & tool recommendations", "news_hub"),
+        ("🗺️", "Campus & India Map",  "VIT Campus Guide & Trip Planner", "map_planner"),
+        ("🔀", "Code Converter",      "AI code translation + diff + zip",   "code_converter"),
+        ("🛒", "Smart Shopping",      "Compare prices across platforms",     "smart_shopping"),
+        ("🔬", "Context Focus",       "Deep internet research engine",      "context_focus"),
+        ("🎯", "Presentation AI",     "Generate slide decks with real data", "presentation_builder"),
+        ("🔥", "AI Companion",         "Nova · Luna · Zara — personas, scenarios & stories", "ai_companion"),
+        ("📎", "Doc Analyser",         "Review any file: what\u2019s good, what to add", "doc_analyser"),
+        ("🎵", "Sound Library",        "50+ ambient background sounds for focus", "bg_sounds"),
+    ]
+    for icon, name, desc, mode in _power_tools:
+        col_icon, col_info, col_btn = st.columns([1, 4, 2])
+        with col_icon:
+            st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
+        with col_info:
+            st.markdown(
+                f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
+                f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
+                unsafe_allow_html=True)
+        with col_btn:
+            if st.button("Launch", key=f"ptool_{mode}", use_container_width=True):
+                st.session_state.app_mode = mode
+                st.rerun()
 
     # ── Account ──────────────────────────────────────────────────────
     # (Google Suite & Stripe integrations coming soon)
@@ -5123,6 +5492,59 @@ def render_hero_header_v2():
     """, unsafe_allow_html=True)
 
 
+def render_hero_header_v2():
+    """STEP 01: Animated hero header with live clock badge."""
+    persona = get_persona_by_name(st.session_state.selected_persona)
+    persona_tag = ""
+    if persona and st.session_state.selected_persona != "Default (ExamHelp)":
+        persona_tag = f' · {persona["emoji"]} {persona["name"]}'
+
+    st.markdown(f"""
+    <div class="hero-header-v2">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="hero-title-v2">ExamHelp AI{persona_tag}</div>
+          <div class="hero-sub-v2">Cognitive Force Multiplier · Enterprise v5.0.3</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+          <div class="hero-badge-active">
+            <div class="badge-dot-green"></div>AI ACTIVE
+          </div>
+          <div class="hero-live-clock" id="live-clock-01">--:--:--</div>
+        </div>
+      </div>
+    </div>
+    <script>
+    (function(){{
+      function tick(){{
+        var d=new Date();
+        var t=d.toLocaleTimeString('en-US',{{hour:'2-digit',minute:'2-digit',second:'2-digit'}});
+        var el=document.getElementById('live-clock-01');
+        if(el) el.textContent=t;
+      }}
+      tick(); setInterval(tick,1000);
+    }})();
+    </script>
+    """, unsafe_allow_html=True)
+
+# STEP 02: Active tool banner
+current_mode = st.session_state.get("app_mode", "chat")
+mode_labels = {
+    "chat": "💬 Chat Mode", "flashcards": "🃏 Flashcards",
+    "quiz": "📝 Quiz Mode", "mindmap": "📊 Mind Map",
+    "debugger": "🐛 Code Debugger", "essay_writer": "📄 Essay Writer",
+    "interview_coach": "🎤 Interview Coach", "legal_expert": "⚖️ Legal Expert",
+    "medical_expert": "🩺 Medical Guide", "math_solver": "🎯 Math Solver",
+    "stocks": "💹 Stocks Dashboard", "research_pro": "🔬 Research Pro",
+    "circuit_solver": "⚡ Circuit Solver", "dictionary": "📚 Dictionary",
+}
+mode_display = mode_labels.get(current_mode, f"⚙️ {current_mode.replace('_',' ').title()}")
+st.markdown(f"""
+<div class="active-tool-banner">
+  <div class="active-tool-dot"></div>
+  ACTIVE: {mode_display}
+</div>""", unsafe_allow_html=True)
+
 def render_stats_dashboard():
     """STEP 03: Animated stats mini-dashboard."""
     msg_count = len(st.session_state.messages)
@@ -5130,8 +5552,11 @@ def render_stats_dashboard():
     ctx_chars = len(st.session_state.context_text)
     ctx_kb = round(ctx_chars / 1024, 1)
     tok_used = st.session_state.get("total_tokens_used", 0)
+    # Context load: cap at 128k chars = 100%
     ctx_pct = min(100, int((ctx_chars / 131072) * 100))
+    # Session intensity: messages out of 50
     intensity_pct = min(100, int((msg_count / 50) * 100))
+    # Token budget: out of 1M tokens
     token_pct = min(100, int((tok_used / 1_000_000) * 100))
 
     st.markdown(f"""
@@ -5154,7 +5579,6 @@ def render_stats_dashboard():
       </div>
     </div>
     """, unsafe_allow_html=True)
-
 
 def render_quick_actions_toolbar():
     """STEP 04: Floating quick-actions toolbar above the chat input."""
@@ -5188,93 +5612,105 @@ def render_quick_actions_toolbar():
                     st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
+def render_source_cards():
+    """STEP 06: Render visual source cards with summarize action."""
+    if "source_summaries" not in st.session_state:
+        st.session_state["source_summaries"] = {}
 
-def render_premium_chat_message(msg_content: str, role: str, msg_idx: int, avatar: str):
-    """STEP 05: Render premium chat message bubble with CSS + React-style action buttons."""
-    user_class = "bubble-user" if role == "user" else "bubble-assistant"
-    
-    st.markdown(f'<div class="chat-bubble-wrap {user_class}">', unsafe_allow_html=True)
-    st.markdown(f'<div class="bubble-avatar">{avatar}</div>', unsafe_allow_html=True)
-    
-    # We must use st.container to render the markdown content safely inside the structure
-    with st.container():
-        st.markdown(f'<div class="bubble-content">', unsafe_allow_html=True)
-        st.markdown(msg_content)
-        
-        if role == "assistant":
-            # Action buttons
-            st.markdown('<div class="bubble-actions">', unsafe_allow_html=True)
-            col1, col2, col3, _ = st.columns([1,1,1,10])
-            with col1:
-                if st.button("📋", key=f"s5_c_{msg_idx}", help="Copy"):
-                    st.toast("Copied!")
-            with col2:
-                if st.button("⭐", key=f"s5_b_{msg_idx}", help="Bookmark"):
-                    st.toast("Bookmarked!")
-            with col3:
-                if st.button("🔊", key=f"s5_s_{msg_idx}", help="Read"):
-                    st.toast("Reading...")
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-        st.markdown('</div></div>', unsafe_allow_html=True)
-
-
-def render_smart_context_panel():
-    """STEP 06: Visual context source cards."""
-    if not st.session_state.context_sources:
+    sources = st.session_state.get("context_sources", [])
+    if not sources:
         return
-    
-    st.markdown('<div class="section-label" style="margin-top:20px;">📚 ACTIVE SOURCES</div>', unsafe_allow_html=True)
-    st.markdown('<div class="ctx-panel">', unsafe_allow_html=True)
-    
-    icons = {"pdf":"📄","youtube":"▶️","web":"🌐","ocr":"📸"}
-    
-    cols = st.columns(max(1, len(st.session_state.context_sources)))
-    for i, s in enumerate(st.session_state.context_sources):
-        with cols[i]:
-            ctype = s.get('type', 'txt')
-            icon = icons.get(ctype, '📎')
+
+    type_icons = {"pdf": "📄", "youtube": "▶️", "web": "🌐", "ocr": "📸", "text": "📝"}
+    cols = st.columns(min(len(sources), 3))
+
+    for i, src in enumerate(sources):
+        with cols[i % 3]:
+            icon = type_icons.get(src.get("type", "text"), "📎")
+            label = src.get("label", "Unknown")
+            char_count = len(src.get("text", st.session_state.get("context_text", "")))
             st.markdown(f"""
-            <div class="ctx-card" style="animation-delay:{i*0.05}s">
-                <div class="ctx-card-bg">{icon}</div>
-                <div class="ctx-card-type">{ctype}</div>
-                <div class="ctx-card-label">{s['label']}</div>
+            <div class="source-card">
+              <div class="source-card-header">
+                <span class="source-card-icon">{icon}</span>
+                <span class="source-card-title">{label[:35]}{'…' if len(label)>35 else ''}</span>
+              </div>
+              <div class="source-card-meta">{src.get("type","text").upper()} SOURCE</div>
+              <div class="source-card-badge">{char_count:,} chars</div>
             </div>""", unsafe_allow_html=True)
-            if st.button("❌ Remove", key=f"s6_rm_{i}", help="Remove source"):
-                st.session_state.context_sources.pop(i)
-                # Naive text clearing, real app would keep track of blocks
-                st.session_state.context_text = "" 
-                st.rerun()
-                
-    st.markdown('</div>', unsafe_allow_html=True)
 
+            if st.button("✨ Summarize", key=f"s06_sum_{i}", use_container_width=True):
+                if label not in st.session_state["source_summaries"]:
+                    ctx_snippet = st.session_state.get("context_text", "")[:4000]
+                    with st.spinner("Distilling key ideas…"):
+                        try:
+                            from utils import ai_engine
+                            summary = ai_engine.generate(
+                                prompt=f"Summarize this content in exactly 3 sentences. Be academic and precise:\n\n{ctx_snippet}",
+                                system="You are a research summarizer. Return exactly 3 sentences, no more.",
+                                max_tokens=200
+                            )
+                            st.session_state["source_summaries"][label] = summary
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"⚠️ Summarize failed: {e}")
 
-def render_persona_carousel():
-    """STEP 08: Interacting Persona Carousel"""
-    names = get_persona_names()
-    current = st.session_state.get("selected_persona", "Default (ExamHelp)")
-    
-    st.markdown('<div class="persona-carousel">', unsafe_allow_html=True)
-    cols = st.columns(len(names))
-    for i, name in enumerate(names):
-        p = get_persona_by_name(name)
-        active = "⭐ " if name == current else ""
-        with cols[i]:
-            if st.button(f"{active}{p['emoji']}\n{name}", key=f"p_{i}", use_container_width=True):
-                st.session_state.selected_persona = name
-                st.session_state.messages = []
+            if label in st.session_state["source_summaries"]:
+                st.markdown(f'<div class="source-summary-box">{st.session_state["source_summaries"][label]}</div>',
+                            unsafe_allow_html=True)
+
+            if st.button("🗑 Remove", key=f"s06_rem_{i}"):
+                st.session_state.context_sources = [
+                    s for j, s in enumerate(sources) if j != i
+                ]
+                if label in st.session_state["source_summaries"]:
+                    del st.session_state["source_summaries"][label]
+                if len(st.session_state.context_sources) == 0:
+                    st.session_state.context_text = ""
                 st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def show_typing_indicator():
-    """STEP 07: Show animated typing indicator."""
-    return """
+    """STEP 07: Show animated typing indicator while AI generates."""
+    return st.markdown("""
     <div class="typing-indicator">
       <div class="typing-dot"></div>
       <div class="typing-dot"></div>
       <div class="typing-dot"></div>
       <span class="typing-label">AI is thinking…</span>
-    </div>"""
+    </div>""", unsafe_allow_html=True)
+
+def render_persona_carousel():
+    """STEP 08: Horizontal persona quick-switch carousel."""
+    from utils.personas import PERSONAS, get_persona_names, get_persona_by_name
+    all_names = get_persona_names()[:9]  # Show first 9
+    current = st.session_state.get("selected_persona", "Default (ExamHelp)")
+
+    chips_html = '<div class="persona-carousel">'
+    for name in all_names:
+        p = get_persona_by_name(name)
+        if not p:
+            emoji, short = "🤖", name[:8]
+        else:
+            emoji = p.get("emoji", "🤖")
+            short = p.get("name", name)[:9]
+        active_cls = "persona-chip-active" if name == current else ""
+        chips_html += f"""
+        <div class="persona-chip-v2 {active_cls}" title="{name}">
+          <span class="persona-chip-emoji">{emoji}</span>
+          <span class="persona-chip-name">{short}</span>
+        </div>"""
+    chips_html += '</div>'
+    st.markdown(chips_html, unsafe_allow_html=True)
+
+    # Selectbox-based switcher (functional driver behind the visual carousel)
+    selected = st.selectbox(
+        "Switch persona", all_names,
+        index=all_names.index(current) if current in all_names else 0,
+        label_visibility="collapsed", key="s08_persona_switcher"
+    )
+    if selected != current:
+        st.session_state.selected_persona = selected
+        st.rerun()
 
 def render_quick_prompts():
     """STEP 09: Context-aware quick prompt suggestion grid."""
@@ -5311,7 +5747,6 @@ def render_quick_prompts():
 
     st.markdown('</div></div>', unsafe_allow_html=True)
 
-
 def render_tool_loader(tool_name: str, tool_icon: str = "⚙️"):
     """STEP 10: Show animated transition loader for tool switches."""
     st.markdown(f"""
@@ -5322,8 +5757,7 @@ def render_tool_loader(tool_name: str, tool_icon: str = "⚙️"):
         <div class="tool-loader-bar"></div>
       </div>
     </div>""", unsafe_allow_html=True)
-    import time; time.sleep(0.15)
-
+    import time; time.sleep(0.15)  # Brief render pause for animation
 
 def render_followup_suggestions(msg_content: str, msg_idx: int):
     """STEP 11: Render AI-generated follow-up question chips."""
@@ -5336,9 +5770,10 @@ def render_followup_suggestions(msg_content: str, msg_idx: int):
         if msg_idx == len([m for m in st.session_state.messages if m["role"]=="assistant"]) - 1:
             try:
                 from utils import ai_engine
-                raw = ai_engine.quick_generate(
+                raw = ai_engine.generate(
                     prompt=f"This was an AI study assistant's answer:\n\n{msg_content[:800]}\n\nGenerate 3 short follow-up questions a student might ask. Return ONLY a JSON array of 3 strings, no other text.",
-                    system="Return only a valid JSON array of 3 short question strings."
+                    system="Return only a valid JSON array of 3 short question strings.",
+                    max_tokens=120
                 )
                 import json, re
                 match = re.search(r'\[.*?\]', raw, re.DOTALL)
@@ -5358,6 +5793,262 @@ def render_followup_suggestions(msg_content: str, msg_idx: int):
                     st.session_state.queued_prompt = q
                     st.rerun()
 
+def render_planner_heatmap():
+    """STEP 16: Pomodoro log calendar heatmap."""
+    import datetime
+    if px is None:
+        st.info("Plotly required for heatmap.")
+        return
+
+    pom_log = st.session_state.get("pomodoro_log", [])
+    if not pom_log:
+        st.caption("📊 Study heatmap will appear after your first Pomodoro session.")
+        return
+
+    # Build date → count mapping
+    date_counts = {}
+    for entry in pom_log:
+        if isinstance(entry, dict):
+            d = entry.get("date", str(datetime.date.today()))
+        else:
+            d = str(datetime.date.today())
+        date_counts[d] = date_counts.get(d, 0) + 1
+
+    if pd:
+        df_heat = pd.DataFrame(
+            [{"date": k, "sessions": v} for k, v in date_counts.items()]
+        )
+        df_heat["date"] = pd.to_datetime(df_heat["date"])
+        fig = px.scatter(df_heat, x="date", y="sessions", size="sessions",
+                         color="sessions", color_continuous_scale="Viridis",
+                         title="📅 Study Session Heatmap",
+                         template="plotly_dark")
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            showlegend=False, height=220,
+            margin=dict(l=10, r=10, t=40, b=10)
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+
+def export_ics_file(plan_text: str, exam_date) -> str:
+    """STEP 16: Generate basic .ics file from planner text."""
+    import datetime
+    lines = plan_text.split('\n')
+    events = []
+    for i, line in enumerate(lines[:10]):
+        if line.strip():
+            event_date = exam_date - datetime.timedelta(days=10 - i)
+            dtstart = event_date.strftime('%Y%m%d')
+            events.append(f"""BEGIN:VEVENT
+DTSTART;VALUE=DATE:{dtstart}
+DTEND;VALUE=DATE:{dtstart}
+SUMMARY:{line[:60].strip()}
+DESCRIPTION:ExamHelp AI Study Planner
+END:VEVENT""")
+    ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ExamHelp AI//EN\n"
+    ics += "\n".join(events)
+    ics += "\nEND:VCALENDAR"
+    return ics
+
+def classify_bug_severity(error_text: str) -> tuple:
+    """STEP 17: Classify bug severity from error message."""
+    error_lower = (error_text or "").lower()
+    if any(k in error_lower for k in ["exception", "crash", "segfault", "null pointer", "fatal", "critical", "traceback"]):
+        return "CRITICAL", "sev-critical"
+    elif any(k in error_lower for k in ["warning", "deprecated", "warn", "undefined", "none", "attribute"]):
+        return "WARNING", "sev-warning"
+    else:
+        return "INFO", "sev-info"
+
+
+def parse_debug_response(response_text: str) -> dict:
+    """STEP 17: Parse structured debugger AI response into sections."""
+    import re
+    sections = {"summary": "", "root_cause": "", "fixed_code": "", "explanation": ""}
+    # Try to extract code blocks
+    code_match = re.search(r'
+def estimate_plagiarism_risk(text: str) -> tuple:
+    """STEP 18: Heuristic plagiarism risk estimation."""
+    COMMON_PHRASES = ["in conclusion", "it is important to", "in today's world",
+                      "throughout history", "in summary", "it can be seen that",
+                      "furthermore", "additionally", "as a result", "for instance"]
+    count = sum(1 for p in COMMON_PHRASES if p in text.lower())
+    if count <= 2:
+        return "LOW RISK", "plag-low", count
+    elif count <= 5:
+        return "MODERATE", "plag-med", count
+    else:
+        return "HIGH RISK", "plag-high", count
+
+
+def render_essay_outline(essay_text: str):
+    """STEP 18: Extract and display essay structure outline."""
+    import re
+    headings = re.findall(r'^#{1,3}\s+(.+)$', essay_text, re.MULTILINE)
+    # Also catch bold section titles
+    bold_titles = re.findall(r'^\*\*(.+)\*\*$', essay_text, re.MULTILINE)
+    all_sections = headings + bold_titles
+
+    if not all_sections:
+        return
+
+    st.markdown('<div class="essay-outline-panel">', unsafe_allow_html=True)
+    st.markdown('<div style="font-family:\'Space Mono\',monospace;font-size:9px;letter-spacing:3px;color:rgba(255,255,255,0.3);margin-bottom:10px;">ESSAY STRUCTURE</div>', unsafe_allow_html=True)
+    for section in all_sections[:8]:
+        st.markdown(f'<div class="essay-outline-item"><div class="essay-outline-dot"></div>{section}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def render_interview_scorecard(scores: dict, tip: str):
+    """STEP 19: Render interview answer scorecard with radar chart."""
+    dims = ["Clarity", "Relevance", "STAR Structure", "Confidence"]
+    vals = [scores.get(d.lower().replace(" ","_"), 5) for d in dims]
+
+    st.markdown('<div class="scorecard-grid">', unsafe_allow_html=True)
+    for dim, val in zip(dims, vals):
+        cls = "score-high" if val >= 8 else ("score-mid" if val >= 5 else "score-low")
+        st.markdown(f"""
+        <div class="score-cell">
+          <div class="score-val {cls}">{val}</div>
+          <div class="score-dim">{dim}</div>
+        </div>""", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if tip:
+        st.markdown(f"""
+        <div class="coach-tip-box">
+          <div class="coach-tip-label">🔥 COACH'S TOP TIP</div>
+          <div class="coach-tip-text">{tip}</div>
+        </div>""", unsafe_allow_html=True)
+
+    if px:
+        import plotly.graph_objects as go_local
+        fig = go_local.Figure(go_local.Scatterpolar(
+            r=vals + [vals[0]],
+            theta=dims + [dims[0]],
+            fill='toself',
+            fillcolor='rgba(99,102,241,0.15)',
+            line=dict(color='rgba(99,102,241,0.7)', width=2),
+        ))
+        fig.update_layout(
+            polar=dict(
+                bgcolor='rgba(0,0,0,0)',
+                radialaxis=dict(visible=True, range=[0,10], color='rgba(255,255,255,0.2)', showticklabels=False),
+                angularaxis=dict(color='rgba(255,255,255,0.4)', tickfont=dict(size=11, color='rgba(255,255,255,0.5)'))
+            ),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            showlegend=False,
+            height=260,
+            margin=dict(l=40,r=40,t=20,b=20)
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+EQUATION_PRESETS = [
+    ("∿ Sine",        "sin(x)"),
+    ("⌒ Parabola",    "x**2"),
+    ("⊃ Normal Dist", "exp(-x**2/2) / sqrt(2*pi)"),
+    ("S Logistic",    "1 / (1 + exp(-x))"),
+    ("≈ Damped Osc",  "exp(-0.1*x) * cos(x)"),
+    ("∞ Spiral",      "x * sin(x)"),
+]
+
+def render_equation_presets():
+    """STEP 29: Equation preset quick-fill buttons."""
+    if "graph_library" not in st.session_state:
+        st.session_state["graph_library"] = []
+
+    st.markdown('<div class="eq-preset-row">', unsafe_allow_html=True)
+    cols = st.columns(len(EQUATION_PRESETS))
+    for i, (label, eq) in enumerate(EQUATION_PRESETS):
+        with cols[i]:
+            if st.button(label, key=f"s29_preset_{i}", use_container_width=True):
+                st.session_state["graph_eq_input"] = eq
+                st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def render_study_recommendations():
+    """STEP 30: AI-powered personalized study recommendation engine."""
+    import time, json, re
+
+    CACHE_TTL = 600  # 10 minutes
+    now = time.time()
+    cache = st.session_state.get("study_recs", {})
+    cache_time = st.session_state.get("study_recs_time", 0)
+    recs = cache.get("items", [])
+
+    show_regen = now - cache_time > CACHE_TTL or not recs
+
+    st.markdown('<div class="study-recs-section">', unsafe_allow_html=True)
+
+    header_cols = st.columns([6, 2])
+    with header_cols[0]:
+        st.markdown('<div class="study-recs-title">✦ What to Study Next</div>', unsafe_allow_html=True)
+    with header_cols[1]:
+        regen_clicked = st.button("🔄 Refresh", key="s30_regen_recs", use_container_width=True)
+
+    if show_regen or regen_clicked:
+        recent_msgs = st.session_state.get("messages", [])[-6:]
+        context_snippet = " | ".join([m["content"][:120] for m in recent_msgs if m.get("role") == "user"])
+        persona = st.session_state.get("selected_persona", "Default")
+        exam_date = str(st.session_state.get("exam_date", ""))
+
+        prompt = f"""Based on the student's recent activity: "{context_snippet or 'General study session'}"
+Persona chosen: {persona}. Exam date: {exam_date}.
+Generate exactly 3 personalized study topic recommendations. Return ONLY a JSON array of 3 objects with keys:
+"icon" (single emoji), "topic" (string, max 8 words), "subject" (string, 1 word category),
+"minutes" (integer: 15, 30, or 45), "difficulty" ("Beginner", "Intermediate", or "Advanced"),
+"prompt" (string: exact question to ask the AI to start studying this topic).
+Return only valid JSON, no other text."""
+
+        with st.spinner("Personalizing your study path…"):
+            try:
+                from utils import ai_engine
+                raw = ai_engine.generate(
+                    prompt=prompt,
+                    system="Return only a valid JSON array of exactly 3 objects. No markdown, no prose.",
+                    max_tokens=400
+                )
+                match = re.search(r'\[.*?\]', raw, re.DOTALL)
+                if match:
+                    recs = json.loads(match.group(0))[:3]
+                    st.session_state["study_recs"] = {"items": recs}
+                    st.session_state["study_recs_time"] = now
+                else:
+                    recs = []
+            except Exception as e:
+                st.error(f"⚠️ Recommendations failed: {e}")
+                recs = []
+
+    REC_COLORS = [
+        "linear-gradient(180deg,#6366f1,#8b5cf6)",
+        "linear-gradient(180deg,#06b6d4,#3b82f6)",
+        "linear-gradient(180deg,#10b981,#06b6d4)",
+    ]
+
+    for i, rec in enumerate(recs[:3]):
+        diff = rec.get("difficulty", "Beginner").lower().replace(" ", "")
+        color = REC_COLORS[i % len(REC_COLORS)]
+        st.markdown(f"""
+        <div class="rec-card" style="--rec-color:{color};">
+          <span class="rec-icon">{rec.get("icon","📖")}</span>
+          <div class="rec-body">
+            <div class="rec-topic">{rec.get("topic","Study Topic")}</div>
+            <div class="rec-meta">
+              <span class="rec-tag">{rec.get("subject","GENERAL")}</span>
+              <span class="rec-time">⏱ {rec.get("minutes",25)} min</span>
+              <span class="rec-diff-{diff}">{rec.get("difficulty","Beginner").upper()}</span>
+            </div>
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+        if st.button(f"▶ Start Now", key=f"s30_start_{i}", use_container_width=False):
+            st.session_state.queued_prompt = rec.get("prompt", f"Teach me about {rec.get('topic','this topic')}")
+            st.session_state.app_mode = "chat"
+            st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 # ─────────────────────────────────────────────
 # MAIN AREA
@@ -5374,7 +6065,14 @@ if st.session_state.focus_mode:
     st.markdown('<div class="focus-banner">🔒 Focus Mode Active — All distractions suppressed. Deep work in progress.</div>',
                 unsafe_allow_html=True)
 
-render_smart_context_panel()
+if st.session_state.context_sources:
+    icons = {"pdf":"📄","youtube":"▶️","web":"🌐","ocr":"📸"}
+    chips = " ".join([
+        f'<span class="source-chip"><span class="chip-dot"></span>{icons.get(s["type"],"📎")} {s["label"][:28]}</span>'
+        for s in st.session_state.context_sources
+    ])
+    st.markdown(f'<div class="study-banner"><span class="study-banner-label">Studying →</span>{chips}</div>',
+                unsafe_allow_html=True)
 
 app_mode = st.session_state.get("app_mode", "chat")
 
@@ -7017,8 +7715,6 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        render_quick_prompts()
-        
         # 🎭 Expertise Launch Grid
         exp_col1, exp_col2, exp_col3, exp_col4, exp_col5 = st.columns(5)
         with exp_col1:
@@ -7065,10 +7761,23 @@ else:
         is_user = msg["role"] == "user"
         avatar  = "👤" if is_user else (persona["emoji"] if (persona and st.session_state.selected_persona != "Default (ExamHelp)") else "🎓")
 
-        render_premium_chat_message(msg["content"], msg["role"], i, avatar)
-        
-        if not is_user:
-            render_followup_suggestions(msg["content"], i)
+        with st.chat_message(msg["role"], avatar=avatar):
+            st.markdown(msg["content"])
+
+            # Actions row
+            if not is_user:
+                ac1, ac2, ac3, ac4 = st.columns([1, 1, 1, 5])
+                with ac1:
+                    if st.button("📋", key=f"copy_{i}", help="Copy"):
+                        st.toast("Copied to clipboard!")
+                with ac2:
+                    if st.button("⭐", key=f"bm_{i}", help="Bookmark"):
+                        st.session_state.bookmarks.append(msg["content"][:200])
+                        st.toast("Bookmarked!")
+                with ac3:
+                    if st.button("🔊", key=f"speak_{i}", help="Read aloud"):
+                        AppController.speak(msg["content"][:1500])
+                        st.toast("Reading aloud...")
 
     # ── Chat Powerup: file uploader in chat ──
     try:
@@ -7100,9 +7809,6 @@ else:
             except Exception as e:
                 st.error(f"Voice error: {e}")
 
-    if not st.session_state.get("s04_show_context_panel", False):
-        render_quick_actions_toolbar()
-    
     user_input = st.chat_input("Ask anything about your study material...", key="chat_input")
     txt_low    = user_input.lower() if user_input else ""
 
@@ -7164,13 +7870,9 @@ else:
         assistant_avatar = persona["emoji"] if (persona and st.session_state.selected_persona != "Default (ExamHelp)") else "🎓"
 
         with st.chat_message("assistant", avatar=assistant_avatar):
-            typing_ph = st.empty()
-            typing_ph.markdown(show_typing_indicator(), unsafe_allow_html=True)
-            
             placeholder   = st.empty()
             full_response = ""
             success       = False
-            first_token   = True
 
             history = [{"role":m["role"],"content":m["content"]} for m in st.session_state.messages[-12:]]
             history[-1]["content"] = augmented_prompt
@@ -7186,7 +7888,6 @@ else:
             chosen_model = st.session_state.get("model_choice","llama-3.3-70b-versatile")
 
             try:
-                import time
                 for chunk in ai_engine.generate_stream(
                     messages=history,
                     context_text=st.session_state.get("context_text",""),
@@ -7194,14 +7895,8 @@ else:
                     persona_prompt=persona_prompt,
                     use_vit_context=st.session_state.get("vit_mode", False),
                 ):
-                    if first_token:
-                        typing_ph.empty()
-                        first_token = False
-                    
                     full_response += chunk
                     placeholder.markdown(full_response + "▌")
-                    time.sleep(0.015) # STEP 07: Typewriter character delay
-                    
                 placeholder.markdown(full_response)
                 success = True
                 count_output_stats(full_response)
@@ -7338,57 +8033,3 @@ else:
 
         # Update stats
         st.session_state.total_tokens_used += (len(full_response.split()) * 2) if (success and full_response) else 0
-
-
-SHORTCUT_OVERLAY_CODE = r'''
-<style>
-.kbd-overlay {
-  display:none; position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,0.75); backdrop-filter:blur(8px);
-  align-items:center; justify-content:center;
-}
-.kbd-overlay.visible { display:flex; animation:overlayIn 0.25s ease both; }
-@keyframes overlayIn{from{opacity:0;}to{opacity:1;}}
-.kbd-card {
-  background:rgba(15,23,42,0.97); border:1px solid rgba(99,102,241,0.3);
-  border-radius:20px; padding:32px 40px; max-width:520px; width:90%;
-  box-shadow:0 40px 120px rgba(0,0,0,0.6);
-}
-.kbd-title { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:#fff; letter-spacing:2px; margin-bottom:20px; }
-.kbd-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
-.kbd-row:last-child { border-bottom:none; }
-.kbd-action { font-family:'Rajdhani',sans-serif; font-size:14px; color:rgba(255,255,255,0.6); }
-.kbd-keys { display:flex; gap:5px; }
-.kbd-key {
-  padding:4px 10px; border-radius:6px;
-  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
-  font-family:'Space Mono',monospace; font-size:11px; color:rgba(255,255,255,0.7);
-}
-.kbd-close-btn { margin-top:20px; width:100%; text-align:center; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:3px; color:rgba(255,255,255,0.3); cursor:pointer; }
-</style>
-<div class="kbd-overlay" id="kbdOverlay">
-  <div class="kbd-card">
-    <div class="kbd-title">⌨️ KEYBOARD SHORTCUTS</div>
-    <div class="kbd-row"><span class="kbd-action">Show shortcuts</span><div class="kbd-keys"><span class="kbd-key">?</span></div></div>
-    <div class="kbd-row"><span class="kbd-action">New chat</span><div class="kbd-keys"><span class="kbd-key">Ctrl</span><span class="kbd-key">K</span></div></div>
-    <div class="kbd-row"><span class="kbd-action">Focus mode toggle</span><div class="kbd-keys"><span class="kbd-key">Ctrl</span><span class="kbd-key">.</span></div></div>
-    <div class="kbd-row"><span class="kbd-action">Submit message</span><div class="kbd-keys"><span class="kbd-key">Ctrl</span><span class="kbd-key">Enter</span></div></div>
-    <div class="kbd-row"><span class="kbd-action">Close overlays</span><div class="kbd-keys"><span class="kbd-key">Esc</span></div></div>
-    <div class="kbd-close-btn" onclick="document.getElementById('kbdOverlay').classList.remove('visible')">PRESS ESC TO CLOSE</div>
-  </div>
-</div>
-<script>
-document.addEventListener('keydown', function(e){
-  if(e.key==='?' && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){
-    document.getElementById('kbdOverlay').classList.toggle('visible');
-  }
-  if(e.key==='Escape'){
-    document.getElementById('kbdOverlay').classList.remove('visible');
-  }
-});
-document.getElementById('kbdOverlay').addEventListener('click',function(e){
-  if(e.target===this) this.classList.remove('visible');
-});
-</script>
-'''
-st.markdown(SHORTCUT_OVERLAY_CODE, unsafe_allow_html=True)

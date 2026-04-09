@@ -1,0 +1,263 @@
+STEP 13 — UPGRADED FLASHCARD BATTLE UI WITH PROGRESS RING
+# File: app.py  |  Location: flashcard rendering block (`app_mode == "flashcards"`)
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# The current flashcard UI is plain. Upgrade it with:
+# 1. A circular SVG progress ring showing cards-completed / total-cards.
+# 2. A card flip animation (CSS 3D perspective transform) for the front/back reveal.
+# 3. Mastery color coding: Green = mastered (>2 correct), Yellow = learning, Red = struggling.
+# 4. A session summary card at the end with accuracy %, time taken, and a "Save to Notes" button.
+
+## CSS TO INJECT:
+
+```css
+/* ── STEP 13: Premium Flashcard UI ── */
+.fc-container { max-width:680px; margin:0 auto; padding:16px 0; }
+.fc-progress-ring-wrap {
+  display:flex; align-items:center; justify-content:center; gap:20px;
+  margin-bottom:24px;
+}
+.fc-ring-svg { transform:rotate(-90deg); }
+.fc-ring-bg { fill:none; stroke:rgba(255,255,255,0.06); stroke-width:6; }
+.fc-ring-fill { fill:none; stroke:url(#fcGrad); stroke-width:6; stroke-linecap:round; transition:stroke-dashoffset 0.8s cubic-bezier(0.16,1,0.3,1); }
+.fc-ring-text { font-family:'Orbitron',monospace; font-size:14px; font-weight:700; fill:#a5b4fc; text-anchor:middle; dominant-baseline:middle; }
+.fc-card-scene { perspective:1200px; width:100%; min-height:220px; cursor:pointer; margin-bottom:20px; }
+.fc-card { width:100%; min-height:220px; position:relative; transform-style:preserve-3d; transition:transform 0.6s cubic-bezier(0.4,0,0.2,1); border-radius:20px; }
+.fc-card.flipped { transform:rotateY(180deg); }
+.fc-face { position:absolute; inset:0; backface-visibility:hidden; border-radius:20px; padding:32px 28px; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
+.fc-front {
+  background:rgba(15,23,42,0.8); border:1px solid rgba(99,102,241,0.25);
+}
+.fc-back {
+  background:rgba(30,10,60,0.85); border:1px solid rgba(139,92,246,0.3);
+  transform:rotateY(180deg);
+}
+.fc-q-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:4px; color:rgba(99,102,241,0.6); margin-bottom:12px; }
+.fc-q-text { font-family:'Rajdhani',sans-serif; font-size:18px; font-weight:600; color:#fff; line-height:1.5; }
+.fc-a-text { font-family:'Rajdhani',sans-serif; font-size:16px; color:rgba(255,255,255,0.8); line-height:1.6; }
+.fc-flip-hint { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.2); margin-top:auto; padding-top:16px; }
+.fc-mastery-easy { border-color:rgba(34,197,94,0.4)!important; }
+.fc-mastery-hard  { border-color:rgba(239,68,68,0.4)!important; }
+.fc-action-row { display:flex; gap:10px; justify-content:center; }
+```
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 14 — QUIZ MODE: ANIMATED ANSWER FEEDBACK WITH SCORE SURGE
+# File: app.py  |  Location: quiz rendering block (`app_mode == "quiz"`)
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# When a quiz answer is selected:
+# - Correct: Show a green glow burst + confetti-style particle effect + score +10 animation.
+# - Wrong: Show a red shake animation on the wrong option + reveal correct answer with explanation.
+# Both states use CSS keyframe animations. The score counter animates from old to new value.
+
+## CSS TO INJECT:
+
+```css
+/* ── STEP 14: Quiz Feedback Animations ── */
+.quiz-option {
+  padding:14px 20px; border-radius:12px; cursor:pointer; margin-bottom:8px;
+  background:rgba(15,23,42,0.6); border:2px solid rgba(255,255,255,0.08);
+  font-family:'Rajdhani',sans-serif; font-size:15px; font-weight:600; color:#fff;
+  transition:all 0.2s ease;
+}
+.quiz-option:hover { border-color:rgba(99,102,241,0.35); background:rgba(99,102,241,0.08); }
+.quiz-option-correct {
+  border-color:rgba(34,197,94,0.7)!important; background:rgba(34,197,94,0.1)!important;
+  color:#4ade80!important; animation:correctPulse 0.5s ease both;
+}
+@keyframes correctPulse {
+  0%{transform:scale(1);}30%{transform:scale(1.03);}100%{transform:scale(1);}
+}
+.quiz-option-wrong {
+  border-color:rgba(239,68,68,0.6)!important; background:rgba(239,68,68,0.08)!important;
+  color:#f87171!important; animation:shakeWrong 0.4s ease both;
+}
+@keyframes shakeWrong {
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-6px);}40%{transform:translateX(6px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}
+}
+.score-surge {
+  display:inline-block; font-family:'Orbitron',monospace; font-size:20px; font-weight:900;
+  color:#4ade80; animation:scoreSurge 0.8s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes scoreSurge {
+  0%{opacity:0;transform:translateY(20px) scale(0.8);}
+  60%{opacity:1;transform:translateY(-8px) scale(1.2);}
+  100%{opacity:1;transform:translateY(0) scale(1);}
+}
+.explanation-box {
+  padding:16px 20px; border-radius:12px; margin-top:14px;
+  background:rgba(6,182,212,0.06); border:1px solid rgba(6,182,212,0.2);
+  font-family:'Rajdhani',sans-serif; font-size:14px; color:rgba(255,255,255,0.65); line-height:1.6;
+  animation:bubbleIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.explanation-box strong { color:#22d3ee; }
+```
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 15 — MIND MAP: EXPORT AS PNG + INTERACTIVE NODE CLICK-TO-EXPAND
+# File: app.py  |  Location: mindmap block (`app_mode == "mindmap"`)
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# The current mind map shows a Plotly graph. Add:
+# 1. A "📥 Export PNG" button using `plotly.io.to_image()` → `st.download_button()`.
+# 2. A text input that lets the user click on a node name and "expand" it by
+#    generating 4 sub-nodes using AI and re-rendering the graph.
+# 3. A toggle for "Dark nodes" vs "Light nodes" color theme.
+
+## PYTHON TO ADD (add inside or after the existing mindmap render block):
+
+```python
+def add_mindmap_export_and_expand(fig, topic: str):
+    """STEP 15: Export and expand controls for mind map."""
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        try:
+            import plotly.io as pio
+            img_bytes = pio.to_image(fig, format="png", width=1400, height=900, scale=2)
+            st.download_button(
+                "📥 Export PNG", data=img_bytes,
+                file_name=f"mindmap_{topic[:20].replace(' ','_')}.png",
+                mime="image/png", use_container_width=True, key="s15_export_png"
+            )
+        except Exception as e:
+            st.caption(f"PNG export unavailable: {e}")
+
+    with col2:
+        expand_node = st.text_input(
+            "Expand node", placeholder="Type a node name to expand…",
+            key="s15_expand_node", label_visibility="collapsed"
+        )
+        if st.button("🔭 Expand Node", key="s15_expand_btn", use_container_width=True):
+            if expand_node:
+                with st.spinner(f"Expanding '{expand_node}'…"):
+                    try:
+                        from utils import ai_engine
+                        raw = ai_engine.generate(
+                            prompt=f"For the concept '{expand_node}' in the topic '{topic}', generate exactly 4 sub-concepts as a JSON array of strings. Return ONLY the array.",
+                            system="Return only a valid JSON array of 4 short string items.",
+                            max_tokens=100
+                        )
+                        import json, re
+                        match = re.search(r'\[.*?\]', raw, re.DOTALL)
+                        if match:
+                            sub_nodes = json.loads(match.group(0))[:4]
+                            if "mindmap_extra_nodes" not in st.session_state:
+                                st.session_state["mindmap_extra_nodes"] = {}
+                            st.session_state["mindmap_extra_nodes"][expand_node] = sub_nodes
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"⚠️ Expand failed: {e}")
+
+    with col3:
+        dark_mode = st.toggle("🌙 Dark Nodes", value=True, key="s15_dark_nodes")
+        st.caption("Toggle node color theme")
+    return dark_mode
+```
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 16 — STUDY PLANNER: VISUAL CALENDAR HEATMAP + AI SCHEDULE OPTIMIZER
+# File: app.py  |  Location: planner block (`app_mode == "planner"`)
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# Replace the plain planner output with:
+# 1. A Plotly calendar heatmap showing study hours per day (using `st.session_state["pomodoro_log"]`).
+# 2. An "AI Optimize" button that takes the user's current plan text + exam date
+#    and returns a rescheduled, prioritized plan using the AI.
+# 3. A "Export .ics" button that generates a basic iCal file for import into
+#    Google Calendar / Apple Calendar.
+
+## CSS TO INJECT:
+
+```css
+/* ── STEP 16: Study Planner Upgrades ── */
+.planner-section-label {
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:4px;
+  color:rgba(255,255,255,0.3); text-transform:uppercase; margin-bottom:12px; margin-top:20px;
+}
+.planner-exam-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25);
+  border-radius:100px; padding:7px 16px;
+  font-family:'Space Mono',monospace; font-size:11px; color:#f87171;
+  letter-spacing:2px; margin-bottom:16px;
+}
+```
+
+## PYTHON TO ADD:
+
+```python
+def render_planner_heatmap():
+    """STEP 16: Pomodoro log calendar heatmap."""
+    import datetime
+    if px is None:
+        st.info("Plotly required for heatmap.")
+        return
+
+    pom_log = st.session_state.get("pomodoro_log", [])
+    if not pom_log:
+        st.caption("📊 Study heatmap will appear after your first Pomodoro session.")
+        return
+
+    # Build date → count mapping
+    date_counts = {}
+    for entry in pom_log:
+        if isinstance(entry, dict):
+            d = entry.get("date", str(datetime.date.today()))
+        else:
+            d = str(datetime.date.today())
+        date_counts[d] = date_counts.get(d, 0) + 1
+
+    if pd:
+        df_heat = pd.DataFrame(
+            [{"date": k, "sessions": v} for k, v in date_counts.items()]
+        )
+        df_heat["date"] = pd.to_datetime(df_heat["date"])
+        fig = px.scatter(df_heat, x="date", y="sessions", size="sessions",
+                         color="sessions", color_continuous_scale="Viridis",
+                         title="📅 Study Session Heatmap",
+                         template="plotly_dark")
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            showlegend=False, height=220,
+            margin=dict(l=10, r=10, t=40, b=10)
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+
+def export_ics_file(plan_text: str, exam_date) -> str:
+    """STEP 16: Generate basic .ics file from planner text."""
+    import datetime
+    lines = plan_text.split('\n')
+    events = []
+    for i, line in enumerate(lines[:10]):
+        if line.strip():
+            event_date = exam_date - datetime.timedelta(days=10 - i)
+            dtstart = event_date.strftime('%Y%m%d')
+            events.append(f"""BEGIN:VEVENT
+DTSTART;VALUE=DATE:{dtstart}
+DTEND;VALUE=DATE:{dtstart}
+SUMMARY:{line[:60].strip()}
+DESCRIPTION:ExamHelp AI Study Planner
+END:VEVENT""")
+    ics = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//ExamHelp AI//EN\n"
+    ics += "\n".join(events)
+    ics += "\nEND:VCALENDAR"
+    return ics
+```
+
+# In the planner app_mode block, add calls to `render_planner_heatmap()` and
+# a download button for `export_ics_file(plan_text, exam_date)`.
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 

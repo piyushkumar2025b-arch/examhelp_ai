@@ -681,11 +681,21 @@ def render_story_builder():
                     
                 try:
                     from fpdf import FPDF
+                    import textwrap
                     pdf = FPDF()
                     pdf.add_page()
                     pdf.set_font("Arial", size=12)
-                    pdf.multi_cell(0, 10, txt=(st.session_state.story_title or "Untitled").encode('latin-1', 'replace').decode('latin-1'))
-                    pdf.multi_cell(0, 10, txt=st.session_state.story_full_text.encode('latin-1', 'replace').decode('latin-1'))
+                    
+                    def _safe_pdf_text(t: str) -> str:
+                        t = t.encode('latin-1', 'ignore').decode('latin-1')
+                        return "\n".join(["\n".join(textwrap.wrap(line, 85)) for line in t.splitlines()])
+                        
+                    safe_title = _safe_pdf_text(st.session_state.story_title or "Untitled")
+                    safe_body = _safe_pdf_text(st.session_state.story_full_text)
+                    
+                    pdf.multi_cell(0, 10, txt=safe_title)
+                    pdf.ln(5)
+                    pdf.multi_cell(0, 10, txt=safe_body)
                     pdf_bytes = pdf.output(dest='S').encode('latin-1')
                     st.download_button("📕 .pdf Export", data=pdf_bytes, file_name=f"{(st.session_state.story_title or 'story').replace(' ','_')}.pdf", mime="application/pdf", use_container_width=True, key="story_export_pdf")
                 except ImportError:

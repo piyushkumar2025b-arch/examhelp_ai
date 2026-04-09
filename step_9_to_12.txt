@@ -1,0 +1,275 @@
+STEP 09 — SMART QUICK-PROMPT SUGGESTION CHIPS
+# File: app.py  |  Location: empty-state / before first message
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# When no messages exist, show a 3×3 grid of beautifully styled prompt
+# suggestion chips. Each chip is color-coded by category (Exam, Coding,
+# Creative, Research, Language). Clicking a chip pre-fills and immediately
+# sends the prompt. Chips regenerate based on selected persona.
+
+## CSS TO INJECT:
+
+```css
+/* ── STEP 09: Quick Prompt Grid ── */
+.qprompt-section { margin:24px 0; }
+.qprompt-title {
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:4px;
+  color:rgba(255,255,255,0.25); text-transform:uppercase; text-align:center;
+  margin-bottom:18px;
+}
+.qprompt-grid {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:10px;
+}
+.qprompt-chip {
+  padding:14px 18px; border-radius:14px;
+  background:rgba(15,23,42,0.7); border:1px solid var(--qc,rgba(99,102,241,0.2));
+  cursor:pointer; transition:all 0.25s ease;
+  display:flex; align-items:flex-start; gap:12px;
+  animation:bubbleIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.qprompt-chip:hover {
+  background:rgba(var(--qcr,99,102,241),0.12); border-color:var(--qc,rgba(99,102,241,0.5));
+  transform:translateY(-3px);
+}
+.qprompt-icon { font-size:18px; flex-shrink:0; margin-top:1px; }
+.qprompt-text { font-family:'Rajdhani',sans-serif; font-size:13px; font-weight:600; color:rgba(255,255,255,0.65); line-height:1.4; }
+.qprompt-tag { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--qc,#818cf8); margin-top:4px; display:block; }
+```
+
+## PYTHON TO ADD:
+
+```python
+def render_quick_prompts():
+    """STEP 09: Context-aware quick prompt suggestion grid."""
+    QUICK_PROMPTS = [
+        ("🧪", "Explain quantum entanglement with a simple analogy", "PHYSICS",  "--qc:rgba(99,102,241,0.3)"),
+        ("🐍", "Write a Python function to reverse a linked list", "CODING",   "--qc:rgba(16,185,129,0.3)"),
+        ("⚖️", "Explain the Indian Constitution's Preamble in detail", "LAW",    "--qc:rgba(245,158,11,0.3)"),
+        ("🧠", "What are the stages of Piaget's cognitive development?", "PSYCH", "--qc:rgba(239,68,68,0.3)"),
+        ("📈", "Explain compound interest with a worked example", "FINANCE",    "--qc:rgba(6,182,212,0.3)"),
+        ("🌍", "Summarize the causes of World War I", "HISTORY",              "--qc:rgba(168,85,247,0.3)"),
+        ("🔬", "What is CRISPR and how does gene editing work?", "BIO",        "--qc:rgba(34,197,94,0.3)"),
+        ("🎨", "Write a short story opening in the style of Kafka", "CREATIVE","--qc:rgba(251,146,60,0.3)"),
+        ("🗣️", "Translate 'The early bird catches the worm' into 5 languages", "LANG", "--qc:rgba(244,63,94,0.3)"),
+    ]
+
+    st.markdown('<div class="qprompt-section">', unsafe_allow_html=True)
+    st.markdown('<div class="qprompt-title">✦ Quick Start — Click to Explore ✦</div>', unsafe_allow_html=True)
+    st.markdown('<div class="qprompt-grid">', unsafe_allow_html=True)
+
+    cols = st.columns(3)
+    for i, (icon, text, tag, css_var) in enumerate(QUICK_PROMPTS):
+        with cols[i % 3]:
+            st.markdown(f"""
+            <div class="qprompt-chip" style="{css_var}">
+              <span class="qprompt-icon">{icon}</span>
+              <div>
+                <div class="qprompt-text">{text}</div>
+                <span class="qprompt-tag">{tag}</span>
+              </div>
+            </div>""", unsafe_allow_html=True)
+            if st.button(f"{icon} Ask", key=f"s09_qp_{i}", use_container_width=True):
+                st.session_state.queued_prompt = text
+                st.rerun()
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+```
+
+# Render `render_quick_prompts()` in the empty-state block (`if not messages:`).
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 10 — ANIMATED LOADING SCREEN FOR TOOL TRANSITIONS
+# File: app.py  |  Location: injected when app_mode changes
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# When the user clicks a sidebar button to switch tools, show a 0.8-second
+# animated "Loading [Tool Name]…" splash with a progress bar and tool icon,
+# before the new tool's render function runs. Use `st.session_state["_loading"]`
+# flag to track the transition state.
+
+## CSS TO INJECT:
+
+```css
+/* ── STEP 10: Tool Transition Loader ── */
+.tool-loader {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-height:280px; gap:20px;
+  animation:loaderIn 0.3s ease both;
+}
+@keyframes loaderIn{from{opacity:0;}to{opacity:1;}}
+.tool-loader-icon { font-size:56px; animation:iconSpin 1s ease-in-out; }
+@keyframes iconSpin{0%{transform:scale(0.5) rotate(-20deg);opacity:0;}100%{transform:scale(1) rotate(0deg);opacity:1;}}
+.tool-loader-title {
+  font-family:'Orbitron',monospace; font-size:18px; font-weight:700;
+  letter-spacing:3px; color:rgba(255,255,255,0.7);
+}
+.tool-loader-bar-wrap { width:240px; height:3px; background:rgba(255,255,255,0.06); border-radius:100px; overflow:hidden; }
+.tool-loader-bar {
+  height:100%; border-radius:100px;
+  background:linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4);
+  animation:loadSweep 0.7s cubic-bezier(0.4,0,0.2,1) both;
+}
+@keyframes loadSweep{from{width:0%;}to{width:100%;}}
+```
+
+## PYTHON TO ADD:
+
+```python
+def render_tool_loader(tool_name: str, tool_icon: str = "⚙️"):
+    """STEP 10: Show animated transition loader for tool switches."""
+    st.markdown(f"""
+    <div class="tool-loader">
+      <div class="tool-loader-icon">{tool_icon}</div>
+      <div class="tool-loader-title">Loading {tool_name}</div>
+      <div class="tool-loader-bar-wrap">
+        <div class="tool-loader-bar"></div>
+      </div>
+    </div>""", unsafe_allow_html=True)
+    import time; time.sleep(0.15)  # Brief render pause for animation
+```
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 11 — CONTEXTUAL AI FOLLOW-UP SUGGESTIONS AFTER EVERY RESPONSE
+# File: app.py  |  Location: after each AI message render
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# After every AI response, display 3 AI-generated follow-up suggestion chips.
+# These are generated by a lightweight 50-token call asking the AI: "Given this
+# response, generate 3 short follow-up questions the student might ask next.
+# Return as JSON array." Cache them in `session_state["followup_cache"][msg_id]`.
+
+## CSS TO INJECT:
+
+```css
+/* ── STEP 11: Follow-up Suggestion Chips ── */
+.followup-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; margin-bottom:4px; }
+.followup-chip {
+  padding:7px 14px; border-radius:100px;
+  background:rgba(15,23,42,0.7); border:1px solid rgba(99,102,241,0.2);
+  font-family:'Rajdhani',sans-serif; font-size:12px; font-weight:600;
+  color:rgba(165,180,252,0.8); cursor:pointer; white-space:nowrap;
+  transition:all 0.2s ease;
+  animation:chipFadeIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.followup-chip:hover { background:rgba(99,102,241,0.15); border-color:rgba(99,102,241,0.4); color:#fff; transform:translateY(-2px); }
+@keyframes chipFadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+.followup-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.2); margin-bottom:6px; }
+```
+
+## PYTHON TO ADD:
+
+```python
+def render_followup_suggestions(msg_content: str, msg_idx: int):
+    """STEP 11: Render AI-generated follow-up question chips."""
+    if "followup_cache" not in st.session_state:
+        st.session_state["followup_cache"] = {}
+
+    cache_key = f"fu_{msg_idx}"
+    if cache_key not in st.session_state["followup_cache"]:
+        # Generate suggestions lazily (only generate for the LAST AI message)
+        if msg_idx == len([m for m in st.session_state.messages if m["role"]=="assistant"]) - 1:
+            try:
+                from utils import ai_engine
+                raw = ai_engine.generate(
+                    prompt=f"This was an AI study assistant's answer:\n\n{msg_content[:800]}\n\nGenerate 3 short follow-up questions a student might ask. Return ONLY a JSON array of 3 strings, no other text.",
+                    system="Return only a valid JSON array of 3 short question strings.",
+                    max_tokens=120
+                )
+                import json, re
+                match = re.search(r'\[.*?\]', raw, re.DOTALL)
+                if match:
+                    suggestions = json.loads(match.group(0))[:3]
+                    st.session_state["followup_cache"][cache_key] = suggestions
+            except Exception:
+                st.session_state["followup_cache"][cache_key] = []
+
+    suggestions = st.session_state["followup_cache"].get(cache_key, [])
+    if suggestions:
+        st.markdown('<div class="followup-label">ASK NEXT →</div>', unsafe_allow_html=True)
+        cols = st.columns(len(suggestions))
+        for i, q in enumerate(suggestions):
+            with cols[i]:
+                if st.button(q[:55], key=f"s11_fu_{msg_idx}_{i}", use_container_width=True):
+                    st.session_state.queued_prompt = q
+                    st.rerun()
+```
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 12 — GLOBAL KEYBOARD SHORTCUT OVERLAY (? key)
+# File: app.py  |  Location: inject in the main area CSS/JS block
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# Inject a JavaScript snippet that listens for the `?` key press and shows a
+# styled overlay listing all keyboard shortcuts. The overlay closes on Escape
+# or clicking outside. This improves power-user experience significantly.
+
+## CSS + JS TO INJECT (via st.markdown):
+
+```python
+SHORTCUT_OVERLAY_CODE = """
+<style>
+.kbd-overlay {
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,0.75); backdrop-filter:blur(8px);
+  align-items:center; justify-content:center;
+}
+.kbd-overlay.visible { display:flex; animation:overlayIn 0.25s ease both; }
+@keyframes overlayIn{from{opacity:0;}to{opacity:1;}}
+.kbd-card {
+  background:rgba(15,23,42,0.97); border:1px solid rgba(99,102,241,0.3);
+  border-radius:20px; padding:32px 40px; max-width:520px; width:90%;
+  box-shadow:0 40px 120px rgba(0,0,0,0.6);
+}
+.kbd-title { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:#fff; letter-spacing:2px; margin-bottom:20px; }
+.kbd-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.kbd-row:last-child { border-bottom:none; }
+.kbd-action { font-family:'Rajdhani',sans-serif; font-size:14px; color:rgba(255,255,255,0.6); }
+.kbd-keys { display:flex; gap:5px; }
+.kbd-key {
+  padding:4px 10px; border-radius:6px;
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+  font-family:'Space Mono',monospace; font-size:11px; color:rgba(255,255,255,0.7);
+}
+.kbd-close-btn { margin-top:20px; width:100%; text-align:center; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:3px; color:rgba(255,255,255,0.3); cursor:pointer; }
+</style>
+<div class="kbd-overlay" id="kbdOverlay">
+  <div class="kbd-card">
+    <div class="kbd-title">⌨️ KEYBOARD SHORTCUTS</div>
+    <div class="kbd-row"><span class="kbd-action">Show shortcuts</span><div class="kbd-keys"><span class="kbd-key">?</span></div></div>
+    <div class="kbd-row"><span class="kbd-action">New chat</span><div class="kbd-keys"><span class="kbd-key">Ctrl</span><span class="kbd-key">K</span></div></div>
+    <div class="kbd-row"><span class="kbd-action">Focus mode toggle</span><div class="kbd-keys"><span class="kbd-key">Ctrl</span><span class="kbd-key">.</span></div></div>
+    <div class="kbd-row"><span class="kbd-action">Submit message</span><div class="kbd-keys"><span class="kbd-key">Ctrl</span><span class="kbd-key">Enter</span></div></div>
+    <div class="kbd-row"><span class="kbd-action">Close overlays</span><div class="kbd-keys"><span class="kbd-key">Esc</span></div></div>
+    <div class="kbd-close-btn" onclick="document.getElementById('kbdOverlay').classList.remove('visible')">PRESS ESC TO CLOSE</div>
+  </div>
+</div>
+<script>
+document.addEventListener('keydown', function(e){
+  if(e.key==='?' && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){
+    document.getElementById('kbdOverlay').classList.toggle('visible');
+  }
+  if(e.key==='Escape'){
+    document.getElementById('kbdOverlay').classList.remove('visible');
+  }
+});
+document.getElementById('kbdOverlay').addEventListener('click',function(e){
+  if(e.target===this) this.classList.remove('visible');
+});
+</script>
+"""
+st.markdown(SHORTCUT_OVERLAY_CODE, unsafe_allow_html=True)
+```
+
+# Inject this block once at the bottom of the MAIN AREA section.
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 
