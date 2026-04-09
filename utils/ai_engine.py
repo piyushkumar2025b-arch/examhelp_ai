@@ -290,13 +290,19 @@ def generate(
         )
 
     elif provider == "cerebras":
+        c_model = model or CEREBRAS_MODEL
+        if c_model and "70b" in c_model.lower():
+            c_model = "llama3.3-70b"
+        elif c_model and "8b" in c_model.lower():
+            c_model = "llama3.1-8b"
+            
         result = _call_cerebras(
             key=key,
             prompt=prompt,
             system=system,
             temperature=temperature,
             max_tokens=max_tokens,
-            model=model or CEREBRAS_MODEL,
+            model=c_model,
         )
 
     else:
