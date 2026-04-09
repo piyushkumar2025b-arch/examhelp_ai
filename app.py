@@ -4666,6 +4666,10 @@ with st.sidebar:
                     with open("sessions.json","w") as f:
                         json.dump(st.session_state.persistent_sessions, f)
                     st.rerun()
+        else:
+            if st.button("➕ New Session", use_container_width=True):
+                st.session_state.messages = []
+                st.rerun()
 
     st.sidebar.divider()
     # ── Persistent System Telemetry ──────────────────
@@ -4682,21 +4686,6 @@ with st.sidebar:
 
     st.sidebar.markdown("---")
     st.sidebar.caption("ExamHelp AI v5.0.3 Gold Standard")
-                    st.session_state.messages      = d["messages"]
-                    st.session_state.context_text  = d["context"]
-                    st.session_state.context_sources = d["sources"]
-                    st.rerun()
-            with cl2:
-                if st.button("🗑️", use_container_width=True):
-                    del st.session_state.persistent_sessions[load_name]
-                    try:
-                        with open("sessions.json","w") as f:
-                            json.dump(st.session_state.persistent_sessions, f)
-                    except Exception: pass
-                    st.rerun()
-        else:
-            if st.button("➕ New Session", use_container_width=True):
-                st.session_state.messages = []; st.rerun()
 
     st.divider()
 
