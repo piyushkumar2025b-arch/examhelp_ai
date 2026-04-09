@@ -1,15 +1,16 @@
 """
-ai_engine.py — High-Level AI Orchestration v3.0
+ai_engine.py — High-Level AI Orchestration v4.0
 =================================================
-Delegates all Gemini operations to the EliteKey OmniKeyEngine.
-Maintains full backward compatibility with existing app.py callers.
+v4.0: Single user-supplied API key — auto-detects provider (Gemini / Groq / Cerebras).
+      9-key rotation system retired (all calls went through OmniKeyEngine).
+      Groq and Cerebras now fully supported via their respective REST APIs.
 
-Changes v3.0:
-  - True streaming (word-chunk yields from OmniKeyEngine.execute_stream)
-  - Model cascade: tries each model in order, switches seamlessly
-  - generate() never blocks the UI — all waits happen inside OmniKeyEngine
-  - get_capacity_summary() returns real per-key RPM/cooldown data
-  - reset_all_keys() delegates to engine.reset_all_cooldowns()
+Changes from v3:
+  - generate() auto-routes to Gemini, Groq, or Cerebras based on key prefix
+  - OmniKeyEngine is used ONLY for Gemini keys (single-key mode, v6)
+  - Groq: uses /openai/v1/chat/completions with gsk_ key
+  - Cerebras: uses /v1/chat/completions with csk- key
+  - All other public API surface (generate_stream, json_generate, etc.) unchanged
 """
 
 from __future__ import annotations
@@ -18,20 +19,23 @@ import concurrent.futures
 import hashlib
 import json
 import re
+import ssl
 import sys
 import time
 import threading
+import urllib.error
+import urllib.request
 from typing import Dict, Iterator, List, Optional
 
 from utils.omnikey_engine import OMNI_ENGINE
 from utils.prompts import get_engine_config
 
-# ── Model Priority (confirmed-working first) ──────────────────────────────────
-GEMINI_MODELS: List[str] = [
-    "gemini-2.5-flash",
-]
+# -- Model defaults per provider --
+GEMINI_MODELS: List[str] = ["gemini-2.5-flash"]
+GROQ_MODEL    = "llama-3.1-8b-instant"       # fast free-tier model on Groq
+CEREBRAS_MODEL = "llama3.1-8b"               # Cerebras Llama 3.1 8B
 
-# ── In-memory response cache (prevents re-querying identical prompts) ─────────
+# -- In-memory response cache --
 _mem_cache: Dict[str, str] = {}
 _cache_lock = threading.Lock()
 _CACHE_MAX = 300
@@ -49,15 +53,13 @@ def _cache_get(k: str) -> Optional[str]:
 def _cache_set(k: str, v: str) -> None:
     with _cache_lock:
         if len(_mem_cache) >= _CACHE_MAX:
-            # Evict oldest 50
             for old_k in list(_mem_cache.keys())[:50]:
                 _mem_cache.pop(old_k, None)
         _mem_cache[k] = v
 
 
-# ── Prompt helpers ────────────────────────────────────────────────────────────
+# -- Prompt helpers --
 def _build_prompt(messages: list, context_text: str, prompt: str) -> str:
-    """Convert messages list + context into a single flat prompt string."""
     turns: List[str] = []
     if context_text:
         turns.append(f"Context:\n{context_text}")
@@ -71,7 +73,6 @@ def _build_prompt(messages: list, context_text: str, prompt: str) -> str:
 def _apply_engine_config(
     engine_name: str, system: str, temperature: float, max_tokens: int, kwargs: dict
 ) -> tuple:
-    """Inject engine-specific system prompt / temperature / tokens."""
     cfg = get_engine_config(engine_name)
     out_system = (system + "\n\n" if system else "") + cfg["system"]
     out_temp   = kwargs.get("temperature", cfg["temperature"])
@@ -79,7 +80,143 @@ def _apply_engine_config(
     return out_system, out_temp, out_tokens
 
 
-# ── Core generate() ───────────────────────────────────────────────────────────
+# -- Provider routing --
+def _get_provider_and_key():
+    """Return (key, provider) from user_key_store, or raise."""
+    try:
+        from utils.user_key_store import get_user_key
+        key, provider = get_user_key()
+        if key and provider:
+            return key, provider
+    except Exception:
+        pass
+    raise RuntimeError(
+        "No API key set. Please enter your API key (Gemini / Groq / Cerebras) "
+        "in the sidebar to continue."
+    )
+
+
+def _make_ssl():
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        try:
+            return ssl.create_default_context()
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+
+_ssl_ctx = None
+_ssl_lock = threading.Lock()
+
+def _ssl():
+    global _ssl_ctx
+    with _ssl_lock:
+        if _ssl_ctx is None:
+            _ssl_ctx = _make_ssl()
+    return _ssl_ctx
+
+
+def _call_groq(
+    key: str,
+    prompt: str,
+    system: str = "",
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+    model: str = GROQ_MODEL,
+) -> str:
+    """Call Groq OpenAI-compatible endpoint."""
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    body = json.dumps({
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }).encode()
+
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {key}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90, context=_ssl()) as resp:
+            raw = json.loads(resp.read())
+            return raw["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as e:
+        body_text = ""
+        try:
+            body_text = e.read().decode(errors="replace")
+        except Exception:
+            pass
+        raise RuntimeError(f"Groq HTTP {e.code}: {body_text}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Groq network error: {e.reason}")
+    except Exception as e:
+        raise RuntimeError(f"Groq unexpected: {e}")
+
+
+def _call_cerebras(
+    key: str,
+    prompt: str,
+    system: str = "",
+    temperature: float = 0.7,
+    max_tokens: int = 4096,
+    model: str = CEREBRAS_MODEL,
+) -> str:
+    """Call Cerebras OpenAI-compatible endpoint."""
+    url = "https://api.cerebras.ai/v1/chat/completions"
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    body = json.dumps({
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }).encode()
+
+    req = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {key}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=90, context=_ssl()) as resp:
+            raw = json.loads(resp.read())
+            return raw["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as e:
+        body_text = ""
+        try:
+            body_text = e.read().decode(errors="replace")
+        except Exception:
+            pass
+        raise RuntimeError(f"Cerebras HTTP {e.code}: {body_text}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Cerebras network error: {e.reason}")
+    except Exception as e:
+        raise RuntimeError(f"Cerebras unexpected: {e}")
+
+
+# -- Core generate() --
 def generate(
     prompt: str = "",
     system: str = "",
@@ -89,13 +226,12 @@ def generate(
     image_mime: str = "image/jpeg",
     messages: list = None,
     context_text: str = "",
-    model: str = "",          # optional model override (ignored — engine picks best)
+    model: str = "",
     **kwargs,
 ) -> str:
     """
-    Generate a response using the OmniKeyEngine rotation system.
-    Thread-safe, cached, and model-cascade-aware.
-    Any 429/rate-limit errors are handled transparently by the engine.
+    Generate a response using whichever provider key the user has entered.
+    Automatically routes to Gemini, Groq, or Cerebras.
     """
     if messages:
         prompt = _build_prompt(messages, context_text, prompt)
@@ -106,53 +242,74 @@ def generate(
             engine_name, system, temperature, max_tokens, kwargs
         )
 
-    # Persona/language injections
     persona_prompt = kwargs.get("persona_prompt", "")
     if persona_prompt:
         system = (system + "\n\n" if system else "") + persona_prompt
 
-    # Cache check (skip for vision requests)
+    # Cache check (skip for vision)
     if not image_data:
         ck = _cache_key(prompt, system)
         cached = _cache_get(ck)
         if cached:
             return cached
 
-    # Try each model in cascade order
-    last_err: Optional[Exception] = None
-    for model_name in GEMINI_MODELS:
-        try:
-            result = OMNI_ENGINE.execute(
-                model=model_name,
-                prompt=prompt,
-                system=system,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                image_b64=image_data,
-                image_mime=image_mime,
-            )
-            if result:
-                if not image_data:
-                    _cache_set(_cache_key(prompt, system), result)
-                return result
-        except Exception as e:
-            last_err = e
-            err_str = str(e)
-            # Re-raise immediately — engine already waited/exhausted all options
-            if any(kw in err_str for kw in ("rate-limited", "rate_limited", "cooling", "⏳", "⚠️")):
-                raise
-            print(
-                f"[ai_engine] Model {model_name} failed: {err_str[:80]}. Trying next...",
-                file=sys.stderr
-            )
-            continue
+    key, provider = _get_provider_and_key()
 
-    raise last_err or RuntimeError(
-        "No Gemini response possible — all models and keys exhausted."
-    )
+    result: Optional[str] = None
+
+    if provider == "gemini":
+        for model_name in GEMINI_MODELS:
+            try:
+                result = OMNI_ENGINE.execute(
+                    model=model_name,
+                    prompt=prompt,
+                    system=system,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    image_b64=image_data,
+                    image_mime=image_mime,
+                )
+                if result:
+                    break
+            except Exception as e:
+                err_str = str(e)
+                if any(kw in err_str for kw in ("rate limit", "wait", "invalid", "revoked")):
+                    raise
+                print(f"[ai_engine] Gemini model {model_name} failed: {err_str[:80]}", file=sys.stderr)
+
+    elif provider == "groq":
+        result = _call_groq(
+            key=key,
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model=model or GROQ_MODEL,
+        )
+
+    elif provider == "cerebras":
+        result = _call_cerebras(
+            key=key,
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model=model or CEREBRAS_MODEL,
+        )
+
+    else:
+        raise RuntimeError(f"Unknown provider: {provider}")
+
+    if not result:
+        raise RuntimeError("No response received from the AI provider.")
+
+    if not image_data:
+        _cache_set(_cache_key(prompt, system), result)
+
+    return result
 
 
-# ── Streaming generate ────────────────────────────────────────────────────────
+# -- Streaming generate --
 def generate_stream(
     prompt: str = "",
     system: str = "",
@@ -167,8 +324,7 @@ def generate_stream(
 ) -> Iterator[str]:
     """
     Yields word-chunks for smooth Streamlit streaming.
-    Internally calls generate() with full model cascade and key rotation.
-    The user always sees output — no blank wait screen.
+    Falls back to chunking the full generate() response for non-Gemini providers.
     """
     if messages:
         prompt = _build_prompt(messages, context_text, prompt)
@@ -183,37 +339,46 @@ def generate_stream(
     if persona_prompt:
         system = (system + "\n\n" if system else "") + persona_prompt
 
-    last_err: Optional[Exception] = None
-    for model_name in GEMINI_MODELS:
-        try:
-            yield from OMNI_ENGINE.execute_stream(
-                model=model_name,
-                prompt=prompt,
-                system=system,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                image_b64=image_data,
-                image_mime=image_mime,
-                chunk_words=chunk_words,
-            )
-            return  # success — stop cascade
-        except Exception as e:
-            last_err = e
-            err_str = str(e)
-            if any(kw in err_str for kw in ("rate-limited", "rate_limited", "cooling", "⏳", "⚠️")):
-                raise
-            print(
-                f"[ai_engine] Stream model {model_name} failed: {err_str[:80]}. Trying next...",
-                file=sys.stderr
-            )
-            continue
+    key, provider = _get_provider_and_key()
 
-    raise last_err or RuntimeError(
-        "No Gemini stream possible — all models and keys exhausted."
-    )
+    if provider == "gemini":
+        for model_name in GEMINI_MODELS:
+            try:
+                yield from OMNI_ENGINE.execute_stream(
+                    model=model_name,
+                    prompt=prompt,
+                    system=system,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    image_b64=image_data,
+                    image_mime=image_mime,
+                    chunk_words=chunk_words,
+                )
+                return
+            except Exception as e:
+                err_str = str(e)
+                if any(kw in err_str for kw in ("rate limit", "wait", "invalid", "revoked")):
+                    raise
+                print(f"[ai_engine] Stream Gemini {model_name} failed: {err_str[:80]}", file=sys.stderr)
+    else:
+        # Groq and Cerebras: call full generate and chunk manually
+        full = generate(
+            prompt=prompt,
+            system=system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+        words = full.split(" ")
+        chunk: List[str] = []
+        for i, word in enumerate(words):
+            chunk.append(word)
+            if len(chunk) >= chunk_words or i == len(words) - 1:
+                yield " ".join(chunk) + (" " if i < len(words) - 1 else "")
+                chunk = []
 
 
-# ── Convenience wrappers (backward compat) ────────────────────────────────────
+# -- Convenience wrappers --
 def quick_generate(prompt: str, system: str = "", **kwargs) -> str:
     return generate(prompt=prompt, system=system, max_tokens=2048, **kwargs)
 
@@ -223,22 +388,16 @@ def vision_generate(prompt: str, image_b64: str, mime: str = "image/jpeg", **kwa
 
 
 def json_generate(prompt: str, system: str = "", **kwargs) -> str:
-    """
-    Generate a response, extract JSON, and VALIDATE it with json.loads().
-    ADD-3: On parse failure, retries once with stricter system prompt.
-    Falls back to raw text if no JSON block is found after retry.
-    """
     import re as _re
-    kwargs.pop("json_mode", None)  # consume silently — we handle JSON ourselves
+    kwargs.pop("json_mode", None)
 
     def _extract_and_validate(raw: str) -> Optional[str]:
-        """Try to extract + validate JSON from raw string. Returns valid JSON str or None."""
         fence_match = _re.search(r"```(?:json)?\s*([\s\S]+?)```", raw)
         if fence_match:
             candidate = fence_match.group(1).strip()
         else:
             candidate = None
-            for start_char in ("{" , "["):
+            for start_char in ("{", "["):
                 idx = raw.find(start_char)
                 if idx != -1:
                     candidate = raw[idx:].rstrip()
@@ -246,12 +405,11 @@ def json_generate(prompt: str, system: str = "", **kwargs) -> str:
         if candidate is None:
             return None
         try:
-            json.loads(candidate)  # Validate
+            json.loads(candidate)
             return candidate
         except json.JSONDecodeError:
             return None
 
-    # First attempt
     json_system = (
         (system + "\n\n" if system else "") +
         "IMPORTANT: Respond with ONLY valid JSON. No markdown, no preamble, no explanation."
@@ -261,7 +419,6 @@ def json_generate(prompt: str, system: str = "", **kwargs) -> str:
     if result:
         return result
 
-    # Retry with stricter prompt
     strict_system = "Return ONLY a raw JSON object. No text before or after it. No markdown. No code fences."
     try:
         raw2 = generate(prompt=prompt, system=strict_system, temperature=0.1, **kwargs)
@@ -271,20 +428,10 @@ def json_generate(prompt: str, system: str = "", **kwargs) -> str:
     except Exception:
         pass
 
-    return raw  # final fallback — return raw if still no valid JSON
+    return raw
 
 
-# ── Retry + Batch wrappers (ADD-1, ADD-2) ─────────────────────────────────────
-def generate_with_retry(
-    prompt: str,
-    max_retries: int = 3,
-    **kwargs,
-) -> str:
-    """
-    ADD-1: Wrapper around generate() with exponential backoff.
-    Retries on RuntimeError but NOT on rate-limit errors.
-    Backoff: 1s, 2s, 4s between attempts.
-    """
+def generate_with_retry(prompt: str, max_retries: int = 3, **kwargs) -> str:
     delay = 1.0
     last_err: Optional[Exception] = None
     for attempt in range(max_retries + 1):
@@ -292,26 +439,16 @@ def generate_with_retry(
             return generate(prompt=prompt, **kwargs)
         except RuntimeError as e:
             err_str = str(e)
-            # Do NOT retry on rate-limit — surface immediately
-            if any(kw in err_str for kw in ("rate-limited", "⏳", "⚠️", "rate_limited")):
+            if any(kw in err_str for kw in ("rate limit", "wait", "invalid", "revoked")):
                 raise
             last_err = e
             if attempt < max_retries:
-                print(
-                    f"[ai_engine] Retry {attempt + 1}/{max_retries} after {delay:.0f}s: {err_str[:60]}",
-                    file=sys.stderr,
-                )
                 time.sleep(delay)
                 delay *= 2
     raise last_err or RuntimeError("generate_with_retry: all retries exhausted.")
 
 
 def batch_generate(prompts: List[str], **kwargs) -> List[str]:
-    """
-    ADD-2: Send all prompts concurrently using ThreadPoolExecutor (max 3 workers).
-    Returns results in the same order as input prompts.
-    Rate limits respected — each thread uses a different key via OmniKeyEngine.
-    """
     results: List[str] = [""] * len(prompts)
 
     def _task(idx: int, p: str) -> None:
@@ -321,45 +458,30 @@ def batch_generate(prompts: List[str], **kwargs) -> List[str]:
             results[idx] = f"[Error: {str(e)[:100]}]"
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [
-            executor.submit(_task, i, p)
-            for i, p in enumerate(prompts)
-        ]
+        futures = [executor.submit(_task, i, p) for i, p in enumerate(prompts)]
         concurrent.futures.wait(futures)
 
     return results
 
 
-# ── Status & Admin ────────────────────────────────────────────────────────────
+# -- Status & Admin --
 def get_pool_status() -> dict:
-    """Return full real-time status report from OmniKeyEngine."""
     return OMNI_ENGINE.get_status_report()
 
 
 def get_capacity_summary() -> str:
-    """Single-line summary string for display in sidebar/header."""
     return OMNI_ENGINE.get_key_status_line()
 
 
 def get_dashboard_html() -> str:
-    """Rich HTML dashboard for embedding in Streamlit with unsafe_allow_html."""
     return OMNI_ENGINE.get_dashboard_html()
 
 
 def reset_all_keys() -> None:
-    """Reset all key cooldowns (emergency override)."""
     OMNI_ENGINE.reset_all_cooldowns()
 
 
 def get_token_usage_summary() -> dict:
-    """
-    ADD-4: Return total tokens used across all keys with estimated cost.
-    Gemini 2.5 Flash pricing: $0.075/1M input tokens, $0.30/1M output tokens.
-    """
-    report = OMNI_ENGINE.get_status_report()
-    total_in  = sum(k.get("total_tokens_in",  0) for k in report.get("keys", []))
-    total_out = sum(k.get("total_tokens_out", 0) for k in report.get("keys", []))
-    # Pull token totals from KeySlot objects directly (snapshots don't include token counts)
     total_in  = sum(s.total_tokens_in  for s in OMNI_ENGINE.slots)
     total_out = sum(s.total_tokens_out for s in OMNI_ENGINE.slots)
     cost = (total_in / 1_000_000 * 0.075) + (total_out / 1_000_000 * 0.30)
@@ -370,7 +492,7 @@ def get_token_usage_summary() -> dict:
     }
 
 
-# ── Removed integration stubs (backward compat) ──────────────────────────────
+# -- Backward-compat stubs --
 def stream_chat_with_groq(*args, **kwargs) -> Iterator[str]:
     return generate_stream(**kwargs)
 
