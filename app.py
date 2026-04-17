@@ -121,12 +121,15 @@ from utils.ocr_handler import extract_text_from_image
 from utils.analytics import get_subject_mastery_radar, get_study_intensity_heatmap, estimate_required_velocity
 from utils.app_controller import AppController
 from new_features import (
-    render_news_hub, render_vit_map, render_trip_planner, 
-    render_universal_converter, render_ai_humaniser, render_html_generator, 
-    render_citation_generator, render_regex_tester, render_vit_academics, 
+    render_news_hub, render_vit_map, render_trip_planner,
+    render_universal_converter, render_ai_humaniser, render_html_generator,
+    render_citation_generator, render_regex_tester, render_vit_academics,
     render_study_toolkit, render_circuit_solver, render_math_solver,
     render_dictionary, render_stocks_dashboard, render_legal_expert,
-    render_medical_expert, render_research_pro, render_project_architect
+    render_medical_expert, render_research_pro, render_project_architect,
+    # ── New Premium UI Pages ──────────────────────────────────────────────────
+    render_live_dashboard, render_api_explorer,
+    render_knowledge_hub, render_study_wellness,
 )
 from utils import ai_engine
 from dotenv import load_dotenv
@@ -263,6 +266,18 @@ def init_state():
         st.session_state.vector_store = VectorStore()
 
 init_state()
+
+# ── Auto-record study day for streak tracking ────────────────────────────────
+if "streak_recorded_today" not in st.session_state:
+    try:
+        from study_streak_engine import record_study_day, unlock_achievement
+        record_study_day()
+        # First chat achievement check
+        if len(st.session_state.get("messages", [])) > 0:
+            unlock_achievement("first_chat")
+        st.session_state["streak_recorded_today"] = True
+    except Exception:
+        st.session_state["streak_recorded_today"] = True
 
 # ═══════════════════════════════════════════════
 # PASSCODE LANDING PAGE GATE
@@ -4499,6 +4514,79 @@ with st.sidebar:
 
         st.divider()
 
+        # ── Gamification & Focus ──────────────────────
+        st.markdown('<div class="section-label">🎮 Gamification & Focus</div>', unsafe_allow_html=True)
+        g_col1, g_col2, g_col3 = st.columns(3)
+        with g_col1:
+            if st.button("🍅 Pomodoro", use_container_width=True, key="side_pomo"):
+                st.session_state.app_mode = "pomodoro"; st.rerun()
+        with g_col2:
+            if st.button("🔥 My Streak", use_container_width=True, key="side_streak"):
+                st.session_state.app_mode = "study_streak"; st.rerun()
+        with g_col3:
+            if st.button("🧠 Insights", use_container_width=True, key="side_insights"):
+                st.session_state.app_mode = "study_insights"; st.rerun()
+
+        # Show compact streak badge in sidebar
+        try:
+            from study_streak_engine import _load_streak_data
+            _sd = _load_streak_data()
+            _streak = _sd.get('streak', 0)
+            _xp     = _sd.get('total_xp', 0)
+            if _streak > 0:
+                st.markdown(f'''
+                <div style="background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.25);
+                  border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                  <span style="font-size:18px">🔥</span>
+                  <div>
+                    <div style="font-family:'Orbitron',monospace;font-size:12px;font-weight:700;
+                      color:#fb923c;">{_streak}-Day Streak</div>
+                    <div style="font-family:'Space Mono',monospace;font-size:9px;
+                      color:rgba(255,255,255,0.3);letter-spacing:1px;">{_xp:,} XP TOTAL</div>
+                  </div>
+                </div>''', unsafe_allow_html=True)
+        except Exception:
+            pass
+
+        # ── Daily Briefing button ───
+        if st.button("🌅 Daily AI Briefing", use_container_width=True, key="side_briefing"):
+            st.session_state.app_mode = "daily_briefing"; st.rerun()
+
+        # ── Exam Countdown Widget ────────────────────────────
+        st.markdown('<div class="section-label">🎯 Exam Countdown</div>', unsafe_allow_html=True)
+        exam_d = st.date_input(
+            "Exam Date",
+            value=st.session_state.get("exam_date", datetime.date.today() + datetime.timedelta(days=30)),
+            min_value=datetime.date.today(),
+            label_visibility="collapsed",
+            key="sidebar_exam_date",
+        )
+        st.session_state.exam_date = exam_d
+        try:
+            days_left = (exam_d - datetime.date.today()).days
+            bar_pct   = max(0, min(100, int((1 - days_left / 30) * 100)))
+            if days_left <= 7:   clr = "#ef4444"
+            elif days_left <= 14: clr = "#f97316"
+            else:                 clr = "#10b981"
+            st.markdown(f'''
+            <div style="margin:-4px 0 8px;">
+              <div style="display:flex;justify-content:space-between;
+                font-family:'Space Mono',monospace;font-size:9px;
+                color:rgba(255,255,255,0.3);letter-spacing:1px;margin-bottom:5px;">
+                <span>🎯 Exam day</span>
+                <span style="color:{clr};font-weight:700;">{days_left}d left</span>
+              </div>
+              <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:100px;overflow:hidden;">
+                <div style="width:{bar_pct}%;height:100%;border-radius:100px;
+                  background:linear-gradient(90deg,{clr},{clr}88);
+                  transition:width 0.6s ease;"></div>
+              </div>
+            </div>''', unsafe_allow_html=True)
+        except Exception:
+            pass
+
+        st.divider()
+
         with st.expander("⚠️ Advanced"):
             if st.button("🔄 Emergency Reset", use_container_width=True):
                 if st.session_state.get("_confirm_reset", False):
@@ -4739,6 +4827,13 @@ with st.sidebar:
                         st.error(f"❌ {uf.name}: {e}")
                 if loaded:
                     st.success(f"✅ {loaded} PDF(s) loaded!")
+                    # Award XP for PDF upload achievement
+                    try:
+                        from study_streak_engine import award_xp, unlock_achievement
+                        award_xp(20, "PDF uploaded")
+                        unlock_achievement("pdf_upload")
+                    except Exception:
+                        pass
 
     st.divider()
 
@@ -4857,18 +4952,19 @@ with st.sidebar:
 
     st.divider()
 
-    # ── Exam Countdown ─────────────────────────────
+    # ── Exam Countdown (display only — date set via sidebar widget) ─────────
     st.markdown('<div class="section-label">🗓️ Exam Countdown</div>', unsafe_allow_html=True)
-    col_e1, col_e2 = st.columns([2,1])
-    with col_e1:
-        st.session_state.exam_date = st.date_input(
-            "Date", value=st.session_state.exam_date, label_visibility="collapsed")
-    with col_e2:
-        days_left = (st.session_state.exam_date - datetime.date.today()).days
-        color = "var(--green)" if days_left > 14 else "var(--accent)" if days_left > 3 else "var(--red)"
+    try:
+        _ed = st.session_state.get("exam_date", datetime.date.today() + datetime.timedelta(days=30))
+        _days_left = (_ed - datetime.date.today()).days
+        _color = "var(--green)" if _days_left > 14 else "var(--accent)" if _days_left > 3 else "var(--red)"
         st.markdown(
-            f'<div style="text-align:center;font-weight:800;color:{color};font-size:1.1rem;padding-top:4px;">'
-            f'{max(0,days_left)}d</div>', unsafe_allow_html=True)
+            f'<div style="text-align:center;font-weight:800;color:{_color};font-size:1.8rem;padding:6px 0;">'
+            f'{max(0,_days_left)}<span style="font-size:.9rem;font-weight:400;color:var(--text3);"> days</span></div>',
+            unsafe_allow_html=True)
+        st.caption(f"📅 Exam: {_ed}")
+    except Exception:
+        pass
 
     st.divider()
 
@@ -5066,6 +5162,11 @@ with st.sidebar:
             ("🔥", "AI Companion",         "Nova · Luna · Zara — personas, scenarios & stories", "ai_companion"),
             ("📎", "Doc Analyser",         "Review any file: what\u2019s good, what to add", "doc_analyser"),
             ("🎵", "Sound Library",        "50+ ambient background sounds for focus", "bg_sounds"),
+            # ── New Premium UI Pages ────────────────────────────────────────
+            ("🌐", "Live Dashboard",       "NASA · Crypto · Earthquakes · Space live", "live_dashboard"),
+            ("⚡", "API Explorer",         "Test all 72 free APIs interactively",      "api_explorer"),
+            ("🎓", "Knowledge Hub",        "arXiv · PubMed · Books · Stack Overflow",  "knowledge_hub"),
+            ("🌿", "Study Wellness",       "Breaks · Affirmations · Concept of Day",   "study_wellness"),
         ]
         for icon, name, desc, mode in _power_tools:
             col_icon, col_info, col_btn = st.columns([1, 4, 2])
@@ -6948,6 +7049,11 @@ elif app_mode == "calculator":
     st.markdown("""<div class="page-header"><div class="page-header-title">🧮 Calculator</div><div class="page-header-sub">Full scientific calculator — open the sidebar widget</div></div>""", unsafe_allow_html=True)
     st.session_state.calculator_open = True
     st.info("The calculator is open in the sidebar. Use it there, or ask a math question in Chat.")
+# ─── STUDY INSIGHTS & MASTERY MAP ───────────────────────────────────────────────────
+elif app_mode == "study_insights":
+    from study_insights_engine import render_study_insights_page
+    render_study_insights_page()
+
     if st.button("💬 Back to Chat", key="calc_back_main"):
         st.session_state.app_mode = "chat"
         st.session_state.calculator_open = False
@@ -6963,6 +7069,21 @@ elif app_mode == "context_focus":
     from utils.context_focus_engine import render_context_focus
     render_context_focus()
 
+# ─── DAILY AI BRIEFING ────────────────────────────────────────────────────────────────
+elif app_mode == "daily_briefing":
+    from daily_briefing_engine import render_daily_briefing_page
+    render_daily_briefing_page()
+
+
+# ─── POMODORO FOCUS TIMER ────────────────────────────────────────────────────
+elif app_mode == "pomodoro":
+    from pomodoro_engine import render_pomodoro_page
+    render_pomodoro_page()
+
+# ─── STUDY STREAK & GAMIFICATION ─────────────────────────────────────────────
+elif app_mode == "study_streak":
+    from study_streak_engine import render_streak_page
+    render_streak_page()
 
 # ─── AI COMPANION ────────────────────────────────────────────────────────────────
 
@@ -6996,6 +7117,22 @@ elif app_mode == "pricing":
     render_pricing_page()
     if st.button("← Back to Chat", key="pricing_back"): st.session_state.app_mode = "chat"; st.rerun()
 
+# ─── LIVE DASHBOARD ───────────────────────────────────────────────────────────────────────────────
+elif app_mode == "live_dashboard":
+    render_live_dashboard()
+
+# ─── API EXPLORER ───────────────────────────────────────────────────────────────────────────────
+elif app_mode == "api_explorer":
+    render_api_explorer()
+
+# ─── KNOWLEDGE HUB ─────────────────────────────────────────────────────────────────────────────
+elif app_mode == "knowledge_hub":
+    render_knowledge_hub()
+
+# ─── STUDY WELLNESS ───────────────────────────────────────────────────────────────────────────
+elif app_mode == "study_wellness":
+    render_study_wellness()
+
 else:
 
     # ── Chat Powerup: returning user memory banner ──
@@ -7005,44 +7142,229 @@ else:
     except Exception:
         pass
 
-    # ── Empty state (Center of Excellence Dashboard) ───────────────
+    # ── Premium Empty State Dashboard ─────────────────────────────
     if not st.session_state.messages:
-        st.markdown("""
-        <div style="text-align:center; padding-top: 2rem; padding-bottom: 2rem;">
-            <h1 style="font-size:3.5rem; margin-bottom:0.5rem; background:linear-gradient(90deg, #fff, #6366f1); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:800; letter-spacing:-1.5px;">Elite AI Intelligence</h1>
-            <p style="color:var(--text-dim); font-size:1.15rem; max-width:700px; margin:0 auto 2.5rem; line-height:1.6;">
-                Welcome to the Gold Standard of Academic AI. Orchestrate historical masters, 
-                professional expert engines, and high-fidelity research tools in one unified workspace.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        render_quick_prompts()
-        
-        # 🎭 Expertise Launch Grid
-        exp_col1, exp_col2, exp_col3, exp_col4, exp_col5 = st.columns(5)
-        with exp_col1:
-            st.markdown("""<div class="expert-header" style="padding:10px; text-align:center;">🏛️<br><b>Legal</b></div>""", unsafe_allow_html=True)
-            if st.button("Launch", key="ql_legal", use_container_width=True): st.session_state.app_mode = "legal_expert"; st.rerun()
-        with exp_col2:
-            st.markdown("""<div class="expert-header" style="padding:10px; text-align:center;">🩺<br><b>Med</b></div>""", unsafe_allow_html=True)
-            if st.button("Launch", key="ql_med", use_container_width=True): st.session_state.app_mode = "medical_expert"; st.rerun()
-        with exp_col3:
-            st.markdown("""<div class="expert-header" style="padding:10px; text-align:center;">🔬<br><b>Res</b></div>""", unsafe_allow_html=True)
-            if st.button("Launch", key="ql_res", use_container_width=True): st.session_state.app_mode = "research_pro"; st.rerun()
-        with exp_col4:
-            st.markdown("""<div class="expert-header" style="padding:10px; text-align:center;">⚡<br><b>STEM</b></div>""", unsafe_allow_html=True)
-            if st.button("Launch", key="ql_stem", use_container_width=True): st.session_state.app_mode = "math_solver"; st.rerun()
-        with exp_col5:
-            st.markdown("""<div class="expert-header" style="padding:10px; text-align:center;">🎭<br><b>Debate</b></div>""", unsafe_allow_html=True)
-            if st.button("Launch", key="ql_debate", use_container_width=True): 
-                st.session_state.queued_prompt = "Start a 3-turn academic debate between Newton and Einstein regarding the nature of time."
-                st.rerun()
 
-        st.markdown("<div style='margin-bottom:2.5rem'></div>", unsafe_allow_html=True)
-        st.markdown(f'<div class="section-label" style="text-align:center;">💡 Suggested Inquiries for {st.session_state.selected_persona}</div>', unsafe_allow_html=True)
-        
-        QUICK_PROMPTS = [
+        # ── Gamification Hero Banner ────────────────────────────
+        try:
+            from study_streak_engine import _load_streak_data, _level_from_xp, _xp_progress
+            _sd       = _load_streak_data()
+            _streak   = _sd.get("streak", 0)
+            _xp       = _sd.get("total_xp", 0)
+            _lv       = _level_from_xp(_xp)
+            _lv_curr, _xp_in, _xp_need = _xp_progress(_xp)
+            _xp_pct   = min(100, int((_xp_in / max(1, _xp_need)) * 100))
+            _ach_cnt  = len(_sd.get("achievements", []))
+            _exam_d   = st.session_state.get("exam_date")
+            _days_left = (_exam_d - datetime.date.today()).days if _exam_d else None
+
+            _streak_color = "#fb923c" if _streak > 0 else "rgba(255,255,255,0.2)"
+            _exam_color   = "#ef4444" if (_days_left and _days_left <= 7) else "#f97316" if (_days_left and _days_left <= 14) else "#10b981"
+
+            st.markdown(f"""
+            <style>
+            .eh-dashboard-grid {{
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 12px;
+              margin-bottom: 28px;
+            }}
+            .eh-dash-card {{
+              background: rgba(15,23,42,0.75);
+              border: 1px solid rgba(255,255,255,0.07);
+              border-radius: 20px;
+              padding: 22px 20px;
+              text-align: center;
+              backdrop-filter: blur(16px);
+              transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+              position: relative;
+              overflow: hidden;
+            }}
+            .eh-dash-card::before {{
+              content: '';
+              position: absolute;
+              inset: 0;
+              background: radial-gradient(ellipse at top, var(--card-glow, rgba(99,102,241,0.05)), transparent 70%);
+              pointer-events: none;
+            }}
+            .eh-dash-card:hover {{
+              transform: translateY(-4px);
+              border-color: rgba(99,102,241,0.3);
+              box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+            }}
+            .eh-dash-val {{
+              font-family: 'Orbitron', monospace;
+              font-size: 28px;
+              font-weight: 900;
+              line-height: 1;
+              margin-bottom: 6px;
+            }}
+            .eh-dash-lbl {{
+              font-family: 'Space Mono', monospace;
+              font-size: 9px;
+              letter-spacing: 3px;
+              color: rgba(255,255,255,0.25);
+              text-transform: uppercase;
+              margin-bottom: 10px;
+            }}
+            .eh-xp-bar {{
+              height: 4px;
+              background: rgba(255,255,255,0.06);
+              border-radius: 100px;
+              overflow: hidden;
+              margin-top: 8px;
+            }}
+            .eh-xp-fill {{
+              height: 100%;
+              border-radius: 100px;
+              background: linear-gradient(90deg, #7c3aed, #a78bfa);
+              transition: width 0.8s ease;
+            }}
+            .eh-welcome-title {{
+              font-family: 'Orbitron', monospace;
+              font-size: clamp(24px, 4vw, 40px);
+              font-weight: 900;
+              background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 40%, #818cf8 70%, #c084fc 100%);
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+              letter-spacing: -1px;
+              line-height: 1.1;
+              text-align: center;
+              margin-bottom: 10px;
+              filter: drop-shadow(0 0 30px rgba(99,102,241,0.3));
+            }}
+            .eh-welcome-sub {{
+              font-family: 'Rajdhani', sans-serif;
+              font-size: 16px;
+              color: rgba(255,255,255,0.4);
+              text-align: center;
+              max-width: 600px;
+              margin: 0 auto 28px;
+              line-height: 1.6;
+              letter-spacing: 0.3px;
+            }}
+            .eh-feature-grid {{
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+              gap: 10px;
+              margin-bottom: 24px;
+            }}
+            .eh-feature-card {{
+              background: rgba(15,23,42,0.7);
+              border: 1px solid rgba(255,255,255,0.07);
+              border-radius: 16px;
+              padding: 18px 14px;
+              text-align: center;
+              cursor: pointer;
+              transition: all 0.25s ease;
+            }}
+            .eh-feature-card:hover {{
+              border-color: rgba(99,102,241,0.4);
+              background: rgba(99,102,241,0.08);
+              transform: translateY(-3px);
+              box-shadow: 0 8px 24px rgba(99,102,241,0.15);
+            }}
+            .eh-feature-icon {{ font-size: 26px; margin-bottom: 8px; display: block; }}
+            .eh-feature-name {{
+              font-family: 'Rajdhani', sans-serif;
+              font-size: 12px;
+              font-weight: 700;
+              color: rgba(255,255,255,0.7);
+              letter-spacing: 0.5px;
+            }}
+            </style>
+
+            <div class="eh-welcome-title">⚡ ExamHelp AI</div>
+            <div class="eh-welcome-sub">
+              Your elite AI study command center — chat, research, focus, and track your mastery.
+            </div>
+
+            <div class="eh-dashboard-grid">
+              <div class="eh-dash-card" style="--card-glow: rgba(249,115,22,0.08); border-color: rgba(249,115,22,0.15);">
+                <div class="eh-dash-val" style="color: {_streak_color};">{'🔥' if _streak > 0 else '💤'} {_streak}</div>
+                <div class="eh-dash-lbl">Day Streak</div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:11px;color:rgba(255,255,255,0.3);">
+                  {'Keep it going!' if _streak > 0 else 'Start today!'}
+                </div>
+              </div>
+              <div class="eh-dash-card" style="--card-glow: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.15);">
+                <div class="eh-dash-val" style="color:#a78bfa;">Lv {_lv}</div>
+                <div class="eh-dash-lbl">Scholar Rank</div>
+                <div class="eh-xp-bar"><div class="eh-xp-fill" style="width:{_xp_pct}%"></div></div>
+                <div style="font-family:'Space Mono',monospace;font-size:9px;color:rgba(255,255,255,0.2);margin-top:5px;">{_xp:,} XP</div>
+              </div>
+              <div class="eh-dash-card" style="--card-glow: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.15);">
+                <div class="eh-dash-val" style="color:#34d399;">🏆 {_ach_cnt}</div>
+                <div class="eh-dash-lbl">Achievements</div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:11px;color:rgba(255,255,255,0.3);">
+                  of {18} unlocked
+                </div>
+              </div>
+              {f'''<div class="eh-dash-card" style="--card-glow: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.15);">
+                <div class="eh-dash-val" style="color:{_exam_color};">🎯 {_days_left}d</div>
+                <div class="eh-dash-lbl">Until Exam</div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:11px;color:rgba(255,255,255,0.3);">
+                  {"Crunch time!" if _days_left <= 7 else "Stay consistent" if _days_left <= 14 else "You have time"}
+                </div>
+              </div>''' if _days_left is not None else ''}
+            </div>
+            """, unsafe_allow_html=True)
+        except Exception:
+            # Fallback simple title
+            st.markdown("""
+            <div style="text-align:center;padding:2rem 0 1.5rem;">
+              <h1 style="font-size:2.8rem;font-weight:900;background:linear-gradient(135deg,#fff,#818cf8);
+                -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-1px;">
+                ⚡ ExamHelp AI
+              </h1>
+              <p style="color:rgba(255,255,255,0.4);font-size:15px;max-width:500px;margin:0 auto;">
+                Your elite AI study command center.
+              </p>
+            </div>""", unsafe_allow_html=True)
+
+        # ── Quick Prompts (Step 09) ─────────────────────────────
+        render_quick_prompts()
+
+        # ── Feature Launch Grid ─────────────────────────────────
+        st.markdown('<div class="section-label" style="margin:20px 0 12px;">🚀 LAUNCH A TOOL</div>', unsafe_allow_html=True)
+        st.markdown('<div class="eh-feature-grid">', unsafe_allow_html=True)
+
+        _FEATURES = [
+            ("🍅", "Pomodoro", "pomodoro"),
+            ("🔥", "My Streak", "study_streak"),
+            ("🌅", "Briefing", "daily_briefing"),
+            ("⚖️", "Legal AI", "legal_expert"),
+            ("🩺", "Medical", "medical_expert"),
+            ("🔬", "Research", "research_pro"),
+            ("⚡", "Math Pro", "math_solver"),
+            ("🃏", "Flashcards", "flashcards"),
+            ("📝", "Quiz Mode", "quiz"),
+            ("📊", "Mind Map", "mindmap"),
+            ("📅", "Planner", "planner"),
+            ("💻", "Debugger", "debugger"),
+        ]
+        for icon, name, mode in _FEATURES:
+            st.markdown(f"""
+            <div class="eh-feature-card">
+              <span class="eh-feature-icon">{icon}</span>
+              <div class="eh-feature-name">{name}</div>
+            </div>""", unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── Button grid (actual clickable) ──────────────────────
+        _feat_cols = st.columns(len(_FEATURES))
+        for col, (icon, name, mode) in zip(_feat_cols, _FEATURES):
+            with col:
+                if st.button(icon, key=f"feat_{mode}", use_container_width=True,
+                             help=name):
+                    st.session_state.app_mode = mode
+                    st.rerun()
+
+        st.markdown('<div class="section-label" style="margin:24px 0 12px;">💡 SUGGESTED PROMPTS</div>', unsafe_allow_html=True)
+
+        QUICK_PROMPTS_HOME = [
             "📖 Summarise my uploaded material into high-yield takeaways",
             "🃏 Generate adaptive flashcards from this text",
             "📝 Create a practice exam with a focus on edge-cases",
@@ -7052,9 +7374,9 @@ else:
             "🧮 Solve this problem step-by-step using first principles",
             "🌐 Detail real-world industrial applications of this concept",
         ]
-        
+
         pcols = st.columns(2)
-        for i, prompt in enumerate(QUICK_PROMPTS):
+        for i, prompt in enumerate(QUICK_PROMPTS_HOME):
             with pcols[i % 2]:
                 if st.button(prompt, key=f"qp_{i}", use_container_width=True):
                     st.session_state.queued_prompt = prompt.split(" ", 1)[1]
@@ -7243,6 +7565,25 @@ else:
         if success and full_response:
             st.session_state.messages.append({"role": "assistant", "content": full_response})
 
+            # ── XP & Achievement Awards ─────────────────────────────────────
+            try:
+                from study_streak_engine import award_xp, unlock_achievement
+                award_xp(5, "Chat response")
+                msg_count = len(st.session_state.messages)
+                if msg_count >= 1:
+                    unlock_achievement("first_chat")
+                if msg_count >= 100:
+                    unlock_achievement("chat_50")
+                # Midnight / early bird achievements
+                import datetime as _dt_ach
+                _now_h = _dt_ach.datetime.now().hour
+                if _now_h == 0 or _now_h == 1:
+                    unlock_achievement("midnight_oil")
+                if _now_h < 7:
+                    unlock_achievement("early_bird")
+            except Exception:
+                pass
+
             # ── Chat Powerup: persist topic to cross-session memory ──
             try:
                 from utils.chat_powerup import update_memory_with_topic
@@ -7392,3 +7733,22 @@ document.getElementById('kbdOverlay').addEventListener('click',function(e){
 </script>
 '''
 st.markdown(SHORTCUT_OVERLAY_CODE, unsafe_allow_html=True)
+
+# ✅ UI ELEVATION v6.0 — FEATURE HARDENING COMPLETE
+# ─────────────────────────────────────────────────────────────────────────────
+# New Engines Added:
+#   • pomodoro_engine.py     — Gamified Pomodoro focus timer with session log
+#   • study_streak_engine.py — Daily streak tracking, XP system, achievements
+#   • daily_briefing_engine.py — AI-personalized morning briefing + exam countdown
+#
+# App.py Injections:
+#   • Streak auto-recording at every app load (init_state)
+#   • XP awards: chat responses (+5), PDF uploads (+20)
+#   • Achievement unlocks: first_chat, pdf_upload, chat_50, midnight_oil, early_bird
+#   • Sidebar: Gamification & Focus section (Pomodoro + Streak buttons + compact badge)
+#   • Sidebar: Daily AI Briefing button
+#   • Sidebar: Exam Countdown widget (single-source date picker)
+#   • Routes: pomodoro, study_streak, daily_briefing
+#   • Empty state: Premium gamified dashboard (streak card, XP bar, achievements, exam countdown)
+#   • Feature Grid: 12-tool launch grid replacing old basic grid
+# ─────────────────────────────────────────────────────────────────────────────

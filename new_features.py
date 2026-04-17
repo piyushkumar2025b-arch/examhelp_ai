@@ -1564,3 +1564,373 @@ def render_project_architect():
     st.markdown("---")
     if st.button("💬 Back to Chat", use_container_width=True, key="proj_back"):
         st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# LIVE DASHBOARD — Full premium live data page
+# ═══════════════════════════════════════════════════════════════
+
+def render_live_dashboard():
+    """
+    Premium full-page live data dashboard using our free API ecosystem.
+    Sections: Crypto · Space · Academic Feed · World Clock · Study Break.
+    """
+    from ui_enhancements import (
+        inject_premium_css,
+        render_live_stats_bar,
+        render_world_clock_bar,
+        render_crypto_ticker,
+        render_space_widget,
+        render_mini_science_feed,
+        render_knowledge_pulse,
+        render_topic_spotlight,
+        render_study_break_widget,
+    )
+    inject_premium_css()
+
+    st.markdown("""
+<div style="
+    background: linear-gradient(135deg, rgba(0,255,180,0.04) 0%, rgba(0,170,255,0.04) 100%);
+    border: 1px solid rgba(0,255,180,0.1);
+    border-radius: 20px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+">
+  <div style="
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:4px;
+    color:rgba(0,255,180,0.5); text-transform:uppercase; margin-bottom:8px;
+  ">LIVE DATA ENGINE · 72 FREE APIS · ZERO AUTH</div>
+  <div style="
+    font-family:'Outfit',sans-serif; font-size:30px; font-weight:800; color:#fff;
+    margin-bottom:6px;
+  ">🌐 Live Dashboard</div>
+  <div style="font-family:'Inter',sans-serif;font-size:14px;color:rgba(255,255,255,0.45);">
+    Real-time data from NASA · CoinGecko · arXiv · USGS · SpaceX · SpaceFlight News — all free, no keys.
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    render_live_stats_bar()
+
+    tab_space, tab_market, tab_science, tab_clock, tab_break = st.tabs([
+        "🔭 Space", "🪙 Markets", "📡 Science Feed", "🌐 World Clock", "☕ Study Break"
+    ])
+
+    with tab_space:
+        render_space_widget()
+        st.markdown("---")
+        render_topic_spotlight()
+
+    with tab_market:
+        c1, c2 = st.columns([3, 2])
+        with c1:
+            render_crypto_ticker(coins=["bitcoin","ethereum","solana","cardano","dogecoin","polkadot"])
+        with c2:
+            render_topic_spotlight(day_offset=1)
+
+    with tab_science:
+        sub_col1, sub_col2 = st.columns([3, 2])
+        topic = st.text_input("🔍 arXiv topic to track", value="machine learning", key="dash_topic")
+        with sub_col1:
+            render_knowledge_pulse(topic=topic, limit=5)
+        with sub_col2:
+            render_mini_science_feed(limit=3)
+
+    with tab_clock:
+        render_world_clock_bar()
+
+    with tab_break:
+        render_study_break_widget()
+
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="dash_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# API EXPLORER — Interactive live API browser
+# ═══════════════════════════════════════════════════════════════
+
+def render_api_explorer():
+    """
+    Full-page interactive API explorer tab.
+    Shows all 72 integrated free APIs with live query capability.
+    """
+    from ui_enhancements import inject_premium_css, render_api_explorer_panel, render_live_stats_bar
+    inject_premium_css()
+
+    st.markdown("""
+<div style="
+    background:linear-gradient(135deg,rgba(180,77,255,0.06) 0%,rgba(0,170,255,0.04) 100%);
+    border:1px solid rgba(180,77,255,0.12); border-radius:20px;
+    padding:28px 32px; margin-bottom:24px;
+">
+  <div style="
+    font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:4px;
+    color:rgba(180,77,255,0.6);text-transform:uppercase;margin-bottom:8px;
+  ">DEVELOPER PLAYGROUND</div>
+  <div style="font-family:'Outfit',sans-serif;font-size:30px;font-weight:800;color:#fff;margin-bottom:6px;">
+    ⚡ Free API Explorer
+  </div>
+  <div style="font-family:'Inter',sans-serif;font-size:14px;color:rgba(255,255,255,0.45);">
+    Browse and test all 72 integrated zero-auth APIs — academic, scientific, financial, medical & more.
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    render_live_stats_bar()
+
+    # Stats row
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total APIs", "72")
+    c2.metric("Require Key", "0")
+    c3.metric("Rate Limited", "8")
+    c4.metric("Data Points", "500+")
+
+    st.markdown("---")
+    render_api_explorer_panel()
+
+    st.markdown("---")
+    st.markdown("##### 📋 Full API Catalogue")
+    catalogue = [
+        ("📚 Academic", ["arXiv", "CrossRef", "Semantic Scholar", "PubMed", "Zenodo", "Unpaywall", "HAL", "Open Library"]),
+        ("📖 Books", ["Google Books", "Project Gutenberg (70k+)", "Internet Archive"]),
+        ("🔬 Science", ["NASA APOD", "SpaceX", "SpaceFlight News", "USGS Earthquakes", "ISS Location"]),
+        ("🧬 Biology", ["GBIF Species", "UniProt Proteins", "ChEMBL Drugs", "PubChem Compounds"]),
+        ("🏥 Medical", ["ClinicalTrials.gov", "FDA Drug Labels", "FDA Adverse Events", "Disease.sh", "Wikipedia Medical"]),
+        ("💻 Tech/Dev", ["HackerNews", "Dev.to", "Stack Exchange", "PyPI", "npm Registry", "NVD CVE"]),
+        ("💱 Finance", ["CoinGecko (Crypto)", "Yahoo Finance (Stocks)", "World Bank Economics"]),
+        ("🌍 Earth", ["Open-Meteo Weather", "Open-Meteo Marine", "Open-Meteo Historical", "Air Quality", "Sunrise/Sunset", "World Time"]),
+        ("🌐 Language", ["Datamuse (Synonyms)", "MyMemory Translation", "Dictionary API", "PoetryDB"]),
+        ("🎨 Creative", ["TheMealDB", "CocktailDB", "TVMaze", "MusicBrainz", "Jikan/Anime", "Imgflip Memes", "TheColorAPI"]),
+        ("🔢 Data", ["Agify", "Genderize", "Nationalize", "Open Food Facts", "Wikidata", "DuckDuckGo"]),
+        ("✨ Wellness", ["Bored API", "Advice Slip", "Affirmations.dev", "Chuck Norris (Science)"]),
+    ]
+    cols = st.columns(3)
+    for i, (cat, apis) in enumerate(catalogue):
+        with cols[i % 3]:
+            with st.expander(f"{cat} ({len(apis)})"):
+                for api in apis:
+                    st.markdown(f"✅ `{api}`")
+
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="api_exp_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# KNOWLEDGE HUB — Live academic search across 8 databases
+# ═══════════════════════════════════════════════════════════════
+
+def render_knowledge_hub():
+    """
+    Multi-source academic search UI — arXiv, PubMed, Google Books,
+    Zenodo, Gutenberg, Stack Overflow, Dev.to — all from free APIs.
+    """
+    from ui_enhancements import inject_premium_css, render_live_stats_bar
+    inject_premium_css()
+
+    st.markdown("""
+<div style="
+    background:linear-gradient(135deg,rgba(0,255,180,0.05) 0%,rgba(0,170,255,0.05) 100%);
+    border:1px solid rgba(0,255,180,0.12);border-radius:20px;
+    padding:28px 32px;margin-bottom:24px;
+">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:4px;
+    color:rgba(0,255,180,0.5);text-transform:uppercase;margin-bottom:8px;">GROUNDED ACADEMIC RESEARCH</div>
+  <div style="font-family:'Outfit',sans-serif;font-size:30px;font-weight:800;color:#fff;margin-bottom:6px;">
+    🎓 Knowledge Hub
+  </div>
+  <div style="font-family:'Inter',sans-serif;font-size:14px;color:rgba(255,255,255,0.45);">
+    Search arXiv · PubMed · Google Books · Zenodo · Gutenberg · Stack Overflow — all free, no keys.
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    render_live_stats_bar()
+
+    query = st.text_input("🔍 Search all academic databases", placeholder="e.g. CRISPR, quantum computing, French Revolution...", key="kh_query")
+
+    if not query:
+        from ui_enhancements import render_knowledge_pulse, render_topic_spotlight
+        col1, col2 = st.columns([3, 2])
+        with col1:
+            render_knowledge_pulse(topic="artificial intelligence", limit=4)
+        with col2:
+            render_topic_spotlight()
+        return
+
+    tab_arxiv, tab_pubmed, tab_books, tab_gutenberg, tab_zenodo, tab_so = st.tabs([
+        "📡 arXiv", "🏥 PubMed", "📗 Books", "📜 Gutenberg", "🗄 Zenodo", "💻 StackOverflow"
+    ])
+
+    with tab_arxiv:
+        with st.spinner("Searching arXiv…"):
+            try:
+                from free_apis import search_arxiv
+                papers = search_arxiv(query, max_results=8)
+                if papers:
+                    for p in papers:
+                        authors = ", ".join(p.get("authors", [])[:3])
+                        if len(p.get("authors", [])) > 3:
+                            authors += " et al."
+                        with st.expander(f"📄 {p.get('title','')[:80]}"):
+                            st.markdown(f"**Authors:** {authors}  \n**Published:** {p.get('published','')[:10]}  \n**Categories:** {', '.join(p.get('categories',[])[:3])}")
+                            st.markdown(p.get("summary","")[:400])
+                            st.markdown(f"[📎 Open on arXiv]({p.get('url','#')})")
+                else:
+                    st.info("No arXiv results found.")
+            except Exception as e:
+                st.error(f"arXiv unavailable: {e}")
+
+    with tab_pubmed:
+        with st.spinner("Searching PubMed…"):
+            try:
+                from free_apis import search_pubmed
+                papers = search_pubmed(query, max_results=6)
+                if papers:
+                    for p in papers:
+                        with st.expander(f"🏥 {p.get('title','')[:80]}"):
+                            st.markdown(f"**Authors:** {', '.join(p.get('authors',[])[:4])}  \n**Journal:** {p.get('journal','')}  \n**Year:** {p.get('year','')}")
+                            st.markdown(f"[📎 Open on PubMed]({p.get('url','#')})")
+                else:
+                    st.info("No PubMed results found.")
+            except Exception as e:
+                st.error(f"PubMed unavailable: {e}")
+
+    with tab_books:
+        with st.spinner("Searching Google Books…"):
+            try:
+                from free_apis import search_google_books
+                books = search_google_books(query, limit=6)
+                if books:
+                    cols = st.columns(3)
+                    for i, b in enumerate(books):
+                        with cols[i % 3]:
+                            thumb = b.get("thumbnail","")
+                            if thumb:
+                                st.image(thumb, width=80)
+                            st.markdown(f"**{b.get('title','')}**")
+                            st.caption(", ".join(b.get("authors",[])) + f" ({b.get('year','')})")
+                            st.caption(b.get("description","")[:120])
+                            if b.get("preview_url"):
+                                st.markdown(f"[📖 Preview]({b['preview_url']})")
+                else:
+                    st.info("No book results found.")
+            except Exception as e:
+                st.error(f"Google Books unavailable: {e}")
+
+    with tab_gutenberg:
+        with st.spinner("Searching Project Gutenberg…"):
+            try:
+                from free_apis import search_gutenberg
+                books = search_gutenberg(query, limit=6)
+                if books:
+                    for b in books:
+                        with st.expander(f"📜 {b.get('title','')[:70]} — {', '.join(b.get('authors',[])[:2])}"):
+                            st.markdown(f"**Subjects:** {', '.join(b.get('subjects',[])[:3])}")
+                            st.markdown(f"**Downloads:** {b.get('downloads',0):,}")
+                            c1, c2 = st.columns(2)
+                            if b.get("txt_url"):
+                                c1.markdown(f"[📄 Read Text]({b['txt_url']})")
+                            if b.get("epub_url"):
+                                c2.markdown(f"[📚 EPUB]({b['epub_url']})")
+                else:
+                    st.info("No Gutenberg results — try a classic author name like 'Shakespeare'.")
+            except Exception as e:
+                st.error(f"Gutenberg unavailable: {e}")
+
+    with tab_zenodo:
+        with st.spinner("Searching Zenodo…"):
+            try:
+                from free_apis import search_zenodo
+                records = search_zenodo(query, limit=5)
+                if records:
+                    for r in records:
+                        with st.expander(f"🗄 {r.get('title','')[:70]}"):
+                            st.markdown(f"**Authors:** {', '.join(r.get('authors',[])[:3])}  \n**Year:** {r.get('year','')}  \n**Type:** {r.get('resource_type','')}  \n**License:** {r.get('license','')}")
+                            st.markdown(r.get("description","")[:250])
+                            if r.get("doi"):
+                                st.markdown(f"[🔗 DOI: {r['doi']}](https://doi.org/{r['doi']})")
+                            if r.get("url"):
+                                st.markdown(f"[🌐 Open on Zenodo]({r['url']})")
+                else:
+                    st.info("No Zenodo results found.")
+            except Exception as e:
+                st.error(f"Zenodo unavailable: {e}")
+
+    with tab_so:
+        site_choice = st.selectbox("Stack Exchange site", [
+            "stackoverflow", "math", "physics", "cs", "datascience",
+            "stats", "chemistry", "biology", "philosophy", "history",
+        ], key="kh_so_site")
+        with st.spinner("Searching Stack Exchange…"):
+            try:
+                from free_apis import search_stackoverflow
+                results = search_stackoverflow(query, site=site_choice, limit=5)
+                if results:
+                    for q in results:
+                        status = "✅" if q.get("is_answered") else "❓"
+                        with st.expander(f"{status} {q.get('title','')[:80]}"):
+                            st.markdown(f"**Score:** {q.get('score',0)} &nbsp; **Answers:** {q.get('answers',0)} &nbsp; **Views:** {q.get('views',0):,}")
+                            st.markdown(f"**Tags:** {', '.join(q.get('tags',[]))}")
+                            if q.get("body_snippet"):
+                                st.markdown(q["body_snippet"][:250])
+                            st.markdown(f"[🔗 Open on {site_choice}]({q.get('url','#')})")
+                else:
+                    st.info("No Stack Exchange results found.")
+            except Exception as e:
+                st.error(f"Stack Exchange unavailable: {e}")
+
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="kh_back"):
+        st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# STUDY WELLNESS — Break, affirmations, activity suggestions
+# ═══════════════════════════════════════════════════════════════
+
+def render_study_wellness():
+    """
+    Dedicated page for study wellness: activity breaks, affirmations,
+    Pomodoro-aware advice, and concept-of-the-day.
+    """
+    from ui_enhancements import (
+        inject_premium_css, render_study_break_widget,
+        render_topic_spotlight, render_live_stats_bar,
+    )
+    inject_premium_css()
+
+    st.markdown("""
+<div style="
+    background:linear-gradient(135deg,rgba(255,170,0,0.05) 0%,rgba(180,77,255,0.05) 100%);
+    border:1px solid rgba(255,170,0,0.12);border-radius:20px;
+    padding:28px 32px;margin-bottom:24px;
+">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:4px;
+    color:rgba(255,170,0,0.5);text-transform:uppercase;margin-bottom:8px;">MIND · BODY · FOCUS</div>
+  <div style="font-family:'Outfit',sans-serif;font-size:30px;font-weight:800;color:#fff;margin-bottom:6px;">
+    🌿 Study Wellness
+  </div>
+  <div style="font-family:'Inter',sans-serif;font-size:14px;color:rgba(255,255,255,0.45);">
+    Mindful breaks · Affirmations · Concept of the Day · Life advice — designed to keep you sharp.
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    render_live_stats_bar()
+
+    c1, c2 = st.columns([3, 2])
+    with c1:
+        render_study_break_widget()
+    with c2:
+        render_topic_spotlight()
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        render_topic_spotlight(day_offset=1)
+
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="wellness_back"):
+        st.session_state.app_mode = "chat"; st.rerun()

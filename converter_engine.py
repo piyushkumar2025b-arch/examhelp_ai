@@ -1,10 +1,12 @@
 """
 converter_engine.py — UNIVERSAL File & Unit Converter Engine v2.0
 Supports 100+ file conversions + 20 unit categories + live currency.
+Currency rates via open.er-api.com (free, no key needed).
 """
 from __future__ import annotations
 import io, os, base64, json, csv, re
 from typing import Optional, Tuple
+from free_apis import get_exchange_rates as _get_rates, get_country_info
 
 # ── Core text/document converters ─────────────────────────────────────────────
 
@@ -462,7 +464,13 @@ UNIT_CATEGORIES = {
         "to_base": None,
     },
     "💰 Currency (Live)": {
-        "units": ["USD","EUR","GBP","JPY","INR","CAD","AUD","CHF","CNY","HKD","SGD","KRW","MXN","BRL","RUB","TRY","ZAR","AED","SAR","THB"],
+        "units": [
+            "USD","EUR","GBP","JPY","INR","CAD","AUD","CHF","CNY","HKD",
+            "SGD","KRW","MXN","BRL","RUB","TRY","ZAR","AED","SAR","THB",
+            "IDR","MYR","PHP","TWD","PKR","BDT","VND","NPR","LKR","SEK",
+            "NOK","DKK","PLN","CZK","HUF","RON","BGN","HRK","ISK","NZD",
+            "EGP","NGN","KES","GHS","ETB","COP","ARS","CLP","PEN","UAH",
+        ],
         "to_base": None,
     },
     "💊 Cooking Measures": {
@@ -533,13 +541,15 @@ def convert_units(value: float, from_unit: str, to_unit: str, category: str) -> 
 
 
 def get_live_currency_rates(base: str = "USD") -> dict:
+    """Fetch live exchange rates via free_apis (no key needed)."""
+    data = _get_rates(base)
+    if data and data.get("rates"):
+        return data["rates"]
+    # stdlib urllib fallback (already handled inside free_apis, but extra safety)
     try:
-        import requests
-        resp = requests.get(f"https://open.er-api.com/v6/latest/{base}", timeout=8)
-        data = resp.json()
-        if data.get("result") == "success":
-            return data.get("rates", {})
-        resp2 = requests.get(f"https://api.exchangerate-api.com/v4/latest/{base}", timeout=8)
-        return resp2.json().get("rates", {})
+        import urllib.request, json as _json
+        url = f"https://open.er-api.com/v6/latest/{base}"
+        with urllib.request.urlopen(url, timeout=8) as r:
+            return _json.loads(r.read()).get("rates", {})
     except Exception:
         return {}

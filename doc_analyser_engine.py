@@ -58,14 +58,16 @@ Be practical, direct, and constructive."""
 
 # ── Quick prompt suggestions ─────────────────────────────────────────────────
 QUICK_PROMPTS = [
-    "What's good in this document?",
-    "What should I add to make it better?",
-    "Where are the weak areas?",
-    "Give me a full review",
-    "What's missing compared to industry standards?",
-    "Rate this out of 10 and explain why",
-    "Summarise the key points",
-    "What would an expert say about this?",
+    "Give me a full detailed review — what's good, what's weak, what's missing.",
+    "What are the 3 most critical improvements needed?",
+    "Rate this document out of 10 with specific justification.",
+    "What's missing compared to industry best practices?",
+    "Identify all structural and logical gaps.",
+    "Summarise the key points concisely.",
+    "What would an expert reviewer say about this?",
+    "How can I make this stand out from average work?",
+    "What's the strongest part of this document?",
+    "Give specific line-by-line improvement suggestions.",
 ]
 
 
@@ -168,76 +170,111 @@ def render_doc_analyser():
 
     st.markdown(f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&family=Rajdhani:wght@300;400;600;700&display=swap');
+
     .da-header {{
-        background: {surface};
-        border: 1px solid {border};
-        border-radius: 16px;
-        padding: 20px 24px;
+        position: relative;
+        background: linear-gradient(135deg, {surface}, rgba(15,23,42,0.95));
+        border: 1px solid rgba(167,139,250,0.2);
+        border-radius: 22px;
+        padding: 24px 28px;
         margin-bottom: 18px;
+        overflow: hidden;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 0 60px rgba(167,139,250,0.07), 0 20px 60px rgba(0,0,0,0.35);
+    }}
+    .da-header::after {{
+        content: '';
+        position: absolute; top: -1px; left: 10%; right: 10%; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(167,139,250,0.5), rgba(96,165,250,0.4), transparent);
     }}
     .da-title {{
-        font-size: 1.4rem; font-weight: 800;
+        font-family: 'Orbitron', monospace;
+        font-size: 1.25rem; font-weight: 900; letter-spacing: 1px;
         background: linear-gradient(90deg, #a78bfa, #60a5fa);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        margin-bottom: 6px;
     }}
-    .da-sub {{ font-size: 0.8rem; color: {muted}; margin-top: 4px; }}
+    .da-sub {{ font-family: 'Rajdhani', sans-serif; font-size: 0.85rem; color: {muted}; margin-top: 4px; letter-spacing: 0.3px; }}
+
+    .da-badge {{
+        display: inline-flex; align-items: center;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.68rem; font-weight: 700; letter-spacing: 1px;
+        padding: 4px 12px; border-radius: 100px;
+        background: rgba(167,139,250,0.1);
+        border: 1px solid rgba(167,139,250,0.25);
+        color: {accent}; margin: 3px;
+        transition: all 0.2s ease;
+    }}
+    .da-badge:hover {{ background: rgba(167,139,250,0.2); border-color: rgba(167,139,250,0.45); }}
 
     .da-file-box {{
         background: {surface2};
-        border: 2px dashed {border};
-        border-radius: 14px;
-        padding: 24px;
+        border: 2px dashed rgba(167,139,250,0.3);
+        border-radius: 18px;
+        padding: 36px 24px;
         text-align: center;
         margin-bottom: 16px;
-        transition: border-color .2s;
+        transition: all 0.25s ease;
+        position: relative; overflow: hidden;
     }}
-    .da-file-box:hover {{ border-color: {accent}; }}
+    .da-file-box:hover {{ border-color: {accent}; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(167,139,250,0.1); }}
 
-    .da-badge {{
-        display: inline-block;
-        font-size: 0.72rem; font-weight: 600;
-        padding: 3px 10px; border-radius: 999px;
-        background: rgba(167,139,250,0.15);
-        border: 1px solid rgba(167,139,250,0.35);
-        color: {accent};
-        margin: 2px;
-    }}
     .da-bubble-ai {{
         background: {ai_bub};
         border: 1px solid {border};
-        border-radius: 18px 18px 18px 4px;
-        padding: 14px 18px;
-        font-size: 0.88rem;
+        border-left: 3px solid {accent};
+        border-radius: 0 18px 18px 18px;
+        padding: 16px 20px;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.92rem;
         color: {txt};
-        line-height: 1.6;
-        margin-bottom: 4px;
+        line-height: 1.7;
+        margin-bottom: 6px;
+        transition: box-shadow 0.2s ease;
+        animation: daIn 0.35s cubic-bezier(0.16,1,0.3,1) both;
     }}
+    .da-bubble-ai:hover {{ box-shadow: 0 4px 20px rgba(167,139,250,0.15); }}
+    @keyframes daIn {{ from{{opacity:0;transform:translateY(8px);}} to{{opacity:1;transform:none;}} }}
     .da-bubble-user {{
         background: {user_bub};
         border: 1px solid rgba(139,92,246,.3);
-        border-radius: 18px 18px 4px 18px;
-        padding: 14px 18px;
-        font-size: 0.88rem;
+        border-right: 3px solid rgba(139,92,246,0.7);
+        border-radius: 18px 0 18px 18px;
+        padding: 14px 20px;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.92rem;
         color: #f0eaf8;
-        line-height: 1.6;
-        margin-bottom: 4px;
+        line-height: 1.65;
+        margin-bottom: 6px;
         text-align: right;
+        animation: daIn 0.3s ease both;
     }}
-    .da-meta {{ font-size: 0.65rem; color: {muted}; margin-bottom: 12px; }}
+    .da-meta {{
+        font-family: 'Space Mono', monospace;
+        font-size: 0.65rem; color: {muted}; margin-bottom: 14px; letter-spacing: 1px;
+    }}
     .da-meta-right {{ text-align: right; }}
 
     .da-typing {{
-        display: flex; gap: 5px; align-items: center;
-        padding: 10px 0;
+        display: inline-flex; gap: 5px; align-items: center;
+        padding: 10px 18px; border-radius: 18px;
+        background: {surface2}; border: 1px solid {border};
+        border-left: 3px solid {accent}; margin-bottom: 10px;
     }}
     .da-dot {{
-        width: 8px; height: 8px; border-radius: 50%;
-        background: {accent}; opacity: .4;
-        animation: da-blink 1.2s infinite;
+        width: 7px; height: 7px; border-radius: 50%;
+        background: {accent};
+        animation: da-blink 1.2s ease-in-out infinite;
     }}
     .da-dot:nth-child(2){{animation-delay:.2s}}
     .da-dot:nth-child(3){{animation-delay:.4s}}
-    @keyframes da-blink{{0%,60%,100%{{opacity:.3}}30%{{opacity:1}}}}
+    @keyframes da-blink{{0%,80%,100%{{transform:translateY(0);opacity:0.4;}} 40%{{transform:translateY(-5px);opacity:1;}}}}
+    .da-qchip-grid {{
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+        gap: 8px; margin: 12px 0;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -246,12 +283,14 @@ def render_doc_analyser():
     <div class="da-header">
         <div class="da-title">📎 Smart Document Analyser</div>
         <div class="da-sub">
-            Upload any file and ask AI to review it — what's good, what's missing, what to add and where.<br>
-            <span class="da-badge">PDF</span>
-            <span class="da-badge">PNG / JPG</span>
-            <span class="da-badge">TXT</span>
-            <span class="da-badge">CSV</span>
-            <span class="da-badge">Markdown</span>
+            Upload any document. AI reviews it — what's strong, what's weak, what's missing and exactly where to fix it.
+        </div>
+        <div style="margin-top:10px;">
+            <span class="da-badge">📄 PDF</span>
+            <span class="da-badge">🖼️ PNG / JPG</span>
+            <span class="da-badge">📝 TXT / MD</span>
+            <span class="da-badge">📊 CSV</span>
+            <span class="da-badge">🌐 WEBP</span>
         </div>
     </div>
     """, unsafe_allow_html=True)

@@ -178,64 +178,115 @@ def render_bg_sounds_page():
 
     st.markdown(f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&family=Rajdhani:wght@300;400;600;700&display=swap');
+
     .sounds-header {{
-        background: {surface};
-        border: 1px solid {border};
-        border-radius: 16px;
-        padding: 20px 24px;
+        background: linear-gradient(135deg, {surface}, rgba(15,23,42,0.95));
+        border: 1px solid rgba(167,139,250,0.2);
+        border-radius: 20px;
+        padding: 24px 28px;
         margin-bottom: 18px;
+        position: relative; overflow: hidden;
+        backdrop-filter: blur(20px);
+    }}
+    .sounds-header::after {{
+        content: '';
+        position: absolute; top: -1px; left: 10%; right: 10%; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(167,139,250,0.5), rgba(96,165,250,0.5), transparent);
     }}
     .sounds-title {{
-        font-size: 1.4rem; font-weight: 800;
-        background: linear-gradient(90deg, #a78bfa, #60a5fa);
+        font-family: 'Orbitron', monospace;
+        font-size: 1.3rem; font-weight: 900; letter-spacing: 1px;
+        background: linear-gradient(90deg, #a78bfa, #60a5fa, #34d399);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     }}
-    .sounds-sub {{ font-size: 0.8rem; color: {muted}; margin-top: 4px; }}
+    .sounds-sub {{ font-family: 'Rajdhani', sans-serif; font-size: 0.85rem; color: {muted}; margin-top: 5px; letter-spacing: 0.3px; }}
+    .sounds-count-badge {{
+        display: inline-flex; align-items: center; gap: 6px;
+        background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.2);
+        border-radius: 100px; padding: 4px 14px; margin-top: 8px;
+        font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 2px; color: {accent};
+    }}
 
     .sound-card {{
         background: {surface2};
         border: 1px solid {border};
-        border-radius: 12px;
+        border-radius: 14px;
         padding: 12px 14px;
         margin-bottom: 8px;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.25s ease;
         display: flex; align-items: center; gap: 10px;
+        position: relative; overflow: hidden;
     }}
-    .sound-card:hover {{ border-color: {accent}; }}
+    .sound-card::before {{
+        content: '';
+        position: absolute; inset: 0;
+        background: var(--card-glow, transparent);
+        opacity: 0;
+        transition: opacity 0.25s ease;
+    }}
+    .sound-card:hover {{ border-color: var(--card-border, {accent}); transform: translateY(-2px); }}
+    .sound-card:hover::before {{ opacity: 1; }}
     .sound-card.playing {{
         border-color: {accent};
-        background: rgba(167,139,250,0.1);
-        box-shadow: 0 0 12px rgba(167,139,250,0.2);
+        background: rgba(167,139,250,0.08);
+        box-shadow: 0 0 16px rgba(167,139,250,0.15);
     }}
-    .sound-emoji {{ font-size: 1.4rem; flex-shrink: 0; }}
-    .sound-name {{ font-size: .85rem; font-weight: 600; color: {txt}; }}
+    .sound-emoji {{ font-size: 1.5rem; flex-shrink: 0; transition: transform 0.2s ease; }}
+    .sound-card:hover .sound-emoji {{ transform: scale(1.15) rotate(-5deg); }}
+    .sound-name {{ font-family: 'Rajdhani', sans-serif; font-size: .9rem; font-weight: 700; color: {txt}; }}
     .sound-playing-badge {{
         margin-left: auto;
         font-size: 0.65rem; font-weight: 700;
         color: {accent};
-        background: rgba(167,139,250,0.15);
-        border: 1px solid rgba(167,139,250,0.3);
+        background: rgba(167,139,250,0.12);
+        border: 1px solid rgba(167,139,250,0.25);
         border-radius: 999px;
-        padding: 2px 8px;
+        padding: 3px 10px;
         flex-shrink: 0;
+        animation: sndPulse 1.5s ease-in-out infinite;
     }}
+    @keyframes sndPulse {{ 0%,100%{{opacity:1;}} 50%{{opacity:0.5;}} }}
     .cat-label {{
-        font-size: .9rem; font-weight: 700; color: {txt};
-        margin: 20px 0 10px;
-        padding-bottom: 6px;
+        font-family: 'Orbitron', monospace;
+        font-size: .75rem; font-weight: 700; color: {txt}; letter-spacing: 1px;
+        margin: 22px 0 10px;
+        padding-bottom: 8px;
         border-bottom: 1px solid {border};
+        display: flex; align-items: center; gap: 8px;
+    }}
+    .cat-count {{
+        font-family: 'Space Mono', monospace; font-size: 9px;
+        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 100px; padding: 2px 8px; color: {muted};
+        margin-left: auto;
     }}
     .now-playing-bar {{
         position: sticky; top: 0; z-index: 100;
-        background: {surface};
-        border: 1px solid {accent};
-        border-radius: 12px;
-        padding: 12px 18px;
+        background: rgba(15,23,42,0.95);
+        border: 1px solid rgba(167,139,250,0.35);
+        border-radius: 14px;
+        padding: 12px 20px;
         margin-bottom: 16px;
-        display: flex; align-items: center; gap: 12px;
-        box-shadow: 0 0 20px rgba(167,139,250,0.15);
+        display: flex; align-items: center; gap: 14px;
+        box-shadow: 0 0 30px rgba(167,139,250,0.12);
+        backdrop-filter: blur(20px);
     }}
+    .now-playing-wave {{
+        display: flex; align-items: center; gap: 3px; margin-left: auto;
+    }}
+    .wave-bar {{
+        width: 3px; border-radius: 2px;
+        background: {accent};
+        animation: waveAnim ease-in-out infinite;
+    }}
+    .wave-bar:nth-child(1){{height:8px;animation-duration:0.8s;}}
+    .wave-bar:nth-child(2){{height:16px;animation-duration:0.6s;animation-delay:0.1s;}}
+    .wave-bar:nth-child(3){{height:12px;animation-duration:0.7s;animation-delay:0.2s;}}
+    .wave-bar:nth-child(4){{height:20px;animation-duration:0.9s;animation-delay:0.05s;}}
+    .wave-bar:nth-child(5){{height:10px;animation-duration:0.65s;animation-delay:0.15s;}}
+    @keyframes waveAnim {{ 0%,100%{{transform:scaleY(1);}} 50%{{transform:scaleY(0.3);}} }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -244,9 +295,10 @@ def render_bg_sounds_page():
     <div class="sounds-header">
         <div class="sounds-title">🎵 Background Sound Library</div>
         <div class="sounds-sub">
-            {get_sound_count()}+ ambient sounds to keep you focused, calm, or in the zone.
-            Pick any sound — it plays in the background while you use the app.
+            {get_sound_count()}+ ambient & focus sounds streamed live — no downloads.<br>
+            Pick any sound and it plays in the background while you study.
         </div>
+        <div class="sounds-count-badge">◉ {get_sound_count()} SOUNDS · {len(SOUND_CATEGORIES)} CATEGORIES</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -272,14 +324,19 @@ def render_bg_sounds_page():
         s = ALL_SOUNDS[playing_id]
         st.markdown(f"""
         <div class="now-playing-bar">
-            <span style="font-size:1.6rem">{s['emoji']}</span>
+            <span style="font-size:1.7rem">{s['emoji']}</span>
             <div>
-                <div style="font-size:.7rem;color:{muted};font-weight:600;text-transform:uppercase;letter-spacing:.06em">Now Playing</div>
-                <div style="font-size:.95rem;font-weight:700;color:{accent}">{s['name']}</div>
+                <div style="font-family:'Space Mono',monospace;font-size:.65rem;color:{muted};letter-spacing:3px;text-transform:uppercase;margin-bottom:2px">NOW PLAYING</div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:{accent}">{s['name']}</div>
             </div>
-            <div style="margin-left:auto;font-size:1.2rem;animation:pulse 1.5s infinite">🔊</div>
+            <div class="now-playing-wave">
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+            </div>
         </div>
-        <style>@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.4}}}}</style>
         """, unsafe_allow_html=True)
 
     # ── Inject audio player ───────────────────────────────────────────────────
@@ -297,19 +354,21 @@ def render_bg_sounds_page():
         if not filtered:
             continue
 
-        st.markdown(f'<div class="cat-label">{category}</div>', unsafe_allow_html=True)
+        count_badge = f'<span class="cat-count">{len(filtered)}</span>'
+        st.markdown(f'<div class="cat-label">{category} {count_badge}</div>', unsafe_allow_html=True)
         cols = st.columns(3)
 
         for i, sound in enumerate(filtered):
             is_playing = sound["id"] == playing_id
             with cols[i % 3]:
-                badge = " 🎵 Playing" if is_playing else ""
                 card_class = "sound-card playing" if is_playing else "sound-card"
                 st.markdown(f"""
                 <div class="{card_class}">
                     <span class="sound-emoji">{sound['emoji']}</span>
-                    <span class="sound-name">{sound['name']}</span>
-                    {"<span class='sound-playing-badge'>▶ ON</span>" if is_playing else ""}
+                    <div style="flex:1;">
+                        <div class="sound-name">{sound['name']}</div>
+                    </div>
+                    {"<span class='sound-playing-badge'>▶ LIVE</span>" if is_playing else ""}
                 </div>
                 """, unsafe_allow_html=True)
 

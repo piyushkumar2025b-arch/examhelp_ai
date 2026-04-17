@@ -136,15 +136,17 @@ def render_ai_companion():
     # ── Global CSS ─────────────────────────────────────────────────────────────
     st.markdown(f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&family=Rajdhani:wght@300;400;600;700&display=swap');
+
     .nova-header {{
         position: relative;
-        padding: 20px 24px;
-        border-radius: 20px;
+        padding: 22px 26px;
+        border-radius: 22px;
         margin-bottom: 18px;
         overflow: hidden;
         background: linear-gradient(135deg, {surf2}, {surface});
         border: 1px solid {bclr};
-        box-shadow: 0 0 40px {glow};
+        box-shadow: 0 0 40px {glow}, 0 20px 60px rgba(0,0,0,0.3);
     }}
     .nova-header::before {{
         content: '';
@@ -152,12 +154,17 @@ def render_ai_companion():
         background: linear-gradient(135deg, {ca}18, {cb}08);
         pointer-events: none;
     }}
+    .nova-header::after {{
+        content: '';
+        position: absolute; top: -1px; left: 10%; right: 10%; height: 1px;
+        background: linear-gradient(90deg, transparent, {ca}80, {cb}60, transparent);
+    }}
     .nova-hrow {{ display: flex; align-items: center; gap: 16px; }}
     .nova-avatar {{
-        width: 64px; height: 64px; border-radius: 50%;
+        width: 66px; height: 66px; border-radius: 50%;
         background: linear-gradient(135deg, {ca}, {cb});
         display: flex; align-items: center; justify-content: center;
-        font-size: 30px;
+        font-size: 32px;
         box-shadow: 0 0 28px {glow}, 0 0 60px {glow}80;
         flex-shrink: 0;
         animation: nova-pulse 3s ease-in-out infinite;
@@ -167,55 +174,86 @@ def render_ai_companion():
         50% {{ box-shadow: 0 0 45px {glow}, 0 0 90px {glow}; }}
     }}
     .nova-name {{
-        font-size: 1.7rem; font-weight: 800; letter-spacing: -0.5px;
+        font-family: 'Orbitron', monospace;
+        font-size: 1.6rem; font-weight: 900; letter-spacing: 1px;
         background: linear-gradient(90deg, {ca}, {cb});
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         line-height: 1;
     }}
-    .nova-tagline {{ font-size: 0.73rem; color: {muted}; margin-top: 4px; letter-spacing: 1.5px; text-transform: uppercase; }}
+    .nova-tagline {{ font-family: 'Rajdhani', sans-serif; font-size: 0.75rem; color: {muted}; margin-top: 4px; letter-spacing: 1.5px; text-transform: uppercase; }}
     .nova-badge {{
         margin-left: auto;
-        font-size: 0.7rem; font-weight: 600;
-        background: linear-gradient(135deg, {ca}33, {cb}22);
-        border: 1px solid {bclr};
-        border-radius: 999px; padding: 6px 14px;
-        color: {ca}; letter-spacing: 0.5px;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.7rem; font-weight: 700;
+        background: rgba(34,197,94,0.1);
+        border: 1px solid rgba(34,197,94,0.25);
+        border-radius: 999px; padding: 5px 14px;
+        color: #4ade80; letter-spacing: 1px;
+        animation: livePulse 2.5s ease-in-out infinite;
     }}
+    @keyframes livePulse {{ 0%,100%{{box-shadow:0 0 0 rgba(34,197,94,0);}} 50%{{box-shadow:0 0 14px rgba(34,197,94,0.25);}} }}
+    .nova-badge-dot {{ width:6px;height:6px;border-radius:50%;background:#4ade80;display:inline-block;margin-right:5px;animation:dotBlink 1.4s ease-in-out infinite; }}
+    @keyframes dotBlink{{0%,100%{{opacity:1;}}50%{{opacity:0.2;}}}}
     .nova-scenario-tag {{
         display: inline-block; margin-top: 10px;
-        font-size: 0.72rem; padding: 3px 12px;
-        background: {ca}22; border: 1px solid {ca}44;
-        border-radius: 999px; color: {ca};
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.75rem; padding: 3px 14px;
+        background: {ca}18; border: 1px solid {ca}44;
+        border-radius: 999px; color: {ca}; letter-spacing: 0.5px;
     }}
-    .nova-bubble-wrap {{ margin-bottom: 10px; display: flex; flex-direction: column; }}
+    .nova-bubble-wrap {{ margin-bottom: 14px; display: flex; flex-direction: column; animation: bubbleIn 0.35s cubic-bezier(0.16,1,0.3,1) both; }}
+    @keyframes bubbleIn {{ from{{opacity:0;transform:translateY(10px);}} to{{opacity:1;transform:none;}} }}
     .nova-bubble-ai {{
-        display: inline-block; max-width: 82%;
+        display: inline-block; max-width: 84%;
         background: {surf2};
         border: 1px solid {bclr};
         border-left: 3px solid {ca};
         border-radius: 0 18px 18px 18px;
         padding: 14px 18px;
-        font-size: 0.92rem; color: {txt}; line-height: 1.65;
-        box-shadow: 0 4px 20px {glow}33;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.94rem; color: {txt}; line-height: 1.7;
+        box-shadow: 0 4px 20px {glow}22;
+        transition: box-shadow 0.25s ease;
     }}
+    .nova-bubble-ai:hover {{ box-shadow: 0 6px 30px {glow}44; }}
     .nova-bubble-user {{
-        display: inline-block; max-width: 82%; align-self: flex-end;
-        background: linear-gradient(135deg, {ca}28, {cb}1a);
+        display: inline-block; max-width: 84%; align-self: flex-end;
+        background: linear-gradient(135deg, {ca}22, {cb}14);
         border: 1px solid {bclr};
         border-right: 3px solid {cb};
         border-radius: 18px 0 18px 18px;
         padding: 14px 18px;
-        font-size: 0.92rem; color: {txt}; line-height: 1.65;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.94rem; color: {txt}; line-height: 1.7;
+        transition: box-shadow 0.25s ease;
     }}
-    .nova-meta {{ font-size: 0.65rem; color: {muted}; margin-top: 5px; }}
-    .nova-meta-right {{ text-align: right; }}
+    .nova-bubble-user:hover {{ box-shadow: 0 4px 20px {glow}22; }}
+    .nova-meta {{ font-family: 'Space Mono', monospace; font-size: 0.65rem; color: {muted}; margin-top: 5px; display: flex; align-items: center; gap: 6px; }}
+    .nova-meta-right {{ text-align: right; justify-content: flex-end; }}
+    .nova-msg-count {{ font-size: 0.6rem; color: {muted}; opacity: 0.5; }}
     .scenario-card {{
         background: {surf2}; border: 1px solid {bclr};
         border-radius: 14px; padding: 14px 16px; margin-bottom: 16px;
-        font-size: 0.82rem; color: {muted}; border-left: 3px solid {ca};
+        font-family: 'Rajdhani', sans-serif; font-size: 0.84rem; color: {muted}; border-left: 3px solid {ca};
     }}
-    .scenario-card strong {{ color: {ca}; font-size: 0.85rem; }}
-    .nova-divider {{ height:1px; background: linear-gradient(90deg, transparent, {ca}44, transparent); margin: 14px 0; }}
+    .scenario-card strong {{ color: {ca}; font-size: 0.87rem; }}
+    .nova-divider {{ height:1px; background: linear-gradient(90deg, transparent, {ca}44, transparent); margin: 16px 0; }}
+    .nova-typing {{
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 10px 18px; border-radius: 18px;
+        background: {surf2}; border: 1px solid {bclr};
+        border-left: 3px solid {ca}; margin-bottom: 12px;
+    }}
+    .nova-typing-dot {{
+        width: 7px; height: 7px; border-radius: 50%; background: {ca};
+        animation: novaTyping 1.2s ease-in-out infinite;
+    }}
+    .nova-typing-dot:nth-child(2){{animation-delay:0.2s;}}
+    .nova-typing-dot:nth-child(3){{animation-delay:0.4s;}}
+    @keyframes novaTyping {{
+        0%,80%,100%{{transform:translateY(0);opacity:0.4;}}
+        40%{{transform:translateY(-6px);opacity:1;}}
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -246,6 +284,7 @@ def render_ai_companion():
     p = _get_persona()
     scenario_label = st.session_state.nova_scenario
     stag = f'<div class="nova-scenario-tag">📖 {scenario_label}</div>' if scenario_label != "No Scenario" else ""
+    msg_count = len(st.session_state.nova_messages)
     st.markdown(f"""
     <div class="nova-header">
         <div class="nova-hrow">
@@ -255,7 +294,7 @@ def render_ai_companion():
                 <div class="nova-tagline">{p["tagline"]}</div>
                 {stag}
             </div>
-            <div class="nova-badge">● Live</div>
+            <div class="nova-badge"><span class="nova-badge-dot"></span>Live · {msg_count} msgs</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -317,22 +356,28 @@ def render_ai_companion():
             st.rerun()
 
     # ── Chat history ─────────────────────────────────────────────────────────
-    for msg in st.session_state.nova_messages:
+    total_msgs = len(st.session_state.nova_messages)
+    for idx, msg in enumerate(st.session_state.nova_messages):
         is_user = msg["role"] == "user"
         content = msg["content"]
+        msg_num = idx + 1
         if is_user:
             st.markdown(
                 f'<div class="nova-bubble-wrap">'
                 f'<div class="nova-bubble-user">{content}</div>'
-                f'<div class="nova-meta nova-meta-right">You</div></div>',
+                f'<div class="nova-meta nova-meta-right">'
+                f'You &nbsp;·&nbsp; <span class="nova-msg-count">#{msg_num}</span>'
+                f'</div></div>',
                 unsafe_allow_html=True)
         else:
-            pname = st.session_state.nova_persona
+            pname  = st.session_state.nova_persona
             pemoji = _get_persona()["emoji"]
             st.markdown(
                 f'<div class="nova-bubble-wrap">'
                 f'<div class="nova-bubble-ai">{content}</div>'
-                f'<div class="nova-meta">{pemoji} {pname}</div></div>',
+                f'<div class="nova-meta">'
+                f'{pemoji} {pname} &nbsp;·&nbsp; <span class="nova-msg-count">#{msg_num}</span>'
+                f'</div></div>',
                 unsafe_allow_html=True)
 
     # ── Quick starters ────────────────────────────────────────────────────────

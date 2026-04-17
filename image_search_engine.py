@@ -1,11 +1,13 @@
 """
-image_search_engine.py — AI-Powered Reverse Image Search + Visual Intelligence
+image_search_engine.py — AI-Powered Reverse Image Search + Visual Intelligence v2.0
 Uses Gemini Vision to describe the image, then searches the web for related content.
-Returns 20+ highly relevant links with previews.
+Free APIs used: DuckDuckGo Instant Answers + Wikipedia (both free, no key).
+Returns 25+ highly relevant links with previews.
 """
 from __future__ import annotations
 import base64, json, re, io
 from typing import Optional
+from free_apis import duckduckgo_search, get_wikipedia_summary, search_wikipedia
 
 VISION_SYSTEM = """\
 You are a precise image analysis engine. Analyze the image and extract:
@@ -107,51 +109,59 @@ Return ONLY a JSON array of 25 link objects with fields: url, title, reason, dom
     return []
 
 def _web_search_for_image(queries: list[str]) -> list[dict]:
-    """Does actual web searches for the image queries using DuckDuckGo."""
+    """Real web searches using free_apis (DuckDuckGo + Wikipedia) — no key needed."""
     results = []
-    try:
-        import requests as req
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; ExamHelp/1.0)"}
-        seen_domains = set()
-        
-        for query in queries[:4]:  # use top 4 queries
-            try:
-                encoded = query.replace(" ", "+")
-                url = f"https://api.duckduckgo.com/?q={encoded}&format=json&no_html=1&skip_disambig=1"
-                resp = req.get(url, headers=headers, timeout=8)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    # Related topics
-                    for item in data.get("RelatedTopics", [])[:5]:
-                        if isinstance(item, dict) and item.get("FirstURL") and item.get("Text"):
-                            domain = re.search(r'https?://([^/]+)', item["FirstURL"])
-                            dom = domain.group(1) if domain else "unknown"
-                            if dom not in seen_domains:
-                                seen_domains.add(dom)
-                                results.append({
-                                    "url": item["FirstURL"],
-                                    "title": item["Text"][:80],
-                                    "reason": f"Found via search: '{query}'",
-                                    "domain": dom,
-                                    "type": "search_result"
-                                })
-                    # Abstract URL
-                    if data.get("AbstractURL") and data.get("AbstractText"):
-                        domain = re.search(r'https?://([^/]+)', data["AbstractURL"])
-                        dom = domain.group(1) if domain else "unknown"
-                        if dom not in seen_domains:
-                            seen_domains.add(dom)
-                            results.append({
-                                "url": data["AbstractURL"],
-                                "title": data.get("Heading", "Related Article"),
-                                "reason": data["AbstractText"][:100],
-                                "domain": dom,
-                                "type": "encyclopedia"
-                            })
-            except Exception:
-                continue
-    except Exception:
-        pass
+    seen_domains: set = set()
+
+    for query in queries[:4]:
+        # ── DuckDuckGo Instant Answers (free, no key) ────────────────────────
+        try:
+            data = duckduckgo_search(query)
+            if data:
+                for item in data.get("related", [])[:4]:
+                    url = item.get("url", "")
+                    if url and url not in seen_domains:
+                        dom = re.search(r'https?://([^/]+)', url)
+                        d = dom.group(1) if dom else "unknown"
+                        seen_domains.add(url)
+                        results.append({
+                            "url": url,
+                            "title": item.get("text", query)[:80],
+                            "reason": f"DuckDuckGo: '{query}'",
+                            "domain": d,
+                            "type": "search_result"
+                        })
+                if data.get("url") and data.get("abstract") and data["url"] not in seen_domains:
+                    dom = re.search(r'https?://([^/]+)', data["url"])
+                    d   = dom.group(1) if dom else "unknown"
+                    seen_domains.add(data["url"])
+                    results.append({
+                        "url":    data["url"],
+                        "title":  data.get("heading", query),
+                        "reason": data["abstract"][:100],
+                        "domain": d,
+                        "type":   "encyclopedia"
+                    })
+        except Exception:
+            pass
+
+        # ── Wikipedia Search (free, no key) ───────────────────────────────
+        try:
+            wiki_results = search_wikipedia(query, limit=3)
+            for w in wiki_results:
+                url = w.get("url", "")
+                if url and url not in seen_domains:
+                    seen_domains.add(url)
+                    results.append({
+                        "url":    url,
+                        "title":  w.get("title", ""),
+                        "reason": w.get("description", "")[:100],
+                        "domain": "en.wikipedia.org",
+                        "type":   "encyclopedia"
+                    })
+        except Exception:
+            pass
+
     return results
 
 def search_by_image(
@@ -171,9 +181,8 @@ def search_by_image(
     """
     # Step 1: Analyze with Gemini Vision
     analysis = _gemini_analyze_image(image_bytes, mime)
-    
+
     if not analysis:
-        # Fallback analysis
         analysis = {
             "description": f"Uploaded image: {filename}",
             "main_subject": filename.replace("_", " ").replace("-", " ").split(".")[0],
@@ -181,9 +190,21 @@ def search_by_image(
             "tags": ["image", "photo"],
             "search_queries": [filename.split(".")[0], "similar images", "photo gallery"],
             "visible_text": "",
-            "is_person": False
+            "is_person": False,
         }
-    
+
+    # Step 1b: Wikipedia subject enrichment (free, instant)
+    try:
+        subject = analysis.get("main_subject", "")
+        if subject:
+            wiki = get_wikipedia_summary(subject)
+            if wiki and wiki.get("extract"):
+                analysis["wiki_extract"] = wiki["extract"][:400]
+                analysis["wiki_url"]     = wiki.get("url", "")
+                analysis["wiki_image"]   = wiki.get("thumbnail", "")
+    except Exception:
+        pass
+
     # Step 2: Generate links via AI
     ai_links = _groq_generate_links(analysis)
     
