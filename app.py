@@ -4348,6 +4348,38 @@ def render_api_status():
     except Exception:
         pass
 
+def render_stats_dashboard():
+    """STEP 03: Animated stats mini-dashboard."""
+    msg_count = len(st.session_state.messages)
+    src_count = len(st.session_state.context_sources)
+    ctx_chars = len(st.session_state.context_text)
+    ctx_kb = round(ctx_chars / 1024, 1)
+    tok_used = st.session_state.get("total_tokens_used", 0)
+    ctx_pct = min(100, int((ctx_chars / 131072) * 100))
+    intensity_pct = min(100, int((msg_count / 50) * 100))
+    token_pct = min(100, int((tok_used / 1_000_000) * 100))
+
+    st.markdown(f"""
+    <div class="stats-dashboard-card">
+      <div class="stats-dash-row">
+        <span class="stats-dash-label">Session Stats</span>
+        <span class="stats-dash-val">{msg_count}</span>
+      </div>
+      <div class="stats-mini-bar-wrap">
+        <div class="stats-mini-bar-label"><span>Session Intensity</span><span>{intensity_pct}%</span></div>
+        <div class="stats-mini-bar"><div class="stats-mini-fill fill-indigo" style="width:{intensity_pct}%"></div></div>
+      </div>
+      <div class="stats-mini-bar-wrap">
+        <div class="stats-mini-bar-label"><span>Context Load · {ctx_kb}KB</span><span>{ctx_pct}%</span></div>
+        <div class="stats-mini-bar"><div class="stats-mini-fill fill-cyan" style="width:{ctx_pct}%"></div></div>
+      </div>
+      <div class="stats-mini-bar-wrap">
+        <div class="stats-mini-bar-label"><span>Token Budget · {tok_used//1000}k</span><span>{token_pct}%</span></div>
+        <div class="stats-mini-bar"><div class="stats-mini-fill fill-green" style="width:{token_pct}%"></div></div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ─────────────────────────────────────────────
 # SIDEBAR
@@ -5223,38 +5255,6 @@ def render_hero_header_v2():
     </script>
     """, unsafe_allow_html=True)
 
-
-def render_stats_dashboard():
-    """STEP 03: Animated stats mini-dashboard."""
-    msg_count = len(st.session_state.messages)
-    src_count = len(st.session_state.context_sources)
-    ctx_chars = len(st.session_state.context_text)
-    ctx_kb = round(ctx_chars / 1024, 1)
-    tok_used = st.session_state.get("total_tokens_used", 0)
-    ctx_pct = min(100, int((ctx_chars / 131072) * 100))
-    intensity_pct = min(100, int((msg_count / 50) * 100))
-    token_pct = min(100, int((tok_used / 1_000_000) * 100))
-
-    st.markdown(f"""
-    <div class="stats-dashboard-card">
-      <div class="stats-dash-row">
-        <span class="stats-dash-label">Session Stats</span>
-        <span class="stats-dash-val">{msg_count}</span>
-      </div>
-      <div class="stats-mini-bar-wrap">
-        <div class="stats-mini-bar-label"><span>Session Intensity</span><span>{intensity_pct}%</span></div>
-        <div class="stats-mini-bar"><div class="stats-mini-fill fill-indigo" style="width:{intensity_pct}%"></div></div>
-      </div>
-      <div class="stats-mini-bar-wrap">
-        <div class="stats-mini-bar-label"><span>Context Load · {ctx_kb}KB</span><span>{ctx_pct}%</span></div>
-        <div class="stats-mini-bar"><div class="stats-mini-fill fill-cyan" style="width:{ctx_pct}%"></div></div>
-      </div>
-      <div class="stats-mini-bar-wrap">
-        <div class="stats-mini-bar-label"><span>Token Budget · {tok_used//1000}k</span><span>{token_pct}%</span></div>
-        <div class="stats-mini-bar"><div class="stats-mini-fill fill-green" style="width:{token_pct}%"></div></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 def render_quick_actions_toolbar():
