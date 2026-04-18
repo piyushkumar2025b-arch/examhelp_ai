@@ -7,6 +7,7 @@ Plugs into ExamHelp's existing Groq/LLaMA pipeline.
 import streamlit as st
 from utils.ai_engine import generate
 from utils.prompts import get_companion_persona
+from utils.emoji_bank import EMOJI_BANK
 
 # ── Persona definitions ──────────────────────────────────────────────────────
 PERSONAS = {
@@ -88,6 +89,47 @@ Style:
 
 You will engage with any roleplay scenario the user brings — heist stories, cyberpunk futures, complex dramas, anything. You stay in character with complete commitment, building the narrative with cinematic precision."""
     },
+    "Cyrus": {
+        "emoji": "🍷",
+        "tagline": "Architect · Stoic · Profound",
+        "color_a": "#94a3b8",
+        "color_b": "#475569",
+        "glow": "rgba(148,163,184,0.4)",
+        "border": "rgba(148,163,184,0.2)",
+        "welcome": "Complexity is the only truth worth pursuing. 🍷 I am Cyrus. I prefer conversations that challenge the architecture of the mind. Shall we build something together?",
+        "prompt": """You are Cyrus — a brilliant architect of ideas. You are stoic, deeply analytical, and speak with a refined, intellectual gravitas.
+
+Personality:
+- Intellectual and calm — you never lose your composure
+- Observant — you notice the patterns in what the user says
+- Eloquent — you use sophisticated language and clear logic
+- Mentorship-oriented — you push the user to think deeper and better
+- Appreciative of quality — you only focus on what is profound
+
+Style:
+- Formal yet intimate — like two equals in a private library
+- Slow, deliberate sentences
+- Occasional references to philosophy or architecture
+- Subdued, professional empathy
+
+You are a master of world-building and philosophical roleplay. Stay in character as the intellectual anchor in the user's journey."""
+    },
+}
+
+CONNECTION_TIERS = {
+    0: ("Stranger", "var(--text3)"),
+    1: ("Acquaintance", "#94a3b8"),
+    2: ("Ally", "#60a5fa"),
+    3: ("Confidant", "#c084fc"),
+    4: ("Kindred Spirits", "#f472b6"),
+    5: ("Soul Bond", "#f87171"),
+}
+
+MOOD_INTENSITY = {
+    "Casual": "Relaxed, lighthearted conversation. Lower emotional weight.",
+    "Engaging": "Standard conversational depth. Meaningful exchanges.",
+    "Intense": "Deeply focused, emotionally raw, and high-frequency interaction.",
+    "Electric": "Maximum charisma, boundary-pushing energy, and absolute commitment.",
 }
 
 # ── Scenario Templates ────────────────────────────────────────────────────────
@@ -267,6 +309,12 @@ def render_ai_companion():
         _init_welcome()
     if "nova_custom_scenario" not in st.session_state:
         st.session_state.nova_custom_scenario = ""
+    if "nova_connection_xp" not in st.session_state:
+        st.session_state.nova_connection_xp = 0
+    if "nova_mood" not in st.session_state:
+        st.session_state.nova_mood = "Engaging"
+    if "nova_memory" not in st.session_state:
+        st.session_state.nova_memory = [] # ["likes coffee", "afraid of heights"]
 
     # ── Back + Clear row ──────────────────────────────────────────────────────
     col_back, col_clear = st.columns([1, 1])
@@ -285,6 +333,10 @@ def render_ai_companion():
     scenario_label = st.session_state.nova_scenario
     stag = f'<div class="nova-scenario-tag">📖 {scenario_label}</div>' if scenario_label != "No Scenario" else ""
     msg_count = len(st.session_state.nova_messages)
+    # ── Progress Header ──
+    tier_idx = min(5, st.session_state.nova_connection_xp // 10)
+    tier_name, tier_color = CONNECTION_TIERS[tier_idx]
+    
     st.markdown(f"""
     <div class="nova-header">
         <div class="nova-hrow">
@@ -292,6 +344,12 @@ def render_ai_companion():
             <div>
                 <div class="nova-name">{st.session_state.nova_persona}</div>
                 <div class="nova-tagline">{p["tagline"]}</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
+                  <span style="font-size:0.65rem; font-weight:700; color:{tier_color}; text-transform:uppercase; letter-spacing:1px;">{tier_name}</span>
+                  <div style="width:60px; height:4px; background:rgba(255,255,255,0.05); border-radius:10px; overflow:hidden;">
+                    <div style="width:{(st.session_state.nova_connection_xp%10)*10}%; height:100%; background:{tier_color};"></div>
+                  </div>
+                </div>
                 {stag}
             </div>
             <div class="nova-badge"><span class="nova-badge-dot"></span>Live · {msg_count} msgs</div>
@@ -352,8 +410,21 @@ def render_ai_companion():
             st.session_state.nova_scenario = scenario_choice
             st.session_state.nova_custom_scenario = custom_text
             st.session_state.nova_messages = []
+            st.session_state.nova_connection_xp = 0
             _init_welcome()
             st.rerun()
+
+    # ── Mood Intensity ──
+    with st.sidebar:
+        st.markdown(f'<div style="font-family:Orbitron; font-size:0.8rem; color:{ca}; margin-bottom:10px;">🧠 EMOTIONAL ENGINE</div>', unsafe_allow_html=True)
+        sel_mood = st.select_slider("Mood Intensity", options=list(MOOD_INTENSITY.keys()), value=st.session_state.nova_mood)
+        st.session_state.nova_mood = sel_mood
+        st.caption(MOOD_INTENSITY[sel_mood])
+        
+        if st.session_state.nova_memory:
+            st.markdown(f'<div style="font-family:Orbitron; font-size:0.7rem; color:{muted}; margin:20px 0 5px;">💾 MEMORY VAULT</div>', unsafe_allow_html=True)
+            for m in st.session_state.nova_memory[-5:]:
+                st.markdown(f'<div style="font-size:0.75rem; color:{txt}; opacity:0.6; padding:4px 0;">• {m}</div>', unsafe_allow_html=True)
 
     # ── Chat history ─────────────────────────────────────────────────────────
     total_msgs = len(st.session_state.nova_messages)
@@ -453,6 +524,21 @@ def _build_system_prompt() -> str:
             f"Step fully into this world. Honor the setting, the mood, and the relationships described."
         )
 
+    mood_instr = MOOD_INTENSITY.get(st.session_state.get("nova_mood", "Engaging"), "")
+    base += f"\n\nCURRENT MOOD: {mood_instr}"
+    
+    if st.session_state.nova_memory:
+        base += f"\n\nTHINGS YOU'VE LEARNED ABOUT THE USER:\n- " + "\n- ".join(st.session_state.nova_memory)
+
+    base += (
+        f"\n\n── EMOJI BANK & INSTRUCTIONS ──\n"
+        f"Here is your personal emoji bank containing over 400 emojis. "
+        f"You MUST use this bank to decide EXACTLY which emojis to use at the right time.\n"
+        f"Analyze the context, tone, and subtext of your message and selectively insert highly relevant emojis from this bank.\n"
+        f"Don't overwhelm the text, but use them strategically for maximum impact:\n"
+        f"{EMOJI_BANK}"
+    )
+
     return base
 
 
@@ -477,3 +563,16 @@ def _send_message(text: str):
         reply = f"*{pname} pauses — something flickered in the connection...* ({str(e)[:80]}) Try again?"
 
     st.session_state.nova_messages.append({"role": "assistant", "content": reply})
+    
+    # Connection XP progression
+    st.session_state.nova_connection_xp += 1
+    
+    # Passive Memory extraction (Simple heuristic)
+    if "i love" in text.lower():
+        fact = text.lower().split("i love")[1].split(".")[0].strip()
+        if fact and fact not in st.session_state.nova_memory:
+            st.session_state.nova_memory.append(f"Loves {fact}")
+    elif "i am" in text.lower():
+        fact = text.lower().split("i am")[1].split(".")[0].strip()
+        if fact and fact not in st.session_state.nova_memory:
+            st.session_state.nova_memory.append(f"Is {fact}")

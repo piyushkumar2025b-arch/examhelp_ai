@@ -155,7 +155,8 @@ def _call_groq(
     try:
         with urllib.request.urlopen(req, timeout=90, context=_ssl()) as resp:
             raw = json.loads(resp.read())
-            return raw["choices"][0]["message"]["content"]
+            usage = raw.get("usage", {}).get("total_tokens", 0)
+            return raw["choices"][0]["message"]["content"], usage
     except urllib.error.HTTPError as e:
         body_text = ""
         try:
@@ -204,7 +205,8 @@ def _call_cerebras(
     try:
         with urllib.request.urlopen(req, timeout=90, context=_ssl()) as resp:
             raw = json.loads(resp.read())
-            return raw["choices"][0]["message"]["content"]
+            usage = raw.get("usage", {}).get("total_tokens", 0)
+            return raw["choices"][0]["message"]["content"], usage
     except urllib.error.HTTPError as e:
         body_text = ""
         try:
@@ -248,6 +250,20 @@ def generate(
     if persona_prompt:
         system = (system + "\n\n" if system else "") + persona_prompt
 
+    from utils.emoji_bank import EMOJI_BANK
+    from utils.emoji_intelligence import EMOJI_INTELLIGENCE_PROMPT
+    system = (system + "\n\n" if system else "") + (
+        f"── UNIVERSAL EMOJI OVERRIDE (AESTHETIC PROTOCOL) ──\n"
+        f"You have access to a massive sensory emoji bank containing over 1,000+ emojis.\n"
+        f"ルール (RULES FOR EMOJI USE):\n"
+        f"1. AESTHETIC SPACING: Do NOT spam emojis randomly mid-sentence. That looks cheap.\n"
+        f"2. PURPOSEFUL PLACEMENT: Use emojis at the end of paragraphs as emotional punctuation, or at the start of bullet points/lists to create beautiful formatting.\n"
+        f"3. SENSORY MATCHING: Cross-reference your current topic (medical, coding, thriller story) and select the EXACT specialized emoji from the bank that matches the subtext.\n"
+        f"4. DOSAGE: Use 1-3 emojis per output block for maximum impact. Less is more, but aim for high-relevance.\n\n"
+        f"EMOJI BANK:\n{EMOJI_BANK}\n\n"
+        f"{EMOJI_INTELLIGENCE_PROMPT}"
+    )
+
     # Cache check (skip for vision)
     if not image_data:
         ck = _cache_key(prompt, system)
@@ -255,14 +271,17 @@ def generate(
         if cached:
             return cached
 
-    key, provider = _get_provider_and_key()
+    from utils.token_tracker import track_tokens, check_limit_stop
+    if check_limit_stop():
+        raise RuntimeError("🛑 API Limit Reached: Generation is strictly blocked by the Telemetry Engine.")
 
     result: Optional[str] = None
+    exact_toks: Optional[int] = None
 
     if provider == "gemini":
         for model_name in GEMINI_MODELS:
             try:
-                result = OMNI_ENGINE.execute(
+                result, exact_toks = OMNI_ENGINE.execute(
                     model=model_name,
                     prompt=prompt,
                     system=system,
@@ -280,7 +299,7 @@ def generate(
                 print(f"[ai_engine] Gemini model {model_name} failed: {err_str[:80]}", file=sys.stderr)
 
     elif provider == "groq":
-        result = _call_groq(
+        result, exact_toks = _call_groq(
             key=key,
             prompt=prompt,
             system=system,
@@ -296,7 +315,7 @@ def generate(
         elif c_model and "8b" in c_model.lower():
             c_model = "llama3.1-8b"
             
-        result = _call_cerebras(
+        result, exact_toks = _call_cerebras(
             key=key,
             prompt=prompt,
             system=system,
@@ -313,6 +332,8 @@ def generate(
 
     if not image_data:
         _cache_set(_cache_key(prompt, system), result)
+
+    track_tokens(provider, result, exact_tokens=exact_toks)
 
     return result
 
@@ -347,12 +368,31 @@ def generate_stream(
     if persona_prompt:
         system = (system + "\n\n" if system else "") + persona_prompt
 
+    from utils.emoji_bank import EMOJI_BANK
+    from utils.emoji_intelligence import EMOJI_INTELLIGENCE_PROMPT
+    system = (system + "\n\n" if system else "") + (
+        f"── UNIVERSAL EMOJI OVERRIDE (AESTHETIC PROTOCOL) ──\n"
+        f"You have access to a massive sensory emoji bank containing over 1,000+ emojis.\n"
+        f"ルール (RULES FOR EMOJI USE):\n"
+        f"1. AESTHETIC SPACING: Do NOT spam emojis randomly mid-sentence. That looks cheap.\n"
+        f"2. PURPOSEFUL PLACEMENT: Use emojis at the end of paragraphs as emotional punctuation, or at the start of bullet points/lists to create beautiful formatting.\n"
+        f"3. SENSORY MATCHING: Cross-reference your current topic (medical, coding, thriller story) and select the EXACT specialized emoji from the bank that matches the subtext.\n"
+        f"4. DOSAGE: Use 1-3 emojis per output block for maximum impact. Less is more, but aim for high-relevance.\n\n"
+        f"EMOJI BANK:\n{EMOJI_BANK}\n\n"
+        f"{EMOJI_INTELLIGENCE_PROMPT}"
+    )
+
+    from utils.token_tracker import track_tokens, check_limit_stop
+    if check_limit_stop():
+        return
+
     key, provider = _get_provider_and_key()
 
     if provider == "gemini":
         for model_name in GEMINI_MODELS:
             try:
-                yield from OMNI_ENGINE.execute_stream(
+                # Wrap the generator for live telemetry tracking per chunk
+                for chunk in OMNI_ENGINE.execute_stream(
                     model=model_name,
                     prompt=prompt,
                     system=system,
@@ -361,7 +401,9 @@ def generate_stream(
                     image_b64=image_data,
                     image_mime=image_mime,
                     chunk_words=chunk_words,
-                )
+                ):
+                    track_tokens(provider, chunk)
+                    yield chunk
                 return
             except Exception as e:
                 err_str = str(e)
