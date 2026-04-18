@@ -13,10 +13,6 @@ import zlib
 import streamlit as st
 import ssl
 from utils.api_key_ui import render_api_key_section
-from utils.optimizer import run_all_optimizations
-
-# Execute aggressive lag-free Streamlit optimizations right on load
-run_all_optimizations()
 
 # ── Auth + Integrations — MASKED (Supabase/Google/Stripe disabled for direct access) ──
 # All functions below are safe no-ops so the app runs without any external auth.
@@ -136,7 +132,6 @@ from new_features import (
     render_knowledge_hub, render_study_wellness,
 )
 from utils import ai_engine
-from utils.token_tracker import render_telemetry_sidebar
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -5071,9 +5066,6 @@ with st.sidebar:
         """, unsafe_allow_html=True)
         st.progress(min(1.0, (st.session_state.get('battle_lifetime_points', 0) % 500) / 500), text="Rank Progression")
 
-    # Render the Real-Time Token Telemetry Dashboard
-    render_telemetry_sidebar()
-
     st.sidebar.markdown("---")
     st.sidebar.caption("ExamHelp AI v5.0.3 Gold Standard")
 
@@ -5157,7 +5149,7 @@ with st.sidebar:
             ("📊", "Mind Map",        "Visual concept map",           "mindmap"),
             ("📅", "Study Planner",   "Revision timetable",          "planner"),
             ("📈", "Graph Plotter",   "Plot equations",               "graph"),
-            ("🖋️", "Story Engine Pro", "Elite AI Fiction & Literature", "story"),
+            ("✍️", "Story Builder",   "AI creative writing",          "story"),
         ("🐛", "Code Debugger",   "Fix code in any language",     "debugger"),
         ("🎓", "Learn Coding",    "Interactive coding tutor",     "learn_coding"),
         ("📄", "Essay Writer",    "AI academic essay generator",  "essay_writer"),
@@ -5194,7 +5186,7 @@ with st.sidebar:
             ("🎨", "HTML Generator",      "AI to beautiful single-page website", "html_generator"),
             ("🕵️", "Reverse Image Search", "AI vision lookup & deep analysis", "image_searcher"),
             ("📰", "AI News Hub",         "Live AI news & tool recommendations", "news_hub"),
-            ("🗺️", "Voyager Map Studio", "Campus Guide & Interactive Planner", "map_planner"),
+            ("🗺️", "Campus & India Map",  "VIT Campus Guide & Trip Planner", "map_planner"),
             ("🔀", "Code Converter",      "AI code translation + diff + zip",   "code_converter"),
             ("🛒", "Smart Shopping",      "Compare prices across platforms",     "smart_shopping"),
             ("🔬", "Context Focus",       "Deep internet research engine",      "context_focus"),
@@ -5679,13 +5671,6 @@ elif app_mode == "editor":
 elif app_mode == "story":
     from ui.story_builder import render_story_builder
     render_story_builder()
-
-# ─────────────────────────────────────────────
-# MAP PLANNER MODE
-# ─────────────────────────────────────────────
-elif app_mode == "map_planner":
-    from map_engine import render_advanced_map
-    render_advanced_map()
 
 # ─────────────────────────────────────────────
 # CODE DEBUGGER MODE

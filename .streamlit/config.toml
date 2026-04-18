@@ -1,22 +1,9 @@
+[theme]
+base = "dark"
+
 [server]
-headless = true
-gatherUsageStats = false
-fileWatcherType = "none" 
-runOnSave = false
-maxMessageSize = 50
-
-[runner]
-magicEnabled = false
-fastReruns = true
-
-[browser]
-gatherUsageStats = false
-serverAddress = "localhost"
+maxUploadSize = 10
+fileWatcherType = "none"
 
 [logger]
 level = "error"
-messageFormat = "%(asctime)s %(message)s"
-
-[client]
-toolbarMode = "minimal"
-showErrorDetails = false

@@ -440,32 +440,13 @@ COMPANION_PERSONAS = {
 
 def get_engine_config(engine_name: str) -> dict:
     """Return prompt configuration for a specific engine."""
-    from utils.emoji_bank import EMOJI_BANK
-    
-    config = ENGINE_PROMPTS.get(engine_name, {
+    return ENGINE_PROMPTS.get(engine_name, {
         "system": "You are a helpful AI assistant.",
         "temperature": 0.7,
         "max_tokens": 4096
     })
-    
-    config["system"] += (
-        f"\n\n── EMOJI BANK (SENSORY ALIGNMENT) ──\n"
-        f"Use emojis from the following bank to heighten sensory and emotional impact exactly when right:\n"
-        f"{EMOJI_BANK}"
-    )
-    return config
 
 
 def get_companion_persona(name: str) -> str:
     """Return system prompt for a companion persona."""
-    from utils.emoji_bank import EMOJI_BANK
-    
-    base_prompt = COMPANION_PERSONAS.get(name, COMPANION_PERSONAS["Nova"])
-    return base_prompt + (
-        f"\n\n── EMOJI BANK & INSTRUCTIONS ──\n"
-        f"Here is your personal emoji bank containing over 400 emojis. "
-        f"You MUST use this bank to decide EXACTLY which emojis to use at the right time.\n"
-        f"Analyze the context, tone, and subtext of your message and selectively insert highly relevant emojis from this bank.\n"
-        f"Don't overwhelm the text, but use them strategically for maximum impact:\n"
-        f"{EMOJI_BANK}"
-    )
+    return COMPANION_PERSONAS.get(name, COMPANION_PERSONAS["Nova"])

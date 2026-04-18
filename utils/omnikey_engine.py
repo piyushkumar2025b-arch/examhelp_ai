@@ -213,7 +213,7 @@ class OmniKeyEngine:
                 f"[OmniKey v6] success (model={model}, in={tok_in}, out={tok_out})",
                 file=sys.stderr,
             )
-            return text, tok_in + tok_out
+            return text
 
         except RuntimeError as e:
             err = str(e)

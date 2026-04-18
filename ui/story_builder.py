@@ -10,7 +10,6 @@ import re
 import datetime
 import json
 from utils import ai_engine
-from utils.emoji_bank import EMOJI_BANK
 
 # ─────────────────────────────────────────────
 # STORY DATA
@@ -107,15 +106,6 @@ GENRES = {
         "tropes": "community bonds, survival, street codes, identity, loyalty",
         "atmosphere": "gritty, authentic, voice-forward, immediate",
     },
-    "✨ Custom Genre": {
-        "key": "custom",
-        "desc": "Define your own genre and rules",
-        "color": "#fcd34d",
-        "examples": [],
-        "masters": "You",
-        "tropes": "Custom",
-        "atmosphere": "Custom",
-    },
 }
 
 WRITING_VOICES = {
@@ -159,11 +149,6 @@ WRITING_VOICES = {
         "desc": "Timeless, oral, mythic tone",
         "instruction": "Write in the cadence of an old oral tradition — 'Once there was...', 'They say that...'. Like a fairy tale retold by an adult. Think Angela Carter, Susanna Clarke, or Neil Gaiman. Deceptively simple language that hides real menace or magic.",
     },
-    "🖋️ Custom Voice": {
-        "key": "custom",
-        "desc": "Your own unique style and instructions",
-        "instruction": "Custom",
-    },
 }
 
 STORY_LENGTHS = {
@@ -191,11 +176,6 @@ NARRATIVE_TOOLS = {
     "✨ Hopeful turn": "Introduce a note of hope, beauty, or unexpected kindness that shifts the emotional register.",
     "🎭 Raise the stakes": "Escalate — what is at risk gets bigger, more personal, or more immediate.",
     "🔚 Build to a cliffhanger": "End this section on a sharp, irresistible cliffhanger that demands a next chapter.",
-    "🩺 Dialogue Doctor": "Heavily refine all dialogue in this section. Make it subtext-heavy, uniquely voiced, and remove any 'filler' or 'on-the-nose' speech.",
-    "🖼️ Scene Visualiser": "Along with the prose, provide a detailed 1-paragraph visual storyboard prompt for an illustrator to capture this scene's essence.",
-    "⚡ Inject Conflict": "A sudden, high-stakes conflict or complication must arise in this scene immediately.",
-    "🔍 Subtext Expander": "Rewrite the current scene but hide the meaning behind subtext, silence, and physical cues rather than direct dialogue.",
-    "🎬 Scene Beat Breakdown": "Do not write prose; instead, provide a professional 10-point scene beat list for how the story should advance from here.",
 }
 
 STYLE_MIMICRY = {
@@ -219,106 +199,16 @@ COLLAB_MODES = {
     "AI Ghost-Writer": "The user provides only bullet-point directions or summaries. The AI transforms them into fully realized literary prose.",
 }
 
-# --- NEW PREMIUM UPGRADES ---
-
-VIABILITY_MODES = {
-    "🛡️ Safe & Logic-Bound": "Prioritize internal logic, physical realism, and narrative consistency. No sudden jumps in logic or unearned miracles.",
-    "🎭 Balanced Drama": "Standard narrative logic. Emphasize emotional weight and consistent arcs over strict realism.",
-    "🌀 Risky & Experimental": "Push boundaries. Dream-logic, unconventional structures, and high-risk narrative choices are encouraged.",
-    "🔥 Chaos / Unhinged": "Pure creative freedom. Absurdist, surreal, and completely unpredictable logic. Surprise everyone.",
-    "⚙️ Custom Viability": "Custom",
-}
-
-SEX_TOUCH_OPTIONS = {
-    "None": "",
-    "✨ Sensory Overload": "Dial up the sensory details to 11. Smell the ozone, feel the grit, hear the sub-harmonics of every action.",
-    "🎬 Cinematic Bloom": "Describe scenes as if viewed through a master cinematographer's lens. Focus on lighting, framing, and visual metaphors.",
-    "🍷 Nocturnal Noir": "Add a layer of moody, atmospheric shadows and cynical introspection to every interaction.",
-    "🫀 Visceral Heart": "Increase the focus on biological and raw emotional reactions—the racing pulse, the tightening throat, the actual weight of grief.",
-    "🧠 Intellectual Depths": "Embed philosophical subtext and complex metaphors into the prose. Make every scene mean something more.",
-    "✨ Custom Touch": "Custom",
-}
-
-REPLY_FORMATS = {
-    "🎭 Deep Interiority": "Focus almost exclusively on the character's internal monologue and stream of consciousness.",
-}
-
-ATMOSPHERE_PALETTE = {
-    "Default": "A balanced mix of description and action.",
-    "🌫️ Mist & Shadows": "Emphasize cold, damp textures, obscured vision, and soft, muffled sounds. Ethereal and uncertain.",
-    "🕯️ Candlelight & Ink": "Focus on the small, warm circle of light, the smell of old paper, the scratch of a quill, and libraries.",
-    "🏙️ Neon & Grit": "Harsh artificial lights, rain on pavement, the smell of ozone and exhaust, and the crowd's vibration.",
-    "☀️ Dust & Sunshine": "Warmth, motes of dust in sunbeams, the smell of dry grass and old stone, and the hum of insects.",
-    "🌊 Salt & Storm": "The spray of the sea, the roar of wind, the taste of salt, and the power of nature's vastness.",
-    "🧪 Chrome & Sterility": "Sharp edges, chemical smells, perfectly clean surfaces, and the hum of machines. Cold and precise.",
-}
-
-CRITIC_MODES = {
-    "🖋️ Prose & Flow": "Analyze the prose quality, sentence variety, and voice consistency.",
-    "⏱️ Pacing & Momentum": "Check if the story moves too fast or too slow for its genre.",
-    "⚖️ Plot & Logic": "Look for internal contradictions, logic holes, or unearned developments.",
-    "🧠 Thematic Depth": "Explore the metaphors and deeper meanings. Are the themes being earned?",
-}
-
-TONE_INFUSION = {
-    "Neutral": "Match the genre's standard emotional default.",
-    "🌧️ Melancholic": "A sense of loss, longing, and beautiful sadness in every paragraph.",
-    "🦴 Gritty & Raw": "Unflinching realism, dirt, blood, and the harsh reality of life with no varnish.",
-    "✨ Hopeful / Radiant": "A persistent glow of optimism, kindness, and light, even in the dark.",
-    "🎭 Satirical / Sharp": "Use social commentary, irony, and a bit of a bite to mock the situation.",
-    "🕯️ Nostalgic": "A deep yearning for the past, with warm, sepia-toned memories.",
-}
-
-NARRATIVE_ARCHETYPES = {
-    "Classic (Organic)": "Let the story grow naturally without following a strict template.",
-    "🦸 The Hero's Journey": "Follow the 12 steps of the Monomyth — Call to adventure, crossing the threshold, supreme ordeal, etc.",
-    "🎭 Fichtean Curve": "Series of crises that build tension, leading to a climax and brief resolution.",
-    "🏮 Kishōtenketsu": "4-part structure (Intro, Develop, Twist, Reconcile) without a traditional conflict-based climax.",
-    "🏰 In Media Res": "Start in the absolute heat of action, then slowly reveal how we got here.",
-}
-
-LITERARY_COMPLEXITY = {
-    "Simple & Punchy": "Use short sentences, common vocabulary, and direct action. High readability.",
-    "Sophisticated & Balanced": "Standard literary prose. Varying sentence lengths and professional vocabulary.",
-    "Baroque & Dense": "Intricate, complex sentence structures and rare, evocative vocabulary. High difficulty.",
-}
-
-
 # ─────────────────────────────────────────────
 # STORY SYSTEM PROMPT BUILDER
 # ─────────────────────────────────────────────
 
-def build_story_system_prompt(genre_name: str, voice_name: str, pacing: str, extra_context: str = "", style_mimicry: str = "None (Original)", collab_mode: str = "AI Leads", characters: list = None, viability: str = "🎭 Balanced Drama", sexy_touch: str = "None", reply_format: str = "🖋️ Standard Prose", atmosphere: str = "Default", world_ledger: str = "", archetype: str = "Classic (Organic)", complexity: str = "Sophisticated & Balanced", tone: str = "Neutral", custom_genre_details: str = "", custom_voice_instr: str = "", custom_viability_instr: str = "", custom_sexy_instr: str = "", story_wiki: dict = None, constitution: str = "", forbidden_words: str = "", sentence_cap: int = 0, custom_vars: list = None) -> str:
+def build_story_system_prompt(genre_name: str, voice_name: str, pacing: str, extra_context: str = "", style_mimicry: str = "None (Original)", collab_mode: str = "AI Leads", characters: list = None) -> str:
     genre = GENRES.get(genre_name, GENRES["🏰 Fantasy"])
     voice = WRITING_VOICES.get(voice_name, WRITING_VOICES["📖 Classic Narrator"])
     pace_instruction = PACING_MODES.get(pacing, PACING_MODES["🌊 Natural Flow"])
     mimicry_instruction = STYLE_MIMICRY.get(style_mimicry, "")
     collab_instruction = COLLAB_MODES.get(collab_mode, COLLAB_MODES["AI Leads"])
-    
-    viability_instruction = VIABILITY_MODES.get(viability, VIABILITY_MODES["🎭 Balanced Drama"])
-    if viability == "⚙️ Custom Viability": viability_instruction = custom_viability_instr
-
-    touch_instruction = SEX_TOUCH_OPTIONS.get(sexy_touch, "")
-    if sexy_touch == "✨ Custom Touch": touch_instruction = custom_sexy_instr
-
-    format_instruction = REPLY_FORMATS.get(reply_format, REPLY_FORMATS["🖋️ Standard Prose"])
-
-    genre_masters = genre['masters']
-    genre_tropes = genre['tropes']
-    genre_atmosphere = genre['atmosphere']
-    voice_instr = voice['instruction']
-
-    if genre_name == "✨ Custom Genre":
-        genre_masters = "As specified"
-        genre_tropes = "As specified"
-        genre_atmosphere = "As specified"
-        genre_instr = f"Follow these custom genre rules: {custom_genre_details}"
-    else:
-        genre_instr = f"Write in the tradition of {genre_masters}. Honour the genre's conventions while finding fresh angles. Avoid clichés — subvert them."
-
-    if voice_name == "🖋️ Custom Voice":
-        voice_instr = f"ADOPT THIS CUSTOM VOICE: {custom_voice_instr}"
-
 
     character_block = ""
     if characters:
@@ -334,13 +224,13 @@ CURRENT STORY CONFIGURATION
 ══════════════════════════════════
 
 GENRE: {genre_name}
-Masters: {genre_masters}
-Tropes: {genre_tropes}
-Atmosphere: {genre_atmosphere}
-Genre instruction: {genre_instr}
+Masters of this genre: {genre['masters']}
+Core tropes to draw from: {genre['tropes']}
+Atmosphere target: {genre['atmosphere']}
+Genre instruction: Write in the tradition of {genre['masters']}. Honour the genre's conventions while finding fresh angles. Avoid clichés — subvert them.
 
 WRITING VOICE: {voice_name}
-{voice_instr}
+{voice['instruction']}
 
 PACING: {pacing}
 {pace_instruction}
@@ -349,42 +239,7 @@ COLLABORATION MODE: {collab_mode}
 {collab_instruction}
 
 {f"STYLE MIMICRY: {mimicry_instruction}" if mimicry_instruction else ""}
-VIABILITY & LOGIC: {viability}
-{viability_instruction}
-
-{f"PREMIUM AESTHETIC TOUCH: {sexy_touch} - {touch_instruction}" if touch_instruction else ""}
-
-ATMOSPHERE FOCUS: {atmosphere}
-{ATMOSPHERE_PALETTE.get(atmosphere, "")}
-
-WORLD LEDGER (Lore & Consistency):
-{world_ledger if world_ledger else "No specific world rules defined yet."}
-
-NARRATIVE ARCHETYPE: {archetype}
-Structure Strategy: {NARRATIVE_ARCHETYPES.get(archetype, "")}
-
-LITERARY COMPLEXITY: {complexity}
-Prose Strategy: {LITERARY_COMPLEXITY.get(complexity, "")}
-
-EMOTIONAL TONE: {tone}
-Tone Strategy: {TONE_INFUSION.get(tone, "")}
-
-RESPONSE FORMATTING: {reply_format}
-{format_instruction}
-
 {character_block}
-
-{f"STORY WIKI / LORE:\\n{json.dumps(story_wiki, indent=2)}" if story_wiki else ""}
-
-{f"GLOBAL STORY CONSTITUTION (MANDATORY RULES):\\n{constitution}" if constitution else ""}
-{f"FORBIDDEN WORDS (NEVER USE):\\n{forbidden_words}" if forbidden_words else ""}
-{f"WRITING CONSTRAINT: Maximum {sentence_cap} words per sentence." if sentence_cap > 0 else ""}
-
-{f"CUSTOM VARIABLES & PARAMETERS:\\n" + "\\n".join([f"- {v['key']}: {v['value']}" for v in custom_vars]) if custom_vars else ""}
-
-── SENSORY & EMOJI ALIGNMENT ──
-You have access to a massive emoji bank. Depending on the genre and tone, you may use emojis strategically to emphasize mood or sensory details (even in prose).
-{EMOJI_BANK}
 
 ══════════════════════════════════
 CRAFT RULES — NON-NEGOTIABLE
@@ -441,33 +296,6 @@ def _init_story_state():
         "story_characters": [],  # [{name, role, traits, arc}]
         "story_branches": [],    # [full_text snapshots for branching]
         "story_branch_labels": [],
-        "story_viability": "🎭 Balanced Drama",
-        "story_sexy_touch": "None",
-        "story_reply_format": "🖋️ Standard Prose",
-        "story_custom_genre": "",
-        "story_custom_voice": "",
-        "story_custom_viability": "",
-        "story_custom_sexy": "",
-        "story_atmosphere": "Default",
-        "story_world_ledger": "",
-        "story_critic_feedback": "",
-        "story_archetype": "Classic (Organic)",
-        "story_complexity": "Sophisticated & Balanced",
-        "story_tone": "Neutral",
-        "storyboards": [], # [{scene_text, visual_prompt}]
-        "story_logic_report": "",
-        "story_chapters": [{"title": "Chapter 1", "text": ""}],
-        "story_current_chapter_idx": 0,
-        "story_wiki": {"Characters": {}, "Locations": {}, "Lore": {}},
-        "story_stylometrics": {}, # Analysis data
-        "story_writing_tips": [], # Current AI tips
-        "story_constitution": "", # Global unbreakable rules
-        "story_temp": 0.7,
-        "story_top_p": 0.9,
-        "story_max_tokens": 4096,
-        "story_forbidden_words": "",
-        "story_sentence_cap": 0, # 0 means no cap
-        "story_custom_vars": [], # [{"key": "Target Audience", "value": "YA"}]
     }
     for k, v in keys.items():
         if k not in st.session_state:
@@ -717,13 +545,6 @@ def render_story_builder():
             st.session_state.story_pacing = selected_pacing
             st.rerun()
 
-        # ── Custom inputs for Genre/Voice ──
-        if st.session_state.story_genre == "✨ Custom Genre":
-            st.session_state.story_custom_genre = st.text_area("Custom Genre Details:", value=st.session_state.story_custom_genre, placeholder="e.g. Victorian Space Opera with steampunk elements...", height=80, key="cg_input")
-        
-        if st.session_state.story_voice == "🖋️ Custom Voice":
-            st.session_state.story_custom_voice = st.text_area("Custom Voice Style:", value=st.session_state.story_custom_voice, placeholder="e.g. First-person, very cynical, heavy use of slang...", height=80, key="cv_voice_input")
-
         # ── Response Length ─────────────────────
         st.markdown('<div class="config-label">📏 Length</div>', unsafe_allow_html=True)
         length_keys = list(STORY_LENGTHS.keys())
@@ -759,46 +580,6 @@ def render_story_builder():
         )
         st.session_state.story_collab_mode = selected_collab
 
-        # --- NEW PREMIUM CONFIGS ---
-        st.session_state.story_sexy_touch = selected_touch
-        if selected_touch == "✨ Custom Touch":
-            st.session_state.story_custom_sexy = st.text_area("Custom Touch Instructions:", value=st.session_state.story_custom_sexy, placeholder="e.g. Use lots of metallurgical metaphors, focus on echo and sound...", height=80, key="ct_input")
-
-        st.markdown('<div class="config-label">⚖️ Viability</div>', unsafe_allow_html=True)
-
-        st.session_state.story_viability = selected_viability
-        if selected_viability == "⚙️ Custom Viability":
-            st.session_state.story_custom_viability = st.text_area("Custom Viability Rules:", value=st.session_state.story_custom_viability, placeholder="e.g. Magic costs life force, time travel creates split timelines...", height=80, key="cv_input")
-
-        st.markdown('<div class="config-label">🎭 Atmosphere Palette</div>', unsafe_allow_html=True)
-        sel_atmo = st.selectbox("Atmosphere", list(ATMOSPHERE_PALETTE.keys()), index=list(ATMOSPHERE_PALETTE.keys()).index(st.session_state.story_atmosphere), label_visibility="collapsed", key="atmo_select")
-        st.session_state.story_atmosphere = sel_atmo
-
-        st.markdown('<div class="config-label">📐 Story Structure</div>', unsafe_allow_html=True)
-        sel_arch = st.selectbox("Archetype", list(NARRATIVE_ARCHETYPES.keys()), index=list(NARRATIVE_ARCHETYPES.keys()).index(st.session_state.story_archetype), label_visibility="collapsed", key="arch_select")
-        st.session_state.story_archetype = sel_arch
-
-        st.markdown('<div class="config-label">💎 Prose Complexity</div>', unsafe_allow_html=True)
-        sel_comp = st.selectbox("Complexity", list(LITERARY_COMPLEXITY.keys()), index=list(LITERARY_COMPLEXITY.keys()).index(st.session_state.story_complexity), label_visibility="collapsed", key="comp_select")
-        st.session_state.story_complexity = sel_comp
-
-        st.markdown('<div class="config-label">🌈 Tone Infusion</div>', unsafe_allow_html=True)
-        sel_tone = st.selectbox("Tone", list(TONE_INFUSION.keys()), index=list(TONE_INFUSION.keys()).index(st.session_state.story_tone), label_visibility="collapsed", key="tone_select")
-        st.session_state.story_tone = sel_tone
-
-        st.markdown('<div class="config-label">📑 Reply Format</div>', unsafe_allow_html=True)
-
-        st.markdown('<div class="config-label">📑 Reply Format</div>', unsafe_allow_html=True)
-        format_keys = list(REPLY_FORMATS.keys())
-        selected_format = st.selectbox(
-            "Format", format_keys,
-            index=format_keys.index(st.session_state.story_reply_format) if st.session_state.story_reply_format in format_keys else 0,
-            label_visibility="collapsed",
-            key="format_select_story",
-        )
-        st.session_state.story_reply_format = selected_format
-
-
         # ── Narrative Tools ─────────────────────
         if st.session_state.story_started:
             st.markdown('<div class="config-label">🔧 Narrative Tool</div>', unsafe_allow_html=True)
@@ -816,14 +597,6 @@ def render_story_builder():
         # ── Character Tracker ──────────────────
         st.markdown('<div class="config-label">👤 Characters</div>', unsafe_allow_html=True)
         if st.session_state.story_characters:
-            with st.expander("Relationship Matrix", expanded=False):
-                st.markdown("<small style='color:var(--text3)'>Define how characters feel about each other:</small>", unsafe_allow_html=True)
-                for i, c1 in enumerate(st.session_state.story_characters):
-                    for j, c2 in enumerate(st.session_state.story_characters):
-                        if i < j:
-                            rel_key = f"rel_{c1['name']}_{c2['name']}"
-                            st.text_input(f"{c1['name']} ↔ {c2['name']}", placeholder="e.g. Rivalry, Unspoken love, Mentor", key=rel_key)
-
             for i, ch in enumerate(st.session_state.story_characters):
                 with st.expander(f"{ch.get('name', 'Character')} — {ch.get('role', '')}", expanded=False):
                     st.markdown(f"**Traits:** {ch.get('traits', '')}")
@@ -869,93 +642,6 @@ def render_story_builder():
             height=90,
         )
         st.session_state.story_notes = notes
-
-        # ── World Ledger ────────────────────────
-        st.markdown('<div class="config-label">🌍 World Ledger</div>', unsafe_allow_html=True)
-        with st.expander("Lore & Meta-Rules"):
-            ledger = st.text_area(
-                "Vault of Lore", placeholder="Magic systems, geography, political factions...",
-                value=st.session_state.story_world_ledger,
-                label_visibility="collapsed",
-                key="story_ledger_input",
-                height=150,
-            )
-            st.session_state.story_world_ledger = ledger
-
-        # ── Story Critic ────────────────────────
-        st.markdown('<div class="config-label">🧐 AI Critic </div>', unsafe_allow_html=True)
-        with st.expander("Review & Analysis"):
-            if st.session_state.story_full_text:
-                for mode_name, mode_instr in CRITIC_MODES.items():
-                    if st.button(f"Analyze: {mode_name}", use_container_width=True, key=f"critic_{mode_name}"):
-                        with st.spinner("Reviewing manuscript..."):
-                            critic_prompt = f"YOU ARE AN ELITE LITERARY CRITIC. {mode_instr}\n\nReview this story so far and provide 3 sharp, professional bullet points of feedback: what's working, what's not, and how to improve. Be honest and sophisticated.\n\nSTORY:\n{st.session_state.story_full_text[-3000:]}"
-                            feedback = ai_engine.generate(critic_prompt, model="llama-3.1-8b-instant", max_tokens=300)
-                            st.session_state.story_critic_feedback = feedback
-                
-                if st.button("🔍 Plot Hole Scanner", use_container_width=True, key="plot_hole_scan"):
-                    with st.spinner("Analyzing causality and continuity..."):
-                        logic_prompt = f"SCAN THIS STORY FOR LOGIC HOLES, IMPOSSIBLE TIMELINES, OR CONTRADICTIONS IN CHARACTER KNOWLEDGE. List only the major issues with zero fluff.\n\nSTORY:\n{st.session_state.story_full_text[-5000:]}"
-                        st.session_state.story_logic_report = ai_engine.generate(logic_prompt, model="llama-3.1-8b-instant", max_tokens=300)
-            
-            if st.session_state.story_critic_feedback:
-                st.markdown(f'<div style="font-size:0.8rem;color:var(--text2);background:var(--bg3-glass);padding:0.75rem;border-radius:8px;border:1px solid var(--accent-bd);">{st.session_state.story_critic_feedback}</div>', unsafe_allow_html=True)
-                if st.button("Clear Feedback", key="clear_critic"):
-                    st.session_state.story_critic_feedback = ""
-                    st.rerun()
-
-            if st.session_state.story_logic_report:
-                st.markdown(f'<div style="font-size:0.8rem;color:#f87171;background:rgba(239, 68, 68, 0.05);padding:0.75rem;border-radius:8px;border:1px solid #f87171;"><b>LOGIC ISSUES FOUND:</b><br>{st.session_state.story_logic_report}</div>', unsafe_allow_html=True)
-                if st.button("Clear Report", key="clear_logic"):
-                    st.session_state.story_logic_report = ""
-                    st.rerun()
-
-        # ── Export & Sharing ─────────────────────
-        st.markdown('<div class="config-label">📤 Export & Design</div>', unsafe_allow_html=True)
-        with st.expander("Publishing Tools"):
-            if st.button("📜 Export as Book Draft (Markdown)", use_container_width=True):
-                full_book = f"# {st.session_state.story_title}\n\n"
-                full_book += f"**Genre:** {st.session_state.story_genre}\n"
-                full_book += f"**Total Word Count:** {st.session_state.story_word_count}\n\n"
-                full_book += "---"
-                full_book += f"\n\n{st.session_state.story_full_text}"
-                st.download_button("Download Draft", full_book, file_name=f"{st.session_state.story_title.lower().replace(' ', '_')}.md")
-            
-            if st.button("🗺️ Generate Plot Diagram (Mermaid)", use_container_width=True):
-                 st.info("Coming soon: Dynamic Mermaid mapping of your story structure.")
-
-        # ── Advanced Engine Tuning ──────────────────
-        st.markdown('<div class="config-label">⚙️ Engine Advanced Tuning</div>', unsafe_allow_html=True)
-        with st.expander("Deep Parameters & Constraints", expanded=False):
-            t_set1, t_set2, t_set3 = st.tabs(["📜 Constitution", "🎚️ AI Tuning", "🛠️ Custom Params"])
-            with t_set1:
-                st.markdown("<small style='color:var(--text3)'>Define unbreakable laws for the AI. It will NEVER violate these.</small>", unsafe_allow_html=True)
-                st.session_state.story_constitution = st.text_area("Global Story Constitution", value=st.session_state.story_constitution, placeholder="e.g. No character can die twice. Never mention technology. Each turn must end with a question.", height=120, key="const_input")
-                st.session_state.story_forbidden_words = st.text_input("Forbidden Words (comma separated)", value=st.session_state.story_forbidden_words, placeholder="e.g. okay, literally, modern", key="forbid_input")
-                st.session_state.story_sentence_cap = st.number_input("Max Sentence Word Cap (0=Unlimited)", value=st.session_state.story_sentence_cap, min_value=0, max_value=100, step=5, key="scap_input")
-            
-            with t_set2:
-                st.markdown("<small style='color:var(--text3)'>Precise control over the LLM generation engine.</small>", unsafe_allow_html=True)
-                st.session_state.story_temp = st.slider("Temperature (Creativity)", 0.0, 1.5, st.session_state.story_temp, 0.05, key="temp_input")
-                st.session_state.story_top_p = st.slider("Top-P (Randomness)", 0.0, 1.0, st.session_state.story_top_p, 0.05, key="top_p_input")
-                st.session_state.story_max_tokens = st.select_slider("Max Continuation Length", options=[512, 1024, 2048, 4096, 8192], value=st.session_state.story_max_tokens, key="max_tok_input")
-                st.caption("Lower temperature for logical accuracy, higher for wild creativity.")
-
-            with t_set3:
-                st.markdown("<small style='color:var(--text3)'>Define fully custom variables and parameters to feed the AI (e.g. 'Gore Level', 'Protagonist Flaw').</small>", unsafe_allow_html=True)
-                cv_k = st.text_input("Parameter Name", placeholder="e.g. Target Audience", key="cv_k_input")
-                cv_v = st.text_input("Parameter Value", placeholder="e.g. Young Adult", key="cv_v_input")
-                if st.button("➕ Add Custom Parameter", use_container_width=True):
-                    if cv_k and cv_v:
-                        st.session_state.story_custom_vars.append({"key": cv_k, "value": cv_v})
-                        st.rerun()
-                
-                if st.session_state.story_custom_vars:
-                    for i, cv in enumerate(st.session_state.story_custom_vars):
-                        st.markdown(f"**{cv['key']}:** {cv['value']}")
-                        if st.button("❌ Remove", key=f"rm_cv_{i}"):
-                            st.session_state.story_custom_vars.pop(i)
-                            st.rerun()
 
         # ── Actions ─────────────────────────────
         st.markdown('<div class="config-label">⚙️ Actions</div>', unsafe_allow_html=True)
@@ -1048,16 +734,6 @@ def render_story_builder():
             st.markdown(f"""
             <div class="story-canvas">{st.session_state.story_full_text}</div>
             """, unsafe_allow_html=True)
-
-            if st.session_state.storyboards:
-                with st.expander("🖼️ Visual Storyboards", expanded=True):
-                    for b in st.session_state.storyboards[-3:]:
-                        st.markdown(f"""
-                        <div style="background:var(--bg3-glass); border:1px solid var(--accent-bd); border-radius:12px; padding:15px; margin-bottom:10px;">
-                          <div style="font-size:0.7rem; color:var(--text3); margin-bottom:5px; text-transform:uppercase; letter-spacing:1px;">Scene Concept</div>
-                          <div style="font-style:italic; font-size:0.85rem; color:var(--text2);">{b['board']}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
         else:
             # Empty state with spark prompts
             st.markdown(f"""
@@ -1145,25 +821,7 @@ def render_story_builder():
                     style_mimicry=st.session_state.story_style_mimicry,
                     collab_mode=st.session_state.story_collab_mode,
                     characters=st.session_state.story_characters,
-                    viability=st.session_state.story_viability,
-                    sexy_touch=st.session_state.story_sexy_touch,
-                    reply_format=st.session_state.story_reply_format,
-                    atmosphere=st.session_state.story_atmosphere,
-                    world_ledger=st.session_state.story_world_ledger,
-                    archetype=st.session_state.story_archetype,
-                    complexity=st.session_state.story_complexity,
-                    tone=st.session_state.story_tone,
-                    custom_genre_details=st.session_state.story_custom_genre,
-                    custom_voice_instr=st.session_state.story_custom_voice,
-                    custom_viability_instr=st.session_state.story_custom_viability,
-                    custom_sexy_instr=st.session_state.story_custom_sexy,
-                    story_wiki=st.session_state.story_wiki,
-                    constitution=st.session_state.story_constitution,
-                    forbidden_words=st.session_state.story_forbidden_words,
-                    sentence_cap=st.session_state.story_sentence_cap,
-                    custom_vars=st.session_state.story_custom_vars
                 )
-
 
                 # Keep only last 10 exchanges for context (saves tokens, maintains continuity)
                 context_messages = st.session_state.story_messages[-20:]
@@ -1177,9 +835,6 @@ def render_story_builder():
                             context_text="",
                             model="llama-3.3-70b-versatile",
                             persona_prompt=sys_prompt,
-                            temperature=st.session_state.story_temp,
-                            top_p=st.session_state.story_top_p,
-                            max_tokens=st.session_state.story_max_tokens
                         ):
                             generated += chunk
 
@@ -1209,112 +864,25 @@ def render_story_builder():
                             )
                             st.session_state.story_started = True
 
-                        # clearing tools
+                        # Clear narrative tool after use
                         st.session_state.story_tool = None
-
-                        # Check if visualizer was requested
-                        if tool == "🖼️ Scene Visualiser":
-                            with st.spinner("🖼️ Sketching storyboard..."):
-                                viz_prompt = f"Create a detailed, atmospheric visual storyboard prompt (70-100 words) for a professional illustrator based on the scene above. Focus on lighting, composition, and mood. No meta-talk.\n\nSCENE:\n{generated}"
-                                storyboard = ai_engine.generate(viz_prompt, model="llama-3.1-8b-instant", max_tokens=200)
-                                st.session_state.storyboards.append({"text": generated, "board": storyboard})
 
                         # Update word count
                         st.session_state.story_word_count = _word_count(st.session_state.story_full_text)
 
-        # ── Stylometric Analysis ──
-        if st.session_state.story_started:
-            st.markdown('<div class="config-label">🔬 Prose Deep Analysis</div>', unsafe_allow_html=True)
-            with st.expander("Stylometric Scan"):
-                if st.button("📊 Run Full Stylometric Scan", use_container_width=True):
-                    with st.spinner("Analyzing prose fingerprint..."):
-                        # Calculate sentence length variance
-                        sents = st.session_state.story_full_text.split(".")
-                        avg_len = sum(len(s.split()) for s in sents) / max(1, len(sents))
-                        
-                        analysis_prompt = f"""ANALYZE THE FOLLOWING PROSE FINGERPRINT. 
-                        Provide:
-                        1. Lexical Diversity (Richness of vocabulary)
-                        2. Narrative Density (Balance of action vs description)
-                        3. Emotional Valence (Dominant mood)
-                        4. Reading Ease (Grade level)
-                        
-                        TEXT:
-                        {st.session_state.story_full_text[-2000:]}"""
-                        
-                        st.session_state.story_stylometrics = ai_engine.generate(analysis_prompt, model="llama-3.1-8b-instant", max_tokens=400)
-                
-                if st.session_state.story_stylometrics:
-                    st.markdown(f'<div style="font-size:0.8rem; color:var(--text2); line-height:1.5;">{st.session_state.story_stylometrics}</div>', unsafe_allow_html=True)
-
-        # ── Intelligence Analytics ──
-        if st.session_state.story_started:
-            st.markdown('<div class="config-label">📊 Manuscript Analytics</div>', unsafe_allow_html=True)
-            t1, t2 = st.tabs(["⚡ Tension Map", "🔤 Vocabulary"])
-            
-            with t1:
-                # Simple tension heuristic based on punctuation and word types
-                tension = min(100, (st.session_state.story_word_count % 100) + 20)
-                st.progress(tension/100, text=f"Narrative Tension: {tension}%")
-                st.caption("AI Heuristic: Measuring sentence density and dialogue frequency.")
-                
-            with t2:
-                words = st.session_state.story_full_text.lower().split()
-                if words:
-                    from collections import Counter
-                    common = Counter(words).most_common(5)
-                    st.markdown("**Top Frequency Words:**")
-                    for w, c in common:
-                        if len(w) > 3: st.write(f"- `{w}`: {c} times")
-
-        # ── Advanced Intelligence Hub ────────────────
-        if st.session_state.story_started:
-            st.markdown('<div class="config-label">🌌 Narrative Intelligence Hub</div>', unsafe_allow_html=True)
-            th1, th2 = st.tabs(["🗣️ Character Spotlight", "🔮 Plot Forecast"])
-            
-            with th1:
-                st.markdown("<small style='color:var(--text3)'>Directly 'interview' one of your characters to find their authentic voice.</small>", unsafe_allow_html=True)
-                if st.session_state.story_wiki["Characters"]:
-                    target_char = st.selectbox("Select Character", list(st.session_state.story_wiki["Characters"].keys()), key="spotlight_char")
-                    spot_q = st.text_input(f"Question for {target_char}", placeholder="e.g. 'What is your greatest fear right now?'", key="spotlight_q")
-                    if st.button(f"Interview {target_char}", use_container_width=True):
-                        with st.spinner(f"{target_char} is thinking..."):
-                            char_context = st.session_state.story_wiki["Characters"][target_char]
-                            spot_prompt = f"YOU ARE {target_char}. {char_context}\n\nMaintain this persona perfectly. Answer the user's question in your unique voice. Keep it under 100 words.\n\nSTORY SO FAR:\n{st.session_state.story_full_text[-1000:]}\n\nSTUDENT: {spot_q}"
-                            response = ai_engine.generate(spot_prompt, model="llama-3.1-8b-instant", max_tokens=200)
-                            st.markdown(f"**{target_char}:** {response}")
-                else:
-                    st.info("Add characters to the Story Wiki to use this feature.")
-
-            with th2:
-                if st.button("🔮 Forecast Future Paths", use_container_width=True):
-                    with st.spinner("Calculating narrative probabilities..."):
-                        forecast_prompt = f"Based on the current story, provide 3 distinct, high-fidelity future plot paths (each 1-2 sentences). Path 1: Logical progression. Path 2: Sharp twist. Path 3: Thematic payoff.\n\nSTORY:\n{st.session_state.story_full_text[-3000:]}"
-                        forecast = ai_engine.generate(forecast_prompt, model="llama-3.1-8b-instant", max_tokens=300)
-                        st.markdown(forecast)
-
-        # ── Collaborative Outliner & Sensory Suite ──
-        if st.session_state.story_started:
-            st.markdown('<div class="config-label">🛠️ Tactical Narrative Suite</div>', unsafe_allow_html=True)
-            tc1, tc2 = st.tabs(["📝 Plot Outline", "👂 Sensory Map"])
-            
-            with tc1:
-                st.markdown("<small style='color:var(--text3)'>Build a structural skeleton before you write.</small>", unsafe_allow_html=True)
-                if st.button("✨ Auto-Generate Outline", use_container_width=True):
-                    with st.spinner("Drafting blueprint..."):
-                        outline_prompt = f"Create a professional 5-point outline for the next major arc of this story. Ensure escalating stakes.\n\nSTORY:\n{st.session_state.story_full_text[-2000:]}"
-                        outline = ai_engine.generate(outline_prompt, model="llama-3.1-8b-instant", max_tokens=300)
-                        st.markdown(outline)
-            
-            with tc2:
-                st.markdown("<small style='color:var(--text3)'>Analyze the sensory balance of your current prose.</small>", unsafe_allow_html=True)
-                if st.button("🩺 Run Sensory Audit", use_container_width=True):
-                    with st.spinner("Scanning textures..."):
-                        audit_p = f"Analyze the following text and rate the presence (0-10) of: Visuals, Sounds, Smells, Touch, Taste. Briefly explain what's missing.\n\nTEXT:\n{st.session_state.story_full_text[-800:]}"
-                        audit = ai_engine.generate(audit_p, model="llama-3.1-8b-instant", max_tokens=250)
-                        st.markdown(audit)
+                        # Continuity Check
+                        if st.session_state.story_characters:
+                            st.toast("Checking continuity against character sheets...")
+                            char_sheet = json.dumps(st.session_state.story_characters)
+                            cont_prompt = f"Check this new text for contradictions against the character sheet. If there is a major contradiction (e.g. eye color changed, dead character alive), explain it briefly. If none, reply 'OK'.\n\nCHARACTERS: {char_sheet}\n\nNEW TEXT: {generated}"
+                            try:
+                                cont_res = ai_engine.generate(cont_prompt, model="llama-3.1-8b-instant", max_tokens=150, temperature=0.1)
+                                if "OK" not in cont_res[:10]:
+                                    st.warning(f"⚠️ Continuity Warning: {cont_res}")
+                            except Exception:
+                                pass
 
                     except Exception as e:
-                        st.error(f"Execution failed: {e}")
+                        st.error(f"Story generation failed: {e}")
 
                 st.rerun()
