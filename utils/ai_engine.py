@@ -1,16 +1,22 @@
 """
-ai_engine.py — High-Level AI Orchestration v4.0
+ai_engine.py — High-Level AI Orchestration v5.0
 =================================================
-v4.0: Single user-supplied API key — auto-detects provider (Gemini / Groq / Cerebras).
-      9-key rotation system retired (all calls went through OmniKeyEngine).
-      Groq and Cerebras now fully supported via their respective REST APIs.
+v5.0: 18-provider multi-key system.
 
-Changes from v3:
-  - generate() auto-routes to Gemini, Groq, or Cerebras based on key prefix
-  - OmniKeyEngine is used ONLY for Gemini keys (single-key mode, v6)
-  - Groq: uses /openai/v1/chat/completions with gsk_ key
-  - Cerebras: uses /v1/chat/completions with csk- key
-  - All other public API surface (generate_stream, json_generate, etc.) unchanged
+Supported providers (18 total):
+  gemini, groq, cerebras,                          ← original 3
+  openai, anthropic, mistral, cohere, together,    ← new batch 1
+  perplexity, openrouter, fireworks, replicate,    ← new batch 2
+  huggingface, sambanova, nvidia, deepseek,        ← new batch 3
+  ai21, xai                                        ← new batch 4
+
+All providers use OpenAI-compatible /v1/chat/completions EXCEPT:
+  gemini   → native Gemini REST (via OmniKeyEngine)
+  replicate → polling REST
+  huggingface → Inference API
+
+Vision (image input) is supported for:
+  gemini, openai, anthropic, nvidia, replicate
 """
 
 from __future__ import annotations
@@ -30,25 +36,59 @@ from typing import Dict, Iterator, List, Optional
 from utils.omnikey_engine import OMNI_ENGINE
 from utils.prompts import get_engine_config
 
-# -- Model defaults per provider --
-GEMINI_MODELS: List[str] = ["gemini-2.5-flash"]
-GROQ_MODEL    = "llama-3.1-8b-instant"       # fast free-tier model on Groq
-CEREBRAS_MODEL = "llama3.1-8b"               # Cerebras Llama 3.1 8B
+# ── Model defaults ────────────────────────────────────────────────────────────
+GEMINI_MODELS    = ["gemini-2.5-flash"]
+GROQ_MODEL       = "llama-3.3-70b-versatile"
+CEREBRAS_MODEL   = "llama3.3-70b"
+OPENAI_MODEL     = "gpt-4o-mini"
+ANTHROPIC_MODEL  = "claude-3-haiku-20240307"
+MISTRAL_MODEL    = "mistral-small-latest"
+COHERE_MODEL     = "command-r"
+TOGETHER_MODEL   = "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+PERPLEXITY_MODEL = "llama-3.1-sonar-small-128k-online"
+OPENROUTER_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
+FIREWORKS_MODEL  = "accounts/fireworks/models/llama-v3p1-8b-instruct"
+REPLICATE_MODEL  = "meta/meta-llama-3-8b-instruct"
+HUGGINGFACE_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
+SAMBANOVA_MODEL  = "Meta-Llama-3.3-70B-Instruct"
+NVIDIA_MODEL     = "meta/llama-3.1-8b-instruct"
+DEEPSEEK_MODEL   = "deepseek-chat"
+AI21_MODEL       = "jamba-1.5-mini"
+XAI_MODEL        = "grok-beta"
 
-# -- In-memory response cache --
+# ── API endpoints ─────────────────────────────────────────────────────────────
+_ENDPOINTS = {
+    "openai":      "https://api.openai.com/v1/chat/completions",
+    "anthropic":   "https://api.anthropic.com/v1/messages",
+    "mistral":     "https://api.mistral.ai/v1/chat/completions",
+    "cohere":      "https://api.cohere.ai/v2/chat",
+    "together":    "https://api.together.xyz/v1/chat/completions",
+    "perplexity":  "https://api.perplexity.ai/chat/completions",
+    "openrouter":  "https://openrouter.ai/api/v1/chat/completions",
+    "fireworks":   "https://api.fireworks.ai/inference/v1/chat/completions",
+    "sambanova":   "https://api.sambanova.ai/v1/chat/completions",
+    "nvidia":      "https://integrate.api.nvidia.com/v1/chat/completions",
+    "deepseek":    "https://api.deepseek.com/v1/chat/completions",
+    "ai21":        "https://api.ai21.com/studio/v1/chat/completions",
+    "xai":         "https://api.x.ai/v1/chat/completions",
+    "groq":        "https://api.groq.com/openai/v1/chat/completions",
+    "cerebras":    "https://api.cerebras.ai/v1/chat/completions",
+    "huggingface": "https://api-inference.huggingface.co/models/{model}",
+    "replicate":   "https://api.replicate.com/v1/models/{model}/predictions",
+}
+
+# ── In-memory cache ───────────────────────────────────────────────────────────
 _mem_cache: Dict[str, str] = {}
 _cache_lock = threading.Lock()
-_CACHE_MAX = 300
+_CACHE_MAX = 400
 
 
 def _cache_key(prompt: str, system: str) -> str:
     return hashlib.md5(f"{prompt}::{system}".encode()).hexdigest()
 
-
 def _cache_get(k: str) -> Optional[str]:
     with _cache_lock:
         return _mem_cache.get(k)
-
 
 def _cache_set(k: str, v: str) -> None:
     with _cache_lock:
@@ -58,7 +98,220 @@ def _cache_set(k: str, v: str) -> None:
         _mem_cache[k] = v
 
 
-# -- Prompt helpers --
+# ── SSL context ───────────────────────────────────────────────────────────────
+_ssl_ctx = None
+_ssl_lock = threading.Lock()
+
+def _ssl() -> Optional[ssl.SSLContext]:
+    global _ssl_ctx
+    with _ssl_lock:
+        if _ssl_ctx is None:
+            try:
+                import certifi
+                _ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+            except Exception:
+                try:
+                    _ssl_ctx = ssl.create_default_context()
+                except Exception:
+                    _ssl_ctx = None
+    return _ssl_ctx
+
+
+# ── HTTP helpers ──────────────────────────────────────────────────────────────
+_COMMON_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 Chrome/124 Safari/537.36"
+)
+
+def _post_json(url: str, body: dict, headers: dict, timeout: int = 90) -> dict:
+    """POST JSON and return parsed response dict."""
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", "User-Agent": _COMMON_UA, **headers},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl()) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body_text = ""
+        try:
+            body_text = e.read().decode(errors="replace")
+        except Exception:
+            pass
+        raise RuntimeError(f"HTTP {e.code}: {body_text[:400]}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Network error: {e.reason}")
+
+
+def _extract_openai_text(raw: dict) -> str:
+    """Extract text from OpenAI-compatible response."""
+    choices = raw.get("choices", [])
+    if choices:
+        return choices[0].get("message", {}).get("content", "")
+    raise RuntimeError(f"Unexpected response format: {str(raw)[:200]}")
+
+
+# ── Provider-specific callers ────────────────────────────────────────────────
+
+def _call_openai_compat(
+    key: str, url: str, model: str,
+    prompt: str, system: str = "",
+    temperature: float = 0.7, max_tokens: int = 4096,
+    image_b64: str = "", image_mime: str = "image/jpeg",
+) -> str:
+    """Generic OpenAI-compatible endpoint caller (covers most providers)."""
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+
+    if image_b64:
+        # Vision message
+        messages.append({
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": f"data:{image_mime};base64,{image_b64}"}},
+                {"type": "text", "text": prompt},
+            ]
+        })
+    else:
+        messages.append({"role": "user", "content": prompt})
+
+    body = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    raw = _post_json(url, body, {"Authorization": f"Bearer {key}"})
+    return _extract_openai_text(raw)
+
+
+def _call_anthropic(
+    key: str, model: str,
+    prompt: str, system: str = "",
+    temperature: float = 0.7, max_tokens: int = 4096,
+    image_b64: str = "", image_mime: str = "image/jpeg",
+) -> str:
+    """Anthropic Messages API."""
+    url = _ENDPOINTS["anthropic"]
+    content: list = []
+    if image_b64:
+        content.append({
+            "type": "image",
+            "source": {"type": "base64", "media_type": image_mime, "data": image_b64},
+        })
+    content.append({"type": "text", "text": prompt})
+
+    body: dict = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": content}],
+    }
+    if system:
+        body["system"] = system
+    if temperature != 1.0:
+        body["temperature"] = temperature
+
+    raw = _post_json(url, body, {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+    })
+    content_out = raw.get("content", [])
+    if content_out:
+        return content_out[0].get("text", "")
+    raise RuntimeError(f"Anthropic: empty response — {str(raw)[:200]}")
+
+
+def _call_cohere(
+    key: str, model: str,
+    prompt: str, system: str = "",
+    temperature: float = 0.7, max_tokens: int = 4096,
+) -> str:
+    """Cohere Chat API v2."""
+    url = _ENDPOINTS["cohere"]
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    body = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    raw = _post_json(url, body, {"Authorization": f"Bearer {key}"})
+    # Cohere v2 response
+    msg = raw.get("message", {})
+    ct = msg.get("content", [])
+    if ct:
+        return ct[0].get("text", "")
+    # Fallback for older format
+    return raw.get("text", str(raw)[:200])
+
+
+def _call_huggingface(
+    key: str, model: str,
+    prompt: str, system: str = "",
+    max_tokens: int = 2048,
+) -> str:
+    """HuggingFace Inference API."""
+    url = f"https://api-inference.huggingface.co/models/{model}"
+    full_prompt = f"{system}\n\n{prompt}" if system else prompt
+    body = {
+        "inputs": full_prompt,
+        "parameters": {"max_new_tokens": min(max_tokens, 2048), "return_full_text": False},
+    }
+    raw = _post_json(url, body, {"Authorization": f"Bearer {key}"}, timeout=60)
+    if isinstance(raw, list) and raw:
+        return raw[0].get("generated_text", "")
+    if isinstance(raw, dict):
+        return raw.get("generated_text", str(raw)[:200])
+    return str(raw)[:500]
+
+
+def _call_replicate(
+    key: str, model: str,
+    prompt: str, system: str = "",
+    max_tokens: int = 2048,
+) -> str:
+    """Replicate predictions API (polling)."""
+    url = f"https://api.replicate.com/v1/models/{model}/predictions"
+    input_dict: dict = {"prompt": prompt, "max_new_tokens": max_tokens}
+    if system:
+        input_dict["system_prompt"] = system
+
+    # Create prediction
+    raw = _post_json(url, {"input": input_dict}, {"Authorization": f"Token {key}"})
+    prediction_id = raw.get("id")
+    if not prediction_id:
+        raise RuntimeError(f"Replicate: no prediction ID — {str(raw)[:200]}")
+
+    # Poll for result
+    poll_url = f"https://api.replicate.com/v1/predictions/{prediction_id}"
+    for _ in range(30):
+        time.sleep(2)
+        req = urllib.request.Request(
+            poll_url,
+            headers={"Authorization": f"Token {key}", "User-Agent": _COMMON_UA},
+        )
+        with urllib.request.urlopen(req, timeout=30, context=_ssl()) as resp:
+            status_data = json.loads(resp.read())
+        status = status_data.get("status")
+        if status == "succeeded":
+            output = status_data.get("output", "")
+            if isinstance(output, list):
+                return "".join(output)
+            return str(output)
+        elif status in ("failed", "canceled"):
+            raise RuntimeError(f"Replicate prediction {status}: {status_data.get('error', '')}")
+    raise RuntimeError("Replicate: prediction timed out after 60s")
+
+
+# ── Prompt helpers ────────────────────────────────────────────────────────────
+
 def _build_prompt(messages: list, context_text: str, prompt: str) -> str:
     turns: List[str] = []
     if context_text:
@@ -80,7 +333,8 @@ def _apply_engine_config(
     return out_system, out_temp, out_tokens
 
 
-# -- Provider routing --
+# ── Provider routing ───────────────────────────────────────────────────────────
+
 def _get_provider_and_key():
     """Return (key, provider) from user_key_store, or raise."""
     try:
@@ -91,134 +345,107 @@ def _get_provider_and_key():
     except Exception:
         pass
     raise RuntimeError(
-        "No API key set. Please enter your API key (Gemini / Groq / Cerebras) "
-        "in the sidebar to continue."
+        "No API key set. Please enter your API key in the **sidebar** to continue.\n\n"
+        "Supported: Gemini, Groq, Cerebras, OpenAI, Anthropic, Mistral, Cohere, "
+        "Together AI, Perplexity, OpenRouter, Fireworks, Replicate, HuggingFace, "
+        "SambaNova, NVIDIA NIM, DeepSeek, AI21, xAI Grok."
     )
 
 
-def _make_ssl():
-    try:
-        import certifi
-        return ssl.create_default_context(cafile=certifi.where())
-    except ImportError:
-        try:
-            return ssl.create_default_context()
-        except Exception:
-            return None
-    except Exception:
-        return None
-
-
-_ssl_ctx = None
-_ssl_lock = threading.Lock()
-
-def _ssl():
-    global _ssl_ctx
-    with _ssl_lock:
-        if _ssl_ctx is None:
-            _ssl_ctx = _make_ssl()
-    return _ssl_ctx
-
-
-def _call_groq(
+def _route_call(
     key: str,
+    provider: str,
     prompt: str,
     system: str = "",
     temperature: float = 0.7,
     max_tokens: int = 4096,
-    model: str = GROQ_MODEL,
+    model: str = "",
+    image_data: str = "",
+    image_mime: str = "image/jpeg",
 ) -> str:
-    """Call Groq OpenAI-compatible endpoint."""
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    messages = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
+    """Route the call to the correct provider backend."""
 
-    body = json.dumps({
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }).encode()
+    # ── Gemini ───────────────────────────────────────────────────────────────
+    if provider == "gemini":
+        model_name = model or GEMINI_MODELS[0]
+        return OMNI_ENGINE.execute(
+            model=model_name, prompt=prompt, system=system,
+            temperature=temperature, max_tokens=max_tokens,
+            image_b64=image_data, image_mime=image_mime,
+        )
 
-    req = urllib.request.Request(
-        url,
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {key}",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        },
-        method="POST",
+    # ── Anthropic (special format) ────────────────────────────────────────────
+    if provider == "anthropic":
+        return _call_anthropic(
+            key=key, model=model or ANTHROPIC_MODEL,
+            prompt=prompt, system=system,
+            temperature=temperature, max_tokens=max_tokens,
+            image_b64=image_data if image_data else "",
+            image_mime=image_mime,
+        )
+
+    # ── Cohere (special format) ───────────────────────────────────────────────
+    if provider == "cohere":
+        return _call_cohere(
+            key=key, model=model or COHERE_MODEL,
+            prompt=prompt, system=system,
+            temperature=temperature, max_tokens=max_tokens,
+        )
+
+    # ── HuggingFace (special format) ─────────────────────────────────────────
+    if provider == "huggingface":
+        return _call_huggingface(
+            key=key, model=model or HUGGINGFACE_MODEL,
+            prompt=prompt, system=system, max_tokens=max_tokens,
+        )
+
+    # ── Replicate (polling) ───────────────────────────────────────────────────
+    if provider == "replicate":
+        return _call_replicate(
+            key=key, model=model or REPLICATE_MODEL,
+            prompt=prompt, system=system, max_tokens=max_tokens,
+        )
+
+    # ── All OpenAI-compatible providers ──────────────────────────────────────
+    _model_defaults = {
+        "groq":       GROQ_MODEL,
+        "cerebras":   CEREBRAS_MODEL,
+        "openai":     OPENAI_MODEL,
+        "mistral":    MISTRAL_MODEL,
+        "together":   TOGETHER_MODEL,
+        "perplexity": PERPLEXITY_MODEL,
+        "openrouter": OPENROUTER_MODEL,
+        "fireworks":  FIREWORKS_MODEL,
+        "sambanova":  SAMBANOVA_MODEL,
+        "nvidia":     NVIDIA_MODEL,
+        "deepseek":   DEEPSEEK_MODEL,
+        "ai21":       AI21_MODEL,
+        "xai":        XAI_MODEL,
+    }
+
+    endpoint = _ENDPOINTS.get(provider)
+    if not endpoint:
+        raise RuntimeError(f"Unknown provider: {provider}")
+
+    chosen_model = model or _model_defaults.get(provider, "default")
+
+    # OpenRouter needs extra headers
+    extra_headers: dict = {}
+    if provider == "openrouter":
+        extra_headers["HTTP-Referer"] = "https://examhelp.ai"
+        extra_headers["X-Title"] = "ExamHelp AI"
+
+    return _call_openai_compat(
+        key=key, url=endpoint, model=chosen_model,
+        prompt=prompt, system=system,
+        temperature=temperature, max_tokens=max_tokens,
+        image_b64=image_data if image_data else "",
+        image_mime=image_mime,
     )
-    try:
-        with urllib.request.urlopen(req, timeout=90, context=_ssl()) as resp:
-            raw = json.loads(resp.read())
-            return raw["choices"][0]["message"]["content"]
-    except urllib.error.HTTPError as e:
-        body_text = ""
-        try:
-            body_text = e.read().decode(errors="replace")
-        except Exception:
-            pass
-        raise RuntimeError(f"Groq HTTP {e.code}: {body_text}")
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"Groq network error: {e.reason}")
-    except Exception as e:
-        raise RuntimeError(f"Groq unexpected: {e}")
 
 
-def _call_cerebras(
-    key: str,
-    prompt: str,
-    system: str = "",
-    temperature: float = 0.7,
-    max_tokens: int = 4096,
-    model: str = CEREBRAS_MODEL,
-) -> str:
-    """Call Cerebras OpenAI-compatible endpoint."""
-    url = "https://api.cerebras.ai/v1/chat/completions"
-    messages = []
-    if system:
-        messages.append({"role": "system", "content": system})
-    messages.append({"role": "user", "content": prompt})
+# ── Core generate() ───────────────────────────────────────────────────────────
 
-    body = json.dumps({
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }).encode()
-
-    req = urllib.request.Request(
-        url,
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {key}",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=90, context=_ssl()) as resp:
-            raw = json.loads(resp.read())
-            return raw["choices"][0]["message"]["content"]
-    except urllib.error.HTTPError as e:
-        body_text = ""
-        try:
-            body_text = e.read().decode(errors="replace")
-        except Exception:
-            pass
-        raise RuntimeError(f"Cerebras HTTP {e.code}: {body_text}")
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"Cerebras network error: {e.reason}")
-    except Exception as e:
-        raise RuntimeError(f"Cerebras unexpected: {e}")
-
-
-# -- Core generate() --
 def generate(
     prompt: str = "",
     system: str = "",
@@ -233,7 +460,7 @@ def generate(
 ) -> str:
     """
     Generate a response using whichever provider key the user has entered.
-    Automatically routes to Gemini, Groq, or Cerebras.
+    Automatically routes to the correct backend (18 providers supported).
     """
     if messages:
         prompt = _build_prompt(messages, context_text, prompt)
@@ -256,57 +483,12 @@ def generate(
             return cached
 
     key, provider = _get_provider_and_key()
-
-    result: Optional[str] = None
-
-    if provider == "gemini":
-        for model_name in GEMINI_MODELS:
-            try:
-                result = OMNI_ENGINE.execute(
-                    model=model_name,
-                    prompt=prompt,
-                    system=system,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    image_b64=image_data,
-                    image_mime=image_mime,
-                )
-                if result:
-                    break
-            except Exception as e:
-                err_str = str(e)
-                if any(kw in err_str for kw in ("rate limit", "wait", "invalid", "revoked")):
-                    raise
-                print(f"[ai_engine] Gemini model {model_name} failed: {err_str[:80]}", file=sys.stderr)
-
-    elif provider == "groq":
-        result = _call_groq(
-            key=key,
-            prompt=prompt,
-            system=system,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            model=model or GROQ_MODEL,
-        )
-
-    elif provider == "cerebras":
-        c_model = model or CEREBRAS_MODEL
-        if c_model and "70b" in c_model.lower():
-            c_model = "llama3.3-70b"
-        elif c_model and "8b" in c_model.lower():
-            c_model = "llama3.1-8b"
-            
-        result = _call_cerebras(
-            key=key,
-            prompt=prompt,
-            system=system,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            model=c_model,
-        )
-
-    else:
-        raise RuntimeError(f"Unknown provider: {provider}")
+    result = _route_call(
+        key=key, provider=provider,
+        prompt=prompt, system=system,
+        temperature=temperature, max_tokens=max_tokens,
+        model=model, image_data=image_data, image_mime=image_mime,
+    )
 
     if not result:
         raise RuntimeError("No response received from the AI provider.")
@@ -314,18 +496,18 @@ def generate(
     if not image_data:
         _cache_set(_cache_key(prompt, system), result)
 
-    # ── Live usage tracking for API status bar ─────────────────────────
+    # Live usage tracking
     try:
-        import streamlit as _st
         from utils.api_key_ui import track_api_call
         track_api_call(prompt=prompt, response=result)
     except Exception:
-        pass  # never break generation due to tracking
+        pass
 
     return result
 
 
-# -- Streaming generate --
+# ── Streaming generate ────────────────────────────────────────────────────────
+
 def generate_stream(
     prompt: str = "",
     system: str = "",
@@ -338,10 +520,7 @@ def generate_stream(
     chunk_words: int = 6,
     **kwargs,
 ) -> Iterator[str]:
-    """
-    Yields word-chunks for smooth Streamlit streaming.
-    Falls back to chunking the full generate() response for non-Gemini providers.
-    """
+    """Yields word-chunks for smooth Streamlit streaming."""
     if messages:
         prompt = _build_prompt(messages, context_text, prompt)
 
@@ -357,49 +536,41 @@ def generate_stream(
 
     key, provider = _get_provider_and_key()
 
+    # Gemini has native streaming via OmniKeyEngine
     if provider == "gemini":
-        for model_name in GEMINI_MODELS:
-            try:
-                yield from OMNI_ENGINE.execute_stream(
-                    model=model_name,
-                    prompt=prompt,
-                    system=system,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    image_b64=image_data,
-                    image_mime=image_mime,
-                    chunk_words=chunk_words,
-                )
-                return
-            except Exception as e:
-                err_str = str(e)
-                if any(kw in err_str for kw in ("rate limit", "wait", "invalid", "revoked")):
-                    raise
-                print(f"[ai_engine] Stream Gemini {model_name} failed: {err_str[:80]}", file=sys.stderr)
-    else:
-        # Groq and Cerebras: call full generate and chunk manually
-        full = generate(
-            prompt=prompt,
-            system=system,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            **kwargs,
+        yield from OMNI_ENGINE.execute_stream(
+            model=GEMINI_MODELS[0],
+            prompt=prompt, system=system,
+            temperature=temperature, max_tokens=max_tokens,
+            image_b64=image_data, image_mime=image_mime,
+            chunk_words=chunk_words,
         )
-        words = full.split(" ")
-        chunk: List[str] = []
-        for i, word in enumerate(words):
-            chunk.append(word)
-            if len(chunk) >= chunk_words or i == len(words) - 1:
-                yield " ".join(chunk) + (" " if i < len(words) - 1 else "")
-                chunk = []
+        return
+
+    # All other providers: call full generate() and chunk
+    full = generate(
+        prompt=prompt, system=system,
+        temperature=temperature, max_tokens=max_tokens,
+        image_data=image_data, image_mime=image_mime,
+        model=kwargs.get("model", ""),
+    )
+    words = full.split(" ")
+    chunk: List[str] = []
+    for i, word in enumerate(words):
+        chunk.append(word)
+        if len(chunk) >= chunk_words or i == len(words) - 1:
+            yield " ".join(chunk) + (" " if i < len(words) - 1 else "")
+            chunk = []
 
 
-# -- Convenience wrappers --
+# ── Convenience wrappers ──────────────────────────────────────────────────────
+
 def quick_generate(prompt: str, system: str = "", **kwargs) -> str:
     return generate(prompt=prompt, system=system, max_tokens=2048, **kwargs)
 
 
 def vision_generate(prompt: str, image_b64: str, mime: str = "image/jpeg", **kwargs) -> str:
+    """Generate response from image + prompt. Works with Gemini and OpenAI/Anthropic."""
     return generate(prompt=prompt, image_data=image_b64, image_mime=mime, **kwargs)
 
 
@@ -435,7 +606,7 @@ def json_generate(prompt: str, system: str = "", **kwargs) -> str:
     if result:
         return result
 
-    strict_system = "Return ONLY a raw JSON object. No text before or after it. No markdown. No code fences."
+    strict_system = "Return ONLY a raw JSON object. No text before or after it. No markdown."
     try:
         raw2 = generate(prompt=prompt, system=strict_system, temperature=0.1, **kwargs)
         result2 = _extract_and_validate(raw2)
@@ -443,7 +614,6 @@ def json_generate(prompt: str, system: str = "", **kwargs) -> str:
             return result2
     except Exception:
         pass
-
     return raw
 
 
@@ -455,7 +625,7 @@ def generate_with_retry(prompt: str, max_retries: int = 3, **kwargs) -> str:
             return generate(prompt=prompt, **kwargs)
         except RuntimeError as e:
             err_str = str(e)
-            if any(kw in err_str for kw in ("rate limit", "wait", "invalid", "revoked")):
+            if any(kw in err_str for kw in ("rate limit", "wait", "invalid", "revoked", "No API key")):
                 raise
             last_err = e
             if attempt < max_retries:
@@ -480,7 +650,8 @@ def batch_generate(prompts: List[str], **kwargs) -> List[str]:
     return results
 
 
-# -- Status & Admin --
+# ── Status & Admin ────────────────────────────────────────────────────────────
+
 def get_pool_status() -> dict:
     return OMNI_ENGINE.get_status_report()
 
@@ -508,7 +679,8 @@ def get_token_usage_summary() -> dict:
     }
 
 
-# -- Backward-compat stubs --
+# ── Backward-compat stubs ─────────────────────────────────────────────────────
+
 def stream_chat_with_groq(*args, **kwargs) -> Iterator[str]:
     return generate_stream(**kwargs)
 

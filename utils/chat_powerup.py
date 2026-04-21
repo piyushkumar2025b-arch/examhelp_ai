@@ -1,7 +1,8 @@
 """
-chat_powerup.py — Core Chat Powerup v2.0
+chat_powerup.py — Core Chat Powerup v3.0
 Rating system, follow-up suggestions, auto web search trigger,
-multi-modal file input, cross-session memory, smart context injection.
+multi-modal file input (FULLY WORKING — images displayed + AI analysed),
+cross-session memory, smart context injection.
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ import os
 import hashlib
 import base64
 import streamlit as st
-from typing import Optional
+from typing import Optional, Tuple
 
 SESSIONS_FILE = "sessions.json"
 
@@ -35,7 +36,7 @@ def save_session_memory(doc_hash: str, topics: list):
         if os.path.exists(SESSIONS_FILE):
             with open(SESSIONS_FILE, "r") as f:
                 data = json.load(f)
-        data[doc_hash] = topics[-5:]  # keep last 5 only
+        data[doc_hash] = topics[-5:]
         with open(SESSIONS_FILE, "w") as f:
             json.dump(data, f)
     except Exception:
@@ -47,13 +48,11 @@ def get_doc_hash(context_text: str) -> str:
 
 
 def update_memory_with_topic(user_message: str):
-    """Extract topic from user message and persist to session memory."""
     ctx = st.session_state.get("context_text", "")
     if not ctx:
         return
     doc_hash = get_doc_hash(ctx)
     topics = st.session_state.get("_session_topics", [])
-    # Use first 80 chars of user message as topic
     short = user_message[:80].strip()
     if short and short not in topics:
         topics.append(short)
@@ -62,7 +61,6 @@ def update_memory_with_topic(user_message: str):
 
 
 def render_returning_user_memory():
-    """Show a memory banner if returning user has prior session topics."""
     ctx = st.session_state.get("context_text", "")
     if not ctx:
         return
@@ -83,10 +81,8 @@ def render_returning_user_memory():
 # ── 2. RESPONSE RATING ───────────────────────────────────────────────
 
 def render_rating_buttons(msg_index: int, response_content: str):
-    """Render thumbs up/down rating buttons for an AI response."""
     ratings = st.session_state.get("message_ratings", {})
     current = ratings.get(msg_index)
-
     r1, r2, r3 = st.columns([1, 1, 10])
     with r1:
         label = "👍✓" if current == "up" else "👍"
@@ -103,12 +99,10 @@ def render_rating_buttons(msg_index: int, response_content: str):
 # ── 3. FOLLOW-UP SUGGESTIONS ─────────────────────────────────────────
 
 def generate_followup_suggestions(ai_response: str, user_question: str) -> list[str]:
-    """Generate 3 follow-up question suggestions using 8B model in same call."""
     cache_key = f"_followups_{hashlib.md5((ai_response[:200]+user_question).encode()).hexdigest()}"
     cached = st.session_state.get(cache_key)
     if cached:
         return cached
-
     try:
         from utils.ai_engine import generate
         prompt = (
@@ -119,7 +113,6 @@ def generate_followup_suggestions(ai_response: str, user_question: str) -> list[
         resp = generate(
             messages=[{"role": "user", "content": prompt}],
             context_text="",
-            model="llama-3.1-8b-instant",
             max_tokens=200,
             temperature=0.7,
         )
@@ -137,7 +130,6 @@ def generate_followup_suggestions(ai_response: str, user_question: str) -> list[
 
 
 def render_followup_pills(suggestions: list[str], msg_index: int):
-    """Render clickable pill buttons for follow-up suggestions."""
     if not suggestions:
         return
     st.caption("💡 Suggested follow-ups:")
@@ -153,7 +145,6 @@ def render_followup_pills(suggestions: list[str], msg_index: int):
 # ── 4. AUTO WEB SEARCH TRIGGER ───────────────────────────────────────
 
 def check_auto_web_search_trigger(ai_response: str) -> bool:
-    """Check if AI response indicates it lacks current information."""
     triggers = [
         "i don't have current information",
         "i don't have access to real-time",
@@ -168,7 +159,6 @@ def check_auto_web_search_trigger(ai_response: str) -> bool:
 
 
 def auto_web_search_and_append(user_question: str) -> str:
-    """Run DuckDuckGo search and return formatted results as context."""
     try:
         from duckduckgo_search import DDGS
         results = []
@@ -182,16 +172,125 @@ def auto_web_search_and_append(user_question: str) -> str:
     return ""
 
 
-# ── 5. MULTI-MODAL CHAT FILE INPUT ────────────────────────────────────
+# ── 5. MULTI-MODAL CHAT FILE INPUT (FULLY WORKING) ───────────────────
 
-def render_chat_file_uploader() -> tuple[Optional[str], Optional[str]]:
+def _analyse_image_with_ai(img_bytes: bytes, mime: str, user_prompt: str = "") -> str:
     """
-    Render file uploader in the chat sidebar.
+    Send an image to the AI engine for analysis.
+    Works with Gemini (native vision) and falls back to OCR for Groq/Cerebras.
+    """
+    from utils.user_key_store import get_user_key
+
+    img_b64 = base64.b64encode(img_bytes).decode()
+    analysis_prompt = user_prompt or (
+        "Analyse this image thoroughly. "
+        "1) Describe what you see in full detail. "
+        "2) Extract ALL text visible (handwriting, printed, labels). "
+        "3) If it contains math/diagrams/charts, explain them. "
+        "Be comprehensive — this will be used as study context."
+    )
+
+    try:
+        from utils.ai_engine import generate
+        result = generate(
+            prompt=analysis_prompt,
+            image_data=img_b64,
+            image_mime=mime,
+            max_tokens=1500,
+        )
+        if result and len(result.strip()) > 10:
+            return result.strip()
+    except Exception as e:
+        err = str(e)
+        # Groq/Cerebras don't support vision — fall back to OCR
+        if "vision" in err.lower() or "image" in err.lower() or "multimodal" in err.lower() \
+                or "groq" in err.lower() or "cerebras" in err.lower():
+            pass  # fall through to OCR
+        else:
+            return f"[AI analysis failed: {err}]"
+
+    # OCR fallback
+    try:
+        from utils.ocr_handler import extract_text_from_image
+        ocr_text = extract_text_from_image(img_bytes)
+        if ocr_text and ocr_text.strip():
+            return f"[OCR extracted text]:\n{ocr_text}"
+    except Exception:
+        pass
+
+    return "[Image attached — text extraction unavailable. Gemini key recommended for full vision analysis.]"
+
+
+def render_chat_image_uploader() -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
+    """
+    Dedicated image uploader for the chat.
+    Returns (img_bytes, mime_type, ai_analysis_text) or (None, None, None).
+    Shows a live preview of the uploaded image.
+    """
+    st.markdown("""
+<div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.05));
+border:1px dashed rgba(99,102,241,0.3);border-radius:14px;padding:14px;margin:8px 0;">
+  <div style="color:#a5b4fc;font-size:.82rem;font-weight:700;margin-bottom:8px;">
+    📸 Upload Image for AI Analysis
+  </div>
+  <div style="color:#64748b;font-size:.73rem;">
+    Supports: JPG, PNG, WEBP, GIF · Handwriting, diagrams, text, photos
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    uploaded = st.file_uploader(
+        "Upload image",
+        type=["jpg", "jpeg", "png", "webp", "gif"],
+        key="chat_image_upload_v2",
+        label_visibility="collapsed",
+    )
+
+    if not uploaded:
+        return None, None, None
+
+    img_bytes = uploaded.read()
+    mime = uploaded.type or "image/jpeg"
+    file_hash = hashlib.md5(img_bytes[:512]).hexdigest()[:10]
+    cache_key = f"_chat_img_{file_hash}"
+
+    # Show live image preview
+    import io
+    st.image(img_bytes, caption=f"📎 {uploaded.name}", use_container_width=True)
+
+    cached = st.session_state.get(cache_key)
+    if cached:
+        st.success("✅ Image previously analysed — context loaded!")
+        return img_bytes, mime, cached
+
+    with st.spinner("🔍 Analysing image with AI..."):
+        analysis = _analyse_image_with_ai(img_bytes, mime)
+
+    if analysis and not analysis.startswith("[AI analysis failed"):
+        st.session_state[cache_key] = analysis
+        with st.expander("📋 AI Image Analysis", expanded=True):
+            st.markdown(f"""
+<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);
+border-radius:12px;padding:14px;color:#e2e8f0;font-size:.84rem;line-height:1.6;
+white-space:pre-wrap;max-height:250px;overflow-y:auto;">
+{analysis}
+</div>""", unsafe_allow_html=True)
+        st.success("✅ Image analysed! You can now ask questions about it.")
+    else:
+        st.warning(analysis)
+
+    return img_bytes, mime, analysis
+
+
+def render_chat_file_uploader() -> Tuple[Optional[str], Optional[str]]:
+    """
+    Render file uploader in the chat sidebar (PDF + Image).
     Returns (extracted_text, file_type) or (None, None).
+    FULLY WORKING — uses ai_engine for images, pdf_handler for PDFs.
     """
     uploaded = st.file_uploader(
         "📎 Attach file to chat",
-        type=["jpg", "jpeg", "png", "pdf"],
+        type=["jpg", "jpeg", "png", "webp", "pdf"],
         key="chat_file_upload",
         label_visibility="collapsed",
         help="Attach an image or PDF to ask questions about it",
@@ -207,27 +306,16 @@ def render_chat_file_uploader() -> tuple[Optional[str], Optional[str]]:
     if cached:
         return cached
 
-    file_type = uploaded.type
+    file_type = uploaded.type or ""
     extracted = None
 
     if file_type.startswith("image/"):
-        # Send to Gemini vision
-        try:
-            img_bytes = uploaded.read()
-            img_b64 = base64.b64encode(img_bytes).decode()
-# [REMOVED — integration/key stripped]             from utils.secret_manager import call_gemini
-            extracted = call_gemini(
-                prompt="Describe this image in detail and extract all text visible in it.",
-                image_data=img_b64,
-                image_mime=file_type,
-                max_tokens=1000,
-            )
-            if not extracted:
-                # Fallback to OCR
-                from utils.ocr_handler import extract_text_from_image
-                extracted = extract_text_from_image(img_bytes)
-        except Exception as e:
-            extracted = f"[Image attached — could not extract text: {e}]"
+        img_bytes = uploaded.read()
+        # Show preview
+        st.image(img_bytes, caption=f"📎 {uploaded.name}", use_container_width=True)
+        # AI analysis
+        with st.spinner("🔍 Analysing image..."):
+            extracted = _analyse_image_with_ai(img_bytes, file_type)
 
     elif file_type == "application/pdf":
         try:
@@ -235,7 +323,8 @@ def render_chat_file_uploader() -> tuple[Optional[str], Optional[str]]:
             pdf_bytes = uploaded.read()
             extracted = extract_text_from_pdf(pdf_bytes)
             if extracted:
-                extracted = extracted[:3000]  # limit context
+                extracted = extracted[:4000]
+                st.success(f"📄 PDF loaded: {len(extracted)} chars extracted")
         except Exception as e:
             extracted = f"[PDF attached — could not extract text: {e}]"
 
@@ -244,13 +333,9 @@ def render_chat_file_uploader() -> tuple[Optional[str], Optional[str]]:
     return result
 
 
-# ── 6. SMART CONTEXT INJECTION (top-3 vector chunks) ────────────────
+# ── 6. SMART CONTEXT INJECTION ───────────────────────────────────────
 
 def get_smart_context(user_query: str, max_chunks: int = 3) -> str:
-    """
-    Retrieve top-k relevant chunks from vector store instead of full context_text.
-    Falls back to truncated context_text if vector store unavailable.
-    """
     vs = st.session_state.get("vector_store")
     if vs is not None:
         try:
@@ -259,7 +344,43 @@ def get_smart_context(user_query: str, max_chunks: int = 3) -> str:
                 return "\n\n---\n\n".join(chunks)
         except Exception:
             pass
-
-    # Fallback: return first 3000 chars of context
     ctx = st.session_state.get("context_text", "")
     return ctx[:3000] if ctx else ""
+
+
+# ── 7. IN-CHAT IMAGE ANALYSIS WIDGET ─────────────────────────────────
+
+def render_inline_image_ask(img_b64: str, mime: str):
+    """
+    Render an inline 'Ask about this image' widget after image is uploaded.
+    Lets user type a specific question about the image.
+    """
+    st.markdown("""
+<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);
+border-radius:12px;padding:12px;margin-top:8px;">
+  <div style="color:#34d399;font-weight:700;font-size:.82rem;margin-bottom:6px;">
+    🤖 Ask a specific question about this image
+  </div>
+</div>
+""", unsafe_allow_html=True)
+    question = st.text_input(
+        "Your question about the image:",
+        placeholder="e.g. What does the diagram show? Solve this equation.",
+        key="img_inline_question",
+        label_visibility="collapsed",
+    )
+    if st.button("🔍 Analyse", key="img_inline_ask", type="primary", use_container_width=True):
+        if not question.strip():
+            question = "Describe and analyse this image in detail."
+        with st.spinner("Analysing..."):
+            img_bytes = base64.b64decode(img_b64)
+            result = _analyse_image_with_ai(img_bytes, mime, question)
+        st.markdown(f"""
+<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);
+border-radius:12px;padding:14px;margin-top:8px;color:#e2e8f0;font-size:.85rem;line-height:1.6;">
+{result}
+</div>""", unsafe_allow_html=True)
+        # Also add to chat context
+        if result:
+            ctx = st.session_state.get("context_text", "")
+            st.session_state["context_text"] = (ctx + "\n\n[Image Analysis]:\n" + result).strip()

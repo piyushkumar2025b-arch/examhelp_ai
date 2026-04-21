@@ -7288,6 +7288,14 @@ elif app_mode == "live_dashboard":
 elif app_mode == "api_explorer":
     render_api_explorer()
 
+# ─── API HUB (Multi-Provider Key Manager) ────────────────────────────────────────────────────────
+elif app_mode == "api_hub":
+    from utils.api_key_ui import render_multi_key_manager
+    render_multi_key_manager()
+    if st.button("← Back to Chat", key="api_hub_back"):
+        st.session_state.app_mode = "chat"
+        st.rerun()
+
 # ─── KNOWLEDGE HUB ─────────────────────────────────────────────────────────────────────────────
 elif app_mode == "knowledge_hub":
     render_knowledge_hub()
