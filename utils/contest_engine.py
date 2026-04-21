@@ -543,7 +543,7 @@ border:1px solid rgba(99,102,241,0.15);border-radius:20px;padding:28px 32px;marg
             reminder_key = f"{c['platform']}-{c['name']}"
             already = reminder_key in [r["key"] for r in st.session_state.ct_reminders]
             if not already:
-                if st.button(f"⏰ Set Reminder", key=f"rem_{reminder_key[:30]}"):
+                if st.button(f"⏰ Set Reminder", key=f"rem_{abs(hash(reminder_key)) % 10**9}"):
                     st.session_state.ct_reminders.append({
                         "key": reminder_key, "name": c["name"],
                         "platform": c["platform"], "icon": PLATFORM_META.get(c["platform"], {}).get("icon", "🏆"),
