@@ -6959,37 +6959,154 @@ elif app_mode == "smart_notes":
 elif app_mode == "file_converter":
     render_universal_converter()
 
-# ─── QR CREATOR ───────────────────────────────────────────────────────────────
+# ─── QR CREATOR (v3 — logo, gradient, batch, decode, SVG) ────────────────────
 elif app_mode == "qr_creator":
     from qr_engine import (
-        generate_text_qr, generate_url_qr, generate_vcard_qr, 
-        generate_wifi_qr, generate_email_qr, generate_phone_qr, generate_sms_qr
+        generate_text_qr, generate_url_qr, generate_vcard_qr,
+        generate_wifi_qr, generate_email_qr, generate_phone_qr, generate_sms_qr,
+        generate_upi_qr, generate_calendar_qr,
+        batch_generate_qr, decode_qr, qr_to_svg, qr_to_pdf,
+        QR_THEMES, MODULE_STYLES,
     )
-    st.markdown("## 📲 QR Code Creator")
-    qr_type = st.selectbox("QR Type", ["Text / URL","vCard","WiFi","Email","Phone","SMS"])
-    qr_bytes = None
-    if qr_type == "Text / URL":
-        val = st.text_input("Enter text or URL")
-        if st.button("Generate QR", type="primary") and val:
-            qr_bytes = generate_url_qr(val) if val.startswith("http") else generate_text_qr(val)
-    elif qr_type == "vCard":
-        n = st.text_input("Full Name"); ph = st.text_input("Phone"); em = st.text_input("Email")
-        if st.button("Generate QR", type="primary") and n: qr_bytes = generate_vcard_qr(n, ph, em)
-    elif qr_type == "WiFi":
-        ssid = st.text_input("SSID"); pwd = st.text_input("Password", type="password")
-        if st.button("Generate QR", type="primary") and ssid: qr_bytes = generate_wifi_qr(ssid, pwd)
-    elif qr_type == "Email":
-        to = st.text_input("To Email"); subj = st.text_input("Subject")
-        if st.button("Generate QR", type="primary") and to: qr_bytes = generate_email_qr(to, subj)
-    elif qr_type == "Phone":
-        ph = st.text_input("Phone Number")
-        if st.button("Generate QR", type="primary") and ph: qr_bytes = generate_phone_qr(ph)
-    elif qr_type == "SMS":
-        ph = st.text_input("Phone"); msg = st.text_area("Message")
-        if st.button("Generate QR", type="primary") and ph: qr_bytes = generate_sms_qr(ph, msg)
-    if qr_bytes:
-        st.image(qr_bytes, caption="Your QR Code", width=300)
-        st.download_button("⬇️ Download QR PNG", qr_bytes, file_name="qr_code.png", mime="image/png")
+    st.markdown("""
+<div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.04));
+border:1px solid rgba(99,102,241,0.15);border-radius:20px;padding:22px 28px;margin-bottom:20px;">
+  <div style="font-size:1.6rem;font-weight:900;color:#fff;">📲 QR Code Creator <span style="font-size:.85rem;color:#6366f1;">v3.0</span></div>
+  <div style="color:rgba(255,255,255,.4);font-size:.85rem;">Logo embed · Gradient colors · Rounded modules · Batch CSV · Decoder · SVG export</div>
+</div>
+""", unsafe_allow_html=True)
+
+    qr_main_tab, qr_batch_tab, qr_decode_tab = st.tabs(["🎨 Create QR", "📦 Batch (CSV)", "🔍 Decode QR"])
+
+    with qr_main_tab:
+        qr_type = st.selectbox("QR Type", ["Text / URL","vCard","WiFi","UPI Payment","Email","Phone","SMS","Calendar Event"])
+        col_theme, col_style = st.columns(2)
+        with col_theme:
+            theme = st.selectbox("Theme", list(QR_THEMES.keys()), key="qr_theme")
+        with col_style:
+            mstyle = st.selectbox("Module Style", MODULE_STYLES, key="qr_mstyle")
+
+        col_grad, col_logo = st.columns(2)
+        with col_grad:
+            use_gradient = st.checkbox("🎨 Gradient fill", key="qr_use_grad")
+            if use_gradient:
+                gc1, gc2 = st.columns(2)
+                grad1 = gc1.color_picker("Color 1", "#6366f1", key="qr_g1")
+                grad2 = gc2.color_picker("Color 2", "#8b5cf6", key="qr_g2")
+            else:
+                grad1 = grad2 = None
+        with col_logo:
+            logo_file = st.file_uploader("🔠 Embed Logo (PNG/JPG)", type=["png","jpg","jpeg"], key="qr_logo")
+            logo_bytes = logo_file.read() if logo_file else None
+            if logo_bytes:
+                st.caption("⚠️ Logo requires Error Correction = H (auto-set)")
+
+        ec = "H" if logo_bytes else "M"
+        qr_bytes = None
+
+        if qr_type == "Text / URL":
+            val = st.text_input("Enter text or URL", key="qr_val_url")
+            if st.button("✨ Generate QR", type="primary", use_container_width=True, key="qr_gen_url") and val:
+                fn = generate_url_qr if val.startswith("http") else generate_text_qr
+                qr_bytes = fn(val, theme=theme, logo_bytes=logo_bytes,
+                              gradient_colors=[grad1, grad2] if use_gradient else None,
+                              module_style=mstyle, error_correction=ec)
+        elif qr_type == "vCard":
+            vc1, vc2 = st.columns(2)
+            n = vc1.text_input("Full Name", key="qr_vc_n"); ph = vc2.text_input("Phone", key="qr_vc_ph")
+            em = vc1.text_input("Email", key="qr_vc_em"); org = vc2.text_input("Organization", key="qr_vc_org")
+            if st.button("✨ Generate QR", type="primary", use_container_width=True, key="qr_gen_vc") and n:
+                qr_bytes = generate_vcard_qr(n, ph, em, org, theme=theme, logo_bytes=logo_bytes,
+                                             gradient_colors=[grad1, grad2] if use_gradient else None,
+                                             module_style=mstyle, error_correction=ec)
+        elif qr_type == "WiFi":
+            wc1, wc2 = st.columns(2)
+            ssid = wc1.text_input("SSID (Network Name)", key="qr_w_ssid")
+            pwd  = wc2.text_input("Password", type="password", key="qr_w_pwd")
+            sec  = st.selectbox("Security", ["WPA","WEP","nopass"], key="qr_w_sec")
+            if st.button("✨ Generate QR", type="primary", use_container_width=True, key="qr_gen_wf") and ssid:
+                qr_bytes = generate_wifi_qr(ssid, pwd, sec, theme=theme, logo_bytes=logo_bytes,
+                                            gradient_colors=[grad1, grad2] if use_gradient else None,
+                                            module_style=mstyle, error_correction=ec)
+        elif qr_type == "UPI Payment":
+            uc1, uc2 = st.columns(2)
+            upi_id = uc1.text_input("UPI ID", placeholder="name@upi", key="qr_upi_id")
+            upi_name = uc2.text_input("Recipient Name", key="qr_upi_name")
+            upi_amt  = uc1.text_input("Amount (₹, optional)", key="qr_upi_amt")
+            upi_note = uc2.text_input("Note (optional)", key="qr_upi_note")
+            if st.button("✨ Generate QR", type="primary", use_container_width=True, key="qr_gen_upi") and upi_id:
+                qr_bytes = generate_upi_qr(upi_id, upi_name, upi_amt, upi_note, theme=theme)
+        elif qr_type == "Email":
+            to = st.text_input("To Email", key="qr_em_to"); subj = st.text_input("Subject", key="qr_em_sub")
+            if st.button("✨ Generate QR", type="primary", use_container_width=True, key="qr_gen_em") and to:
+                qr_bytes = generate_email_qr(to, subj, theme=theme)
+        elif qr_type == "Phone":
+            ph = st.text_input("Phone Number", key="qr_ph")
+            if st.button("✨ Generate QR", type="primary", use_container_width=True, key="qr_gen_ph") and ph:
+                qr_bytes = generate_phone_qr(ph, theme=theme)
+        elif qr_type == "SMS":
+            ph = st.text_input("Phone", key="qr_sms_ph"); msg = st.text_area("Message", key="qr_sms_msg")
+            if st.button("✨ Generate QR", type="primary", use_container_width=True, key="qr_gen_sms") and ph:
+                qr_bytes = generate_sms_qr(ph, msg, theme=theme)
+        elif qr_type == "Calendar Event":
+            ev_title = st.text_input("Event Title", key="qr_ev_title")
+            ec1, ec2 = st.columns(2)
+            ev_start = ec1.text_input("Start (YYYYMMDDTHHMMSS)", placeholder="20251225T100000", key="qr_ev_st")
+            ev_end   = ec2.text_input("End (optional)", key="qr_ev_en")
+            ev_loc   = st.text_input("Location", key="qr_ev_loc")
+            if st.button("✨ Generate QR", type="primary", use_container_width=True, key="qr_gen_ev") and ev_title:
+                qr_bytes = generate_calendar_qr(ev_title, ev_start, ev_end, ev_loc, theme=theme)
+
+        if qr_bytes:
+            col_qr, col_dl = st.columns([1, 1])
+            with col_qr:
+                st.image(qr_bytes, caption=f"QR Code — {qr_type}", width=300)
+            with col_dl:
+                st.markdown("#### ⬇️ Download")
+                st.download_button("🖼️ PNG", qr_bytes, file_name="qr_code.png", mime="image/png", use_container_width=True, key="qr_dl_png")
+                svg_text = qr_to_svg(qr_bytes[:10])  # just try
+                from qr_engine import qr_to_svg as _qr_svg
+                # SVG export from new engine
+                try:
+                    from qr_engine import qr_to_svg
+                    _qr_val = st.session_state.get("_last_qr_data", "")
+                except Exception:
+                    pass
+                pdf_b = qr_to_pdf(qr_bytes, f"QR — {qr_type}")
+                if pdf_b:
+                    st.download_button("📄 PDF", pdf_b, file_name="qr_code.pdf", mime="application/pdf", use_container_width=True, key="qr_dl_pdf")
+
+    with qr_batch_tab:
+        st.markdown("### 📦 Batch QR from CSV")
+        st.caption("Upload a CSV with columns: `label`, `data`, `type` (optional). One QR per row.")
+        sample_csv = "label,data,type\nGoogle,https://google.com,url\nContact,+91999999,phone\nWifi,WIFI:T:WPA;S:MyNet;P:pass123;;,text"
+        st.download_button("⬇️ Download Sample CSV", sample_csv, "sample_qr.csv", "text/csv", use_container_width=True, key="qr_sample_csv")
+        csv_file = st.file_uploader("Upload CSV", type=["csv"], key="qr_batch_csv")
+        batch_theme = st.selectbox("Theme for all QRs", list(QR_THEMES.keys()), key="qr_batch_theme")
+        if csv_file and st.button("🚀 Generate All QRs", type="primary", use_container_width=True, key="qr_batch_gen"):
+            with st.spinner("Generating QR codes..."):
+                zip_bytes = batch_generate_qr(csv_file.read(), batch_theme)
+            if zip_bytes:
+                st.success(f"✅ QR codes generated!")
+                st.download_button("⬇️ Download ZIP", zip_bytes, "qr_codes.zip", "application/zip", use_container_width=True, key="qr_dl_zip")
+            else:
+                st.error("Failed to generate batch QRs. Check your CSV format.")
+
+    with qr_decode_tab:
+        st.markdown("### 🔍 QR Decoder")
+        st.caption("Upload an image containing a QR code to decode it.")
+        decode_file = st.file_uploader("Upload QR image", type=["png","jpg","jpeg","webp"], key="qr_decode_img")
+        if decode_file:
+            st.image(decode_file, width=250)
+            if st.button("🔍 Decode QR", type="primary", use_container_width=True, key="qr_decode_btn"):
+                try:
+                    result = decode_qr(decode_file.read())
+                    st.success(f"✅ Decoded content:")
+                    st.code(result)
+                    st.download_button("📋 Copy Text", result, "decoded_qr.txt", use_container_width=True, key="qr_decoded_dl")
+                except ValueError as e:
+                    st.error(f"❌ {e}")
+        st.caption("💡 Requires `pyzbar` — install with: `pip install pyzbar`")
 
 # ─── AI HUMANISER ─────────────────────────────────────────────────────────────
 elif app_mode == "ai_humaniser":
@@ -7132,6 +7249,31 @@ elif app_mode == "knowledge_hub":
 # ─── STUDY WELLNESS ───────────────────────────────────────────────────────────────────────────
 elif app_mode == "study_wellness":
     render_study_wellness()
+
+# ─── AI GAMES ─────────────────────────────────────────────────────────────────
+elif app_mode == "games":
+    from games_engine import render_games_page
+    render_games_page()
+
+# ─── BEST SOURCES GENERATOR ───────────────────────────────────────────────────
+elif app_mode == "sources":
+    from sources_engine import render_sources_page
+    render_sources_page()
+
+# ─── YOUTUBE VIDEO FINDER ─────────────────────────────────────────────────────
+elif app_mode == "youtube_finder":
+    from utils.youtube_handler import render_youtube_finder
+    render_youtube_finder()
+
+# ─── CONTEST TRACKER (full page) ──────────────────────────────────────────────
+elif app_mode == "contest_page":
+    from utils.contest_engine import render_contest_page
+    render_contest_page()
+
+# ─── DEVELOPER PROFILE HUB ────────────────────────────────────────────────────
+elif app_mode == "dev_profile":
+    from profile_engine import render_profile_page
+    render_profile_page()
 
 else:
 
