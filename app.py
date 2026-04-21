@@ -4459,6 +4459,16 @@ with st.sidebar:
         # ── Live API Usage Status Bar ───────────────────────────
         render_api_status_bar()
 
+        # ── Contest Reminders Notification ──────────────────────
+        try:
+            _now_ts = time.time()
+            for _rem in st.session_state.get("reminders", []):
+                _start = _rem.get("start_ts", 0)
+                if _start and 0 < (_start - _now_ts) < 3600:
+                    st.warning(f"\u23f0 Contest in < 1h: **{_rem.get('name','?')}**")
+        except Exception:
+            pass
+
         # ── API Key Management (New Multi-Provider System) ─────────
         render_api_key_section()
 
@@ -4591,6 +4601,30 @@ with st.sidebar:
         # ── Daily Briefing button ───
         if st.button("🌅 Daily AI Briefing", use_container_width=True, key="side_briefing"):
             st.session_state.app_mode = "daily_briefing"; st.rerun()
+
+        st.divider()
+
+        # ── New Features Panel ─────────────────────────────────
+        st.markdown('<div class="section-label">🚀 New Features</div>', unsafe_allow_html=True)
+        nf1, nf2 = st.columns(2)
+        with nf1:
+            if st.button("🎮 Games", use_container_width=True, key="side_games"):
+                st.session_state.app_mode = "games"; st.rerun()
+            if st.button("🗣️ Contests", use_container_width=True, key="side_contests"):
+                st.session_state.app_mode = "contest_page"; st.rerun()
+            if st.button("🔎 Sources", use_container_width=True, key="side_sources"):
+                st.session_state.app_mode = "sources"; st.rerun()
+            if st.button("🛒 Products", use_container_width=True, key="side_shopping"):
+                st.session_state.app_mode = "shopping"; st.rerun()
+        with nf2:
+            if st.button("📽️ Maps", use_container_width=True, key="side_maps"):
+                st.session_state.app_mode = "maps_panel"; st.rerun()
+            if st.button("💺 YouTube", use_container_width=True, key="side_yt"):
+                st.session_state.app_mode = "youtube_finder"; st.rerun()
+            if st.button("👤 Profile", use_container_width=True, key="side_profile"):
+                st.session_state.app_mode = "dev_profile"; st.rerun()
+            if st.button("📖 Story", use_container_width=True, key="side_story_new"):
+                st.session_state.app_mode = "story"; st.rerun()
 
         # ── Exam Countdown Widget ────────────────────────────
         st.markdown('<div class="section-label">🎯 Exam Countdown</div>', unsafe_allow_html=True)
