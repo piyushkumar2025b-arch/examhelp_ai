@@ -12,7 +12,7 @@ import base64
 import zlib
 import streamlit as st
 import ssl
-from utils.api_key_ui import render_api_key_section, render_api_status_bar
+from utils.api_key_ui import render_api_key_section
 
 # ── Auth + Integrations — MASKED (Supabase/Google/Stripe disabled for direct access) ──
 # All functions below are safe no-ops so the app runs without any external auth.
@@ -4457,7 +4457,11 @@ with st.sidebar:
         st.divider()
 
         # ── Live API Usage Status Bar ───────────────────────────
-        render_api_status_bar()
+        try:
+            from utils.api_key_ui import render_api_status_bar as _render_status_bar
+            _render_status_bar()
+        except Exception:
+            pass  # graceful fallback if function not available
 
         # ── Contest Reminders Notification ──────────────────────
         try:
