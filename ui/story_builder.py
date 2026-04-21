@@ -1,888 +1,650 @@
 """
-story_builder.py — ExamHelp Story Builder
-A full-featured collaborative story engine with genre modes, writing styles,
-narrative controls, and deep literary knowledge baked into the AI prompts.
+ui/story_builder.py — AI Story Builder v3.0 (ExamHelp AI)
+Full rewrite: genre cards, character builder, streaming, parchment UI,
+PDF export, story history, ratings, continue/regenerate actions.
 """
-
 from __future__ import annotations
 import streamlit as st
-import re
-import datetime
+import time
+import random
 import json
-from utils import ai_engine
+from datetime import datetime
 
-# ─────────────────────────────────────────────
-# STORY DATA
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# CONSTANTS
+# ─────────────────────────────────────────────────────────────────────────────
+GENRES = [
+    ("🧙", "Fantasy",           "#818cf8"),
+    ("🚀", "Sci-Fi",            "#38bdf8"),
+    ("👻", "Horror",            "#ef4444"),
+    ("💕", "Romance",           "#f472b6"),
+    ("🔍", "Mystery",           "#a78bfa"),
+    ("⚔️",  "Adventure",        "#f59e0b"),
+    ("🔪", "Thriller",          "#dc2626"),
+    ("🏰", "Historical Fiction","#ca8a04"),
+]
 
-GENRES = {
-    "🏰 Fantasy": {
-        "key": "fantasy",
-        "desc": "Magic, mythical creatures, ancient prophecies",
-        "color": "#a78bfa",
-        "examples": ["The hero discovers a hidden power", "A dragon speaks at last", "The map leads nowhere known"],
-        "masters": "Tolkien, Le Guin, Rothfuss, Sanderson, Jordan",
-        "tropes": "chosen one, dark lord, magical system, ancient artifact, hidden lineage",
-        "atmosphere": "mythic, epic, world-building rich, lyrical",
-    },
-    "🚀 Sci-Fi": {
-        "key": "scifi",
-        "desc": "Future tech, space, AI, dystopias",
-        "color": "#60a5fa",
-        "examples": ["The last human station loses contact", "An AI writes its first lie", "The colony ship stops mid-journey"],
-        "masters": "Asimov, Dick, Le Guin, Gibson, Clarke, Octavia Butler",
-        "tropes": "first contact, singularity, generation ship, dystopian state, time paradox",
-        "atmosphere": "cerebral, speculative, tense, idea-driven",
-    },
-    "🕵️ Mystery / Thriller": {
-        "key": "mystery",
-        "desc": "Whodunits, suspense, dark secrets",
-        "color": "#f59e0b",
-        "examples": ["The detective finds their own name at the scene", "A letter arrives 20 years late", "The only witness has no memory"],
-        "masters": "Christie, Doyle, Highsmith, Tana French, Lehane",
-        "tropes": "unreliable narrator, red herring, ticking clock, dark past, hidden motive",
-        "atmosphere": "tense, layered, clue-seeded, morally grey",
-    },
-    "💀 Horror": {
-        "key": "horror",
-        "desc": "Dread, monsters, psychological terror",
-        "color": "#ef4444",
-        "examples": ["The door opens from inside", "She reads her own obituary", "The town has no children"],
-        "masters": "King, Lovecraft, Shirley Jackson, Poe, Barker",
-        "tropes": "the unseen threat, isolation, creeping dread, forbidden knowledge, the monster within",
-        "atmosphere": "dread-soaked, claustrophobic, psychological, sensory",
-    },
-    "💕 Romance": {
-        "key": "romance",
-        "desc": "Love, longing, emotional tension",
-        "color": "#f472b6",
-        "examples": ["They meet at the wrong moment", "An old letter resurfaces", "One last dance before goodbye"],
-        "masters": "Austen, Brontë, Nora Roberts, Colleen Hoover, Nicholas Sparks",
-        "tropes": "enemies to lovers, second chance, slow burn, forbidden love, misunderstanding",
-        "atmosphere": "emotionally rich, tension-layered, intimate, heartfelt",
-    },
-    "⚔️ Historical Fiction": {
-        "key": "historical",
-        "desc": "Real eras, vivid period detail, human drama",
-        "color": "#d97706",
-        "examples": ["A soldier in the trenches writes his last letter", "The court painter hides a secret", "Rome falls — one family survives"],
-        "masters": "Hilary Mantel, Ken Follett, Patrick O'Brian, Philippa Gregory",
-        "tropes": "authentic detail, clash of old and new, figure against history, survival",
-        "atmosphere": "immersive, textured, dramatic irony, period voice",
-    },
-    "🌱 Literary Fiction": {
-        "key": "literary",
-        "desc": "Character depth, themes, beautiful prose",
-        "color": "#34d399",
-        "examples": ["A father cannot say the words", "The house remembers everything", "Nothing happens, and everything changes"],
-        "masters": "Toni Morrison, Cormac McCarthy, Kazuo Ishiguro, Virginia Woolf",
-        "tropes": "inner life, unreliable memory, quiet devastation, symbol-rich, voice",
-        "atmosphere": "meditative, precise, deeply human, subtext-heavy",
-    },
-    "🌀 Dark Fantasy": {
-        "key": "dark_fantasy",
-        "desc": "Grimdark worlds, moral ambiguity, brutal beauty",
-        "color": "#8b5cf6",
-        "examples": ["The god is dead and something worse fills the void", "Heroes win — and it costs everything", "Magic always takes something back"],
-        "masters": "George R.R. Martin, Joe Abercrombie, Mark Lawrence, Scott Lynch",
-        "tropes": "grimdark, morally grey heroes, brutal consequences, subverted tropes",
-        "atmosphere": "grim, visceral, subversive, unflinching",
-    },
-    "🎭 Magical Realism": {
-        "key": "magical_realism",
-        "desc": "Magic woven into everyday life, quietly",
-        "color": "#f97316",
-        "examples": ["Every morning the town is one house smaller", "She speaks to the dead through cooking", "The rain falls only on grief"],
-        "masters": "García Márquez, Borges, Isabel Allende, Salman Rushdie",
-        "tropes": "mundane magic, circular time, family saga, myth as truth",
-        "atmosphere": "dreamlike, lush, matter-of-fact about the impossible",
-    },
-    "🏙️ Urban Fiction": {
-        "key": "urban",
-        "desc": "Street-level, raw, real world with teeth",
-        "color": "#94a3b8",
-        "examples": ["The corner has a new king", "She leaves the old neighborhood behind — or tries to", "One debt becomes everything"],
-        "masters": "Walter Mosley, Donald Goines, Sister Souljah, Omar Tyree",
-        "tropes": "community bonds, survival, street codes, identity, loyalty",
-        "atmosphere": "gritty, authentic, voice-forward, immediate",
-    },
-}
+LENGTHS = [
+    ("Short",  500,  "~2 min read"),
+    ("Medium", 1500, "~7 min read"),
+    ("Long",   3000, "~15 min read"),
+]
 
-WRITING_VOICES = {
-    "📖 Classic Narrator": {
-        "key": "classic",
-        "desc": "Omniscient, measured, timeless",
-        "instruction": "Write in an omniscient third-person voice with measured, eloquent prose. Think Tolstoy or Hardy — authoritative, observant, deeply interior when needed. Vary sentence rhythm. Use precise vocabulary.",
-    },
-    "🎙️ First Person Raw": {
-        "key": "first_person",
-        "desc": "Inside the character's head",
-        "instruction": "Write in tight first-person present or past tense. The narrator's voice is intimate, unreliable, emotional. Think Gone Girl or The Catcher in the Rye. Include thought fragments, self-contradiction, sensory immediacy.",
-    },
-    "🎬 Cinematic": {
-        "key": "cinematic",
-        "desc": "Scene-by-scene, visual, punchy",
-        "instruction": "Write like a screenplay adapted to prose. Short punchy sentences. Heavy on action and dialogue. Minimal interior monologue. Each paragraph is a 'shot'. Think Cormac McCarthy or early Hemingway — lean, visual, relentless.",
-    },
-    "🌊 Lyrical / Poetic": {
-        "key": "lyrical",
-        "desc": "Beautiful, musical, imagery-rich",
-        "instruction": "Write with rich, musical prose full of imagery and metaphor. Think Toni Morrison or Gabriel García Márquez. Sentences flow long and rhythmic. Objects carry symbolic weight. Beauty and meaning coexist in every paragraph.",
-    },
-    "😏 Witty / Dry": {
-        "key": "witty",
-        "desc": "Sharp, sardonic, intelligent humor",
-        "instruction": "Write with dry wit and sharp irony. Think Terry Pratchett, Douglas Adams, or Evelyn Waugh. Observations are cutting, characters are flawed and funny, and even dark moments have an arch quality. Never broad — always clever.",
-    },
-    "😰 Tense / Thriller": {
-        "key": "thriller_voice",
-        "desc": "Fast pace, dread, no wasted words",
-        "instruction": "Write at relentless pace. Short sentences build dread. Every detail feels like a clue or a threat. No decoration. Think Lee Child or Gillian Flynn — forward momentum above all, tension in every line.",
-    },
-    "🕯️ Gothic / Dark": {
-        "key": "gothic",
-        "desc": "Atmospheric, brooding, symbolic",
-        "instruction": "Write in lush gothic prose — atmospheric, brooding, decadent. Think Poe, Shirley Jackson, or du Maurier. The setting is as alive as the characters. Decay and beauty coexist. Sentences build dread through accumulation and dark imagery.",
-    },
-    "👶 Folkloric / Fable": {
-        "key": "folkloric",
-        "desc": "Timeless, oral, mythic tone",
-        "instruction": "Write in the cadence of an old oral tradition — 'Once there was...', 'They say that...'. Like a fairy tale retold by an adult. Think Angela Carter, Susanna Clarke, or Neil Gaiman. Deceptively simple language that hides real menace or magic.",
-    },
-}
+TONES = ["Dark & Gritty", "Lighthearted", "Emotional", "Suspenseful", "Humorous"]
+ROLES = ["Hero", "Villain", "Sidekick", "Mentor", "Love Interest", "Anti-Hero"]
 
-STORY_LENGTHS = {
-    "⚡ Quick Flash (1 paragraph)": 180,
-    "📄 Short Scene (2–3 paragraphs)": 350,
-    "📖 Chapter Chunk (4–5 paragraphs)": 600,
-    "📚 Long Continuation (6–8 paragraphs)": 900,
-}
-
-PACING_MODES = {
-    "🐢 Slow Burn": "Take time. Build atmosphere. Let scenes breathe. Prioritize character interiority and setting over plot advancement.",
-    "⚡ Fast Pace": "Move fast. Compress time between actions. Keep dialogue sharp. Every sentence must advance something.",
-    "🌊 Natural Flow": "Match pacing to the scene's emotional need. Slow in tender or atmospheric moments, fast in conflict or action.",
-    "🎭 Dramatic Tension": "Every scene should end with something unresolved or changed. Build toward confrontations. Use dramatic irony.",
-}
-
-NARRATIVE_TOOLS = {
-    "🔮 Add a plot twist": "Introduce a surprising but inevitable-feeling plot twist that recontextualizes what came before.",
-    "💬 Add dialogue": "Continue with a significant dialogue exchange that reveals character and advances the story.",
-    "🌍 Deepen the world": "Expand the world with specific sensory details, history, or lore that makes it feel more real.",
-    "❤️ Emotional peak": "Build to an emotional high point — confrontation, revelation, or moment of connection.",
-    "⏭️ Jump forward in time": "Skip forward — days, weeks, or years. Summarize what changed, then land in a new pivotal moment.",
-    "👁️ New perspective": "Shift to a different character's point of view for this continuation.",
-    "🌑 Dark turn": "Take the story in a darker, more dangerous, or morally complex direction.",
-    "✨ Hopeful turn": "Introduce a note of hope, beauty, or unexpected kindness that shifts the emotional register.",
-    "🎭 Raise the stakes": "Escalate — what is at risk gets bigger, more personal, or more immediate.",
-    "🔚 Build to a cliffhanger": "End this section on a sharp, irresistible cliffhanger that demands a next chapter.",
-}
-
-STYLE_MIMICRY = {
-    "None (Original)": "",
-    "Haruki Murakami": "Write exactly like Haruki Murakami: dreamy detachment, mundane details elevated to the surreal, cats, jazz, loneliness as texture, simple sentences hiding oceanic depth. First-person alienation.",
-    "Stephen King": "Write exactly like Stephen King: conversational American voice, small-town characters with real speech patterns, creeping dread beneath the ordinary, pop culture references, long builds to visceral payoffs.",
-    "Fyodor Dostoevsky": "Write exactly like Dostoevsky: feverish psychological intensity, moral philosophy embedded in dialogue, characters arguing with their own souls, confessional tone, raw unfiltered consciousness.",
-    "Virginia Woolf": "Write exactly like Virginia Woolf: stream of consciousness, time dissolving, a single moment expanded into pages, luminous imagery, inner experience as the real story.",
-    "Cormac McCarthy": "Write exactly like Cormac McCarthy: no quotation marks, biblical cadence, sparse punctuation, violence rendered beautifully, landscape as character, dialogue that cuts like a blade.",
-    "Toni Morrison": "Write exactly like Toni Morrison: lyrical density, ancestral memory, community as chorus, metaphor as truth, sentences that demand re-reading, Black American experience as mythology.",
-    "Neil Gaiman": "Write exactly like Neil Gaiman: mythology made intimate and modern, fairytale logic, conversational warmth hiding dark truths, British wit in impossible situations.",
-    "Gabriel García Márquez": "Write exactly like García Márquez: magical realism, impossibly long sentences that breathe, family sagas across generations, matter-of-fact about miracles, lush tropical sensory detail.",
-    "Jane Austen": "Write exactly like Jane Austen: ironic social observation, dialogue as warfare, restrained emotion that simmers, moral clarity behind wit, the domestic as the epic.",
-    "Franz Kafka": "Write exactly like Kafka: bureaucratic nightmare rendered in flat declarative prose, absurdity treated as perfectly normal, protagonist trapped in incomprehensible systems, dark humor.",
-}
-
-COLLAB_MODES = {
-    "AI Leads": "The AI drives the narrative forward. The user can guide direction, but the AI makes creative decisions about plot, dialogue, and pacing.",
-    "Equal Partners": "User and AI alternate control. The user writes key moments; the AI fills in transitions, atmosphere, and develops what the user starts.",
-    "User Leads": "The user drives all major plot decisions. The AI expands, polishes, and adds literary quality to the user's raw narrative direction.",
-    "AI Ghost-Writer": "The user provides only bullet-point directions or summaries. The AI transforms them into fully realized literary prose.",
-}
-
-# ─────────────────────────────────────────────
-# STORY SYSTEM PROMPT BUILDER
-# ─────────────────────────────────────────────
-
-def build_story_system_prompt(genre_name: str, voice_name: str, pacing: str, extra_context: str = "", style_mimicry: str = "None (Original)", collab_mode: str = "AI Leads", characters: list = None) -> str:
-    genre = GENRES.get(genre_name, GENRES["🏰 Fantasy"])
-    voice = WRITING_VOICES.get(voice_name, WRITING_VOICES["📖 Classic Narrator"])
-    pace_instruction = PACING_MODES.get(pacing, PACING_MODES["🌊 Natural Flow"])
-    mimicry_instruction = STYLE_MIMICRY.get(style_mimicry, "")
-    collab_instruction = COLLAB_MODES.get(collab_mode, COLLAB_MODES["AI Leads"])
-
-    character_block = ""
-    if characters:
-        char_lines = []
-        for c in characters:
-            char_lines.append(f"- {c.get('name', 'Unknown')}: {c.get('role', '')}. {c.get('traits', '')}. {c.get('arc', '')}")
-        character_block = f"\n\nESTABLISHED CHARACTERS (maintain consistency):\n" + "\n".join(char_lines)
-
-    return f"""You are a master literary fiction author and collaborative story engine. Your knowledge spans the entire Western and world literary canon — from Homer and Shakespeare to contemporary fiction. You understand narrative structure (three-act, hero's journey, kishōtenketsu, in medias res), character psychology, prose craft, and genre conventions at a professional novelist level.
-
-══════════════════════════════════
-CURRENT STORY CONFIGURATION
-══════════════════════════════════
-
-GENRE: {genre_name}
-Masters of this genre: {genre['masters']}
-Core tropes to draw from: {genre['tropes']}
-Atmosphere target: {genre['atmosphere']}
-Genre instruction: Write in the tradition of {genre['masters']}. Honour the genre's conventions while finding fresh angles. Avoid clichés — subvert them.
-
-WRITING VOICE: {voice_name}
-{voice['instruction']}
-
-PACING: {pacing}
-{pace_instruction}
-
-COLLABORATION MODE: {collab_mode}
-{collab_instruction}
-
-{f"STYLE MIMICRY: {mimicry_instruction}" if mimicry_instruction else ""}
-{character_block}
-
-══════════════════════════════════
-CRAFT RULES — NON-NEGOTIABLE
-══════════════════════════════════
-
-1. SHOW DON'T TELL. Never write "she felt sad." Write what sad looks like, sounds like, does to a room.
-2. SPECIFIC OVER GENERAL. "A black 1967 Mustang" not "a car." "Burnt coffee and machine oil" not "the factory smelled bad."
-3. EVERY SENTENCE EARNS ITS PLACE. No filler. No throat-clearing. No "and then" chains.
-4. CHARACTER VOICE. If there's dialogue, each character must sound distinct. No interchangeable voices.
-5. SUBTEXT. What isn't said is as important as what is. Leave space for the reader.
-6. SENSORY GROUNDING. Root every scene in at least 2–3 senses beyond just sight.
-7. ENDINGS MATTER. End each section with resonance — a line, image, or turn that makes the reader need to continue.
-8. NO PURPLE PROSE. Beautiful language yes. Self-indulgent rambling no.
-9. CONTINUITY. Maintain every detail established earlier. Names, places, traits, tone — be consistent.
-10. NARRATIVE MOMENTUM. Something must change or be revealed in every continuation.
-
-══════════════════════════════════
-CONTINUATION PROTOCOL
-══════════════════════════════════
-
-When the user gives you text to continue:
-- Read the established tone, voice, and world carefully
-- Match the existing prose style exactly — do NOT suddenly change voice
-- Pick up mid-narrative if needed, do not restart or summarize
-- Advance the story meaningfully — character, plot, or world must move
-- Do not explain or annotate your choices. Just write.
-- Do not start your response with "Sure!", "Of course!", "Certainly!" or any meta-comment. Begin writing immediately.
-
-{f"ADDITIONAL CONTEXT / STORY NOTES: {extra_context}" if extra_context else ""}
-"""
+SETTING_SUGGESTIONS = [
+    "Medieval Europe", "Futuristic Tokyo", "Post-apocalyptic Mumbai",
+    "Victorian London", "Ancient Egypt", "Space Station Omega",
+    "Wild West USA", "Underwater City", "Enchanted Forest",
+    "Mars Colony 2150",
+]
 
 
-# ─────────────────────────────────────────────
-# HELPER
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# AI HELPER
+# ─────────────────────────────────────────────────────────────────────────────
+def _ai_stream(prompt: str, system: str = "", max_tokens: int = 4096):
+    try:
+        from utils import ai_engine
+        return ai_engine.generate_stream(prompt=prompt, system=system,
+                                         max_tokens=max_tokens, temperature=0.85)
+    except Exception as e:
+        def _err():
+            yield f"[AI Error: {e}]"
+        return _err()
 
-def _init_story_state():
-    keys = {
-        "story_genre": "🏰 Fantasy",
-        "story_voice": "📖 Classic Narrator",
-        "story_pacing": "🌊 Natural Flow",
-        "story_length": "📖 Chapter Chunk (4–5 paragraphs)",
-        "story_messages": [],   # [{role, content}]
-        "story_full_text": "",  # assembled story
-        "story_title": "",
-        "story_started": False,
-        "story_tool": None,     # selected narrative tool
-        "story_notes": "",      # author notes / world details
-        "story_word_count": 0,
-        "story_chapter": 1,
-        # ── New upgrades ──
-        "story_style_mimicry": "None (Original)",
-        "story_collab_mode": "AI Leads",
-        "story_characters": [],  # [{name, role, traits, arc}]
-        "story_branches": [],    # [full_text snapshots for branching]
-        "story_branch_labels": [],
+
+def _ai_generate(prompt: str, system: str = "", max_tokens: int = 4096) -> str:
+    try:
+        from utils import ai_engine
+        return ai_engine.generate(prompt=prompt, system=system,
+                                  max_tokens=max_tokens, temperature=0.85)
+    except Exception as e:
+        return f"[AI Error: {e}]"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PDF EXPORT
+# ─────────────────────────────────────────────────────────────────────────────
+def _story_to_pdf(title: str, story: str) -> bytes | None:
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib import colors
+        import io
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=A4,
+                                leftMargin=2.5*cm, rightMargin=2.5*cm,
+                                topMargin=2.5*cm, bottomMargin=2.5*cm)
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            "title", parent=styles["Title"],
+            fontSize=22, spaceAfter=6, textColor=colors.HexColor("#1a1208")
+        )
+        author_style = ParagraphStyle(
+            "author", parent=styles["Normal"],
+            fontSize=10, textColor=colors.grey, spaceAfter=20,
+            alignment=1  # center
+        )
+        body_style = ParagraphStyle(
+            "body", parent=styles["BodyText"],
+            fontSize=11.5, leading=18, spaceAfter=10,
+            fontName="Times-Roman"
+        )
+        divider_style = ParagraphStyle(
+            "divider", parent=styles["Normal"],
+            fontSize=14, alignment=1, spaceAfter=12, spaceBefore=12
+        )
+        story_clean = story.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        parts = story_clean.split("---")
+        elements = [
+            Paragraph(title, title_style),
+            Paragraph("Author: AI Story Engine · ExamHelp AI", author_style),
+        ]
+        for i, part in enumerate(parts):
+            if i > 0:
+                elements.append(Paragraph("✦ ─── ✦ ─── ✦", divider_style))
+            for para in part.strip().split("\n"):
+                para = para.strip()
+                if para:
+                    elements.append(Paragraph(para, body_style))
+                    elements.append(Spacer(1, 4))
+        doc.build(elements)
+        return buf.getvalue()
+    except ImportError:
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SESSION STATE INIT
+# ─────────────────────────────────────────────────────────────────────────────
+def _init_state():
+    defaults = {
+        "sb_genre":     "Fantasy",
+        "sb_length":    "Medium",
+        "sb_length_wc": 1500,
+        "sb_tone":      "Emotional",
+        "sb_setting":   "",
+        "sb_twist":     False,
+        "sb_custom":    "",
+        "sb_chars":     [],
+        "sb_story":     "",
+        "sb_title":     "",
+        "sb_wc":        0,
+        "sb_history":   [],
+        "sb_rating":    0,
+        "sb_story_id":  0,
     }
-    for k, v in keys.items():
+    for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
 
 
-def _word_count(text: str) -> int:
-    return len(text.split()) if text.strip() else 0
+# ─────────────────────────────────────────────────────────────────────────────
+# PROMPT BUILDER
+# ─────────────────────────────────────────────────────────────────────────────
+def _build_story_prompt(seed: int = 0) -> tuple[str, str]:
+    genre   = st.session_state.sb_genre
+    wc      = st.session_state.sb_length_wc
+    setting = st.session_state.sb_setting or "an unspecified world"
+    tone    = st.session_state.sb_tone
+    chars   = st.session_state.sb_chars
+    twist   = st.session_state.sb_twist
+    custom  = st.session_state.sb_custom
+
+    chars_json = json.dumps(chars) if chars else "No specific characters defined — create your own."
+    twist_line = "Include a major, unexpected plot twist in the final act that recontextualizes the story." if twist else ""
+    custom_line = f"Must include this specific element: {custom}" if custom.strip() else ""
+    seed_line = f"Random seed for variation: {seed}" if seed else ""
+
+    system = (
+        "You are a master storyteller and bestselling author. "
+        "Write with cinematic prose, vivid sensory details, sharp dialogue, and emotional depth. "
+        "Every sentence must serve the story. Never use clichés. Structure: setup → conflict → climax → resolution."
+    )
+    prompt = f"""Write a {wc}-word {genre} story set in {setting}.
+
+Characters: {chars_json}
+Tone: {tone}
+{twist_line}
+{custom_line}
+{seed_line}
+
+FORMATTING RULES:
+1. First line: "TITLE: [Your creative story title]" — then a blank line
+2. Use --- on its own line to mark chapter/section breaks (at least 2 breaks for medium/long stories)
+3. Use vivid opening hook — grab the reader instantly
+4. Every major character from the list must appear
+5. End with a satisfying resolution
+6. Write exactly the full {wc} words — do not stop early"""
+    return prompt, system
 
 
-def _get_override_key():
-    return st.session_state.get("manual_api_key") or None
+# ─────────────────────────────────────────────────────────────────────────────
+# STORY DISPLAY
+# ─────────────────────────────────────────────────────────────────────────────
+def _render_story_display(story: str, title: str, wc: int):
+    reading_time = max(1, wc // 200)
+    genre_emoji = next((e for e, g, _ in GENRES if g == st.session_state.sb_genre), "📖")
 
-
-def _generate_title(seed: str, genre: str) -> str:
-    """Generate an evocative title from the opening."""
-    try:
-        prompt = f"You are a literary editor specialising in {genre} fiction. Generate ONE evocative, professional book title (3–6 words) for this story opening. Return ONLY the title, nothing else.\n\n{seed[:500]}"
-        title = ai_engine.generate(prompt=prompt, model="llama-3.1-8b-instant", max_tokens=64, temperature=0.7)
-        return title.strip().strip('"').strip("'")
-    except Exception:
-        return "Untitled Story"
-
-
-def _export_story() -> str:
-    title = st.session_state.story_title or "Untitled Story"
-    genre = st.session_state.story_genre
-    voice = st.session_state.story_voice
-    wc = _word_count(st.session_state.story_full_text)
-    date = datetime.datetime.now().strftime("%Y-%m-%d")
-    header = f"# {title}\n\n*Genre: {genre} | Voice: {voice} | Words: {wc:,} | {date}*\n\n---\n\n"
-    return header + st.session_state.story_full_text
-
-
-# ─────────────────────────────────────────────
-# MAIN RENDER
-# ─────────────────────────────────────────────
-
-def render_story_builder():
-    _init_story_state()
-
-    # ── CSS for story builder ──────────────────
-    st.markdown("""
-    <style>
-    .story-header {
-        padding: 1.25rem 0 0.75rem;
-        border-bottom: 1px solid var(--border);
-        margin-bottom: 1.25rem;
-    }
-    .story-title-display {
-        font-size: 1.6rem; font-weight: 900;
-        background: linear-gradient(135deg, var(--text), var(--accent2));
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        background-clip: text; letter-spacing: -0.04em; line-height: 1.1;
-        margin-bottom: 0.2rem;
-    }
-    .story-subtitle { font-size: 0.78rem; color: var(--text3); font-weight: 400; }
-    .genre-card {
-        background: var(--bg3-glass);
-        border: 1.5px solid var(--bd-glass);
-        border-radius: var(--radius);
-        padding: 0.9rem 1rem;
-        cursor: pointer;
-        transition: var(--trans);
-        backdrop-filter: blur(12px);
-        text-align: center;
-        height: 100%;
-    }
-    .genre-card:hover, .genre-card.active {
-        border-color: var(--accent-bd);
-        background: var(--accent-bg);
-        transform: translateY(-3px);
-        box-shadow: 0 6px 24px var(--accent-glow);
-    }
-    .genre-card .genre-icon { font-size: 1.6rem; margin-bottom: 0.35rem; display: block; }
-    .genre-card .genre-name { font-size: 0.82rem; font-weight: 700; color: var(--text); display: block; }
-    .genre-card .genre-desc { font-size: 0.7rem; color: var(--text3); display: block; margin-top: 2px; }
-    .story-canvas {
-        background: var(--bg2-glass);
-        border: 1px solid var(--bd-glass);
-        border-radius: var(--radius-lg);
-        padding: 2rem 2.25rem;
-        min-height: 320px;
-        backdrop-filter: blur(16px);
-        line-height: 1.9;
-        font-size: 0.97rem;
-        color: var(--text);
-        box-shadow: 0 8px 40px var(--card-shadow);
-        font-family: 'Georgia', 'Times New Roman', serif;
-        white-space: pre-wrap;
-        position: relative;
-    }
-    .story-canvas-empty {
-        color: var(--text3);
-        font-style: italic;
-        text-align: center;
-        padding-top: 3rem;
-        font-family: var(--sans);
-        font-size: 0.9rem;
-    }
-    .story-stat-bar {
-        display: flex; gap: 1rem; align-items: center;
-        padding: 0.5rem 0.75rem;
-        background: var(--bg3-glass);
-        border: 1px solid var(--bd-glass);
-        border-radius: var(--radius-sm);
-        font-size: 0.75rem; color: var(--text3);
-        backdrop-filter: blur(10px);
-        margin-bottom: 0.75rem;
-        flex-wrap: wrap;
-    }
-    .story-stat-bar span { display: flex; align-items: center; gap: 4px; }
-    .story-stat-bar b { color: var(--accent); font-weight: 700; }
-    .tool-pill {
-        display: inline-flex; align-items: center; gap: 6px;
-        background: var(--bg4-glass);
-        border: 1px solid var(--bd-glass);
-        border-radius: 99px; padding: 5px 14px;
-        font-size: 0.78rem; color: var(--text2);
-        cursor: pointer; transition: var(--trans);
-        margin: 3px;
-    }
-    .tool-pill:hover, .tool-pill.selected {
-        border-color: var(--accent-bd);
-        background: var(--accent-bg);
-        color: var(--accent);
-    }
-    .config-label {
-        font-size: 0.67rem; font-weight: 700;
-        letter-spacing: 0.1em; text-transform: uppercase;
-        color: var(--text3); margin: 0.9rem 0 0.4rem;
-        display: flex; align-items: center; gap: 7px;
-    }
-    .config-label::after {
-        content: ''; flex: 1; height: 1px;
-        background: linear-gradient(to right, var(--border), transparent);
-    }
-    .voice-card {
-        background: var(--bg3-glass);
-        border: 1.5px solid var(--bd-glass);
-        border-radius: var(--radius-sm);
-        padding: 0.6rem 0.8rem;
-        cursor: pointer;
-        transition: var(--trans);
-        backdrop-filter: blur(10px);
-    }
-    .voice-card:hover { border-color: var(--accent-bd); background: var(--accent-bg); }
-    .voice-card .vc-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
-    .voice-card .vc-desc { font-size: 0.7rem; color: var(--text3); margin-top: 1px; }
-    .spark-prompt {
-        background: var(--bg3-glass); border: 1px solid var(--bd-glass);
-        border-radius: var(--radius-sm); padding: 0.55rem 0.85rem;
-        font-size: 0.8rem; color: var(--text2); cursor: pointer;
-        transition: var(--trans); margin-bottom: 0.4rem;
-        display: block; width: 100%;
-        font-style: italic;
-    }
-    .spark-prompt:hover { border-color: var(--accent-bd); color: var(--accent); background: var(--accent-bg); }
-    .chapter-divider {
-        text-align: center; color: var(--text3);
-        font-size: 0.75rem; letter-spacing: 0.2em;
-        text-transform: uppercase; margin: 1.5rem 0 1rem;
-        position: relative;
-    }
-    .chapter-divider::before, .chapter-divider::after {
-        content: ''; position: absolute; top: 50%;
-        width: 35%; height: 1px; background: var(--border);
-    }
-    .chapter-divider::before { left: 0; }
-    .chapter-divider::after { right: 0; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ── Header ─────────────────────────────────
-    title_display = st.session_state.story_title or "Story Builder"
     st.markdown(f"""
-    <div class="story-header">
-      <div class="story-title-display">✍️ {title_display}</div>
-      <div class="story-subtitle">Collaborative fiction engine · AI co-author · Literary grade output</div>
-    </div>
-    """, unsafe_allow_html=True)
+<style>
+.parchment-container {{
+    background: #1a1208;
+    border: 1px solid #8B6914;
+    border-radius: 16px;
+    padding: 2.5rem 3rem;
+    font-family: Georgia, 'Times New Roman', serif;
+    line-height: 1.9;
+    font-size: 1.05rem;
+    color: #e8d5a3;
+    position: relative;
+    box-shadow: 0 0 40px rgba(139,105,20,0.15), inset 0 0 60px rgba(0,0,0,0.3);
+}}
+.story-title {{
+    font-size: 1.9rem;
+    font-weight: 900;
+    text-align: center;
+    background: linear-gradient(135deg, #f59e0b, #d97706, #b45309);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.3rem;
+    line-height: 1.3;
+}}
+.story-meta-bar {{
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 1.8rem;
+    font-size: 0.78rem;
+    color: #8B6914;
+    border-bottom: 1px solid #3a2a08;
+    padding-bottom: 1rem;
+}}
+.parchment-divider {{
+    text-align: center;
+    color: #8B6914;
+    font-size: 1.2rem;
+    margin: 1.5rem 0;
+    letter-spacing: 8px;
+}}
+.story-badge {{
+    position: absolute;
+    top: 1.2rem;
+    right: 1.5rem;
+    background: rgba(139,105,20,0.2);
+    border: 1px solid #8B6914;
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-size: .72rem;
+    color: #f59e0b;
+    font-family: monospace;
+}}
+</style>
+""", unsafe_allow_html=True)
 
-    # ── Layout: Left config panel + Right canvas ──
-    config_col, canvas_col = st.columns([1, 2], gap="large")
+    # Split story into chapters
+    parts = story.split("---")
+    chapters_html = ""
+    for i, part in enumerate(parts):
+        part = part.strip()
+        if not part:
+            continue
+        if i > 0:
+            chapters_html += '<div class="parchment-divider">✦ ─── ✦ ─── ✦</div>'
+        paras = part.split("\n")
+        for p in paras:
+            p = p.strip()
+            if p:
+                chapters_html += f"<p>{p}</p>"
 
-    with config_col:
-        # ── Genre Selector ─────────────────────
-        st.markdown('<div class="config-label">🎭 Genre</div>', unsafe_allow_html=True)
-        genre_keys = list(GENRES.keys())
-        current_genre = st.session_state.story_genre
+    st.markdown(f"""
+<div class="parchment-container">
+  <div class="story-badge">{wc:,} words · ~{reading_time} min read</div>
+  <div class="story-title">{title}</div>
+  <div class="story-meta-bar">
+    <span>{genre_emoji} {st.session_state.sb_genre}</span>
+    <span>🎭 {st.session_state.sb_tone}</span>
+    <span>🌍 {st.session_state.sb_setting or 'Unspecified'}</span>
+    <span>📅 {datetime.now().strftime('%d %b %Y')}</span>
+  </div>
+  {chapters_html}
+</div>
+""", unsafe_allow_html=True)
 
-        # Build a compact selectbox with emoji
-        selected_genre = st.selectbox(
-            "Genre", genre_keys,
-            index=genre_keys.index(current_genre) if current_genre in genre_keys else 0,
-            label_visibility="collapsed",
-            key="genre_select_story",
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ACTION BAR
+# ─────────────────────────────────────────────────────────────────────────────
+def _render_action_bar():
+    story = st.session_state.sb_story
+    title = st.session_state.sb_title
+    wc    = st.session_state.sb_wc
+
+    st.markdown("""
+<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);
+border-radius:14px;padding:16px 20px;margin-top:16px;">
+  <div style="font-size:.75rem;color:#64748b;margin-bottom:10px;text-transform:uppercase;
+  letter-spacing:1.5px;">Story Actions</div>
+</div>
+""", unsafe_allow_html=True)
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+
+    # Copy via JS
+    with c1:
+        if st.button("📋 Copy", use_container_width=True, key="sb_copy"):
+            escaped = story.replace("`", "\\`")
+            st.markdown(
+                f'<script>navigator.clipboard.writeText(`{escaped}`)</script>',
+                unsafe_allow_html=True
+            )
+            st.success("Copied!")
+
+    # Download .txt
+    with c2:
+        st.download_button(
+            "📥 .txt",
+            data=f"{title}\n{'='*len(title)}\n\n{story}",
+            file_name=f"{title[:30].replace(' ','_')}.txt",
+            mime="text/plain",
+            use_container_width=True,
+            key="sb_dl_txt"
         )
-        if selected_genre != st.session_state.story_genre:
-            st.session_state.story_genre = selected_genre
+
+    # Download .pdf
+    with c3:
+        pdf_bytes = _story_to_pdf(title, story)
+        if pdf_bytes:
+            st.download_button(
+                "📄 .pdf",
+                data=pdf_bytes,
+                file_name=f"{title[:30].replace(' ','_')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="sb_dl_pdf"
+            )
+        else:
+            st.caption("📄 PDF (install reportlab)")
+
+    # Regenerate
+    with c4:
+        if st.button("🔄 Regenerate", use_container_width=True, key="sb_regen"):
+            st.session_state.sb_trigger = "regen"
             st.rerun()
 
-        # Genre info card
-        gdata = GENRES[st.session_state.story_genre]
-        st.markdown(f"""
-        <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--radius-sm);
-        padding:0.6rem 0.85rem;font-size:0.75rem;color:var(--text2);margin-bottom:0.25rem;">
-          <b style="color:var(--accent)">Masters:</b> {gdata['masters']}<br>
-          <b style="color:var(--accent)">Tone:</b> {gdata['atmosphere']}
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ── Writing Voice ───────────────────────
-        st.markdown('<div class="config-label">🖊️ Writing Voice</div>', unsafe_allow_html=True)
-        voice_keys = list(WRITING_VOICES.keys())
-        current_voice = st.session_state.story_voice
-        selected_voice = st.selectbox(
-            "Voice", voice_keys,
-            index=voice_keys.index(current_voice) if current_voice in voice_keys else 0,
-            label_visibility="collapsed",
-            key="voice_select_story",
-        )
-        if selected_voice != st.session_state.story_voice:
-            st.session_state.story_voice = selected_voice
+    # Continue
+    with c5:
+        if st.button("✏️ Continue", use_container_width=True, key="sb_continue"):
+            st.session_state.sb_trigger = "continue"
             st.rerun()
 
-        vdata = WRITING_VOICES[st.session_state.story_voice]
-        st.markdown(f"""
-        <div style="font-size:0.72rem;color:var(--text3);
-        padding:0.4rem 0.7rem;background:var(--bg3-glass);border-radius:6px;
-        border:1px solid var(--bd-glass);margin-bottom:0.2rem;">
-          {vdata['desc']}
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ── Pacing ──────────────────────────────
-        st.markdown('<div class="config-label">⏱️ Pacing</div>', unsafe_allow_html=True)
-        pacing_keys = list(PACING_MODES.keys())
-        current_pacing = st.session_state.story_pacing
-        selected_pacing = st.selectbox(
-            "Pacing", pacing_keys,
-            index=pacing_keys.index(current_pacing) if current_pacing in pacing_keys else 0,
-            label_visibility="collapsed",
-            key="pacing_select_story",
-        )
-        if selected_pacing != st.session_state.story_pacing:
-            st.session_state.story_pacing = selected_pacing
+    # Star rating
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("**🌟 Rate this story:**")
+    rating_cols = st.columns(5)
+    current_rating = st.session_state.sb_rating
+    for i, rc in enumerate(rating_cols, 1):
+        star = "⭐" if i <= current_rating else "☆"
+        if rc.button(f"{star} {i}", key=f"sb_star_{i}", use_container_width=True):
+            st.session_state.sb_rating = i
             st.rerun()
+    if current_rating:
+        st.caption(f"Your rating: {'⭐' * current_rating} ({current_rating}/5)")
 
-        # ── Response Length ─────────────────────
-        st.markdown('<div class="config-label">📏 Length</div>', unsafe_allow_html=True)
-        length_keys = list(STORY_LENGTHS.keys())
-        current_length = st.session_state.story_length
-        selected_length = st.selectbox(
-            "Length", length_keys,
-            index=length_keys.index(current_length) if current_length in length_keys else 2,
-            label_visibility="collapsed",
-            key="length_select_story",
-        )
-        if selected_length != st.session_state.story_length:
-            st.session_state.story_length = selected_length
 
-        # ── Style Mimicry ───────────────────────
-        st.markdown('<div class="config-label">✨ Style Mimicry</div>', unsafe_allow_html=True)
-        mimicry_keys = list(STYLE_MIMICRY.keys())
-        selected_mimicry = st.selectbox(
-            "Style", mimicry_keys,
-            index=mimicry_keys.index(st.session_state.story_style_mimicry) if st.session_state.story_style_mimicry in mimicry_keys else 0,
-            label_visibility="collapsed",
-            key="mimicry_select_story",
-        )
-        st.session_state.story_style_mimicry = selected_mimicry
-
-        # ── Collaboration Mode ──────────────────
-        st.markdown('<div class="config-label">🤝 Collaboration</div>', unsafe_allow_html=True)
-        collab_keys = list(COLLAB_MODES.keys())
-        selected_collab = st.selectbox(
-            "Collab Mode", collab_keys,
-            index=collab_keys.index(st.session_state.story_collab_mode) if st.session_state.story_collab_mode in collab_keys else 0,
-            label_visibility="collapsed",
-            key="collab_select_story",
-        )
-        st.session_state.story_collab_mode = selected_collab
-
-        # ── Narrative Tools ─────────────────────
-        if st.session_state.story_started:
-            st.markdown('<div class="config-label">🔧 Narrative Tool</div>', unsafe_allow_html=True)
-            st.markdown("<small style='color:var(--text3);font-size:0.72rem;'>Select to guide next continuation:</small>", unsafe_allow_html=True)
-
-            tool_keys = list(NARRATIVE_TOOLS.keys())
-            current_tool = st.session_state.story_tool
-            for tool in tool_keys:
-                is_sel = (tool == current_tool)
-                label = f"{'✓ ' if is_sel else ''}{tool}"
-                if st.button(label, key=f"ntool_{tool}", use_container_width=True):
-                    st.session_state.story_tool = tool if not is_sel else None
+# ─────────────────────────────────────────────────────────────────────────────
+# STORY HISTORY
+# ─────────────────────────────────────────────────────────────────────────────
+def _render_story_history():
+    history = st.session_state.sb_history
+    if not history:
+        return
+    with st.expander(f"📚 My Stories ({len(history)})", expanded=False):
+        for i, s in enumerate(reversed(history)):
+            col_info, col_load = st.columns([4, 1])
+            with col_info:
+                st.markdown(
+                    f'<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);'
+                    f'border-radius:10px;padding:10px 14px;">'
+                    f'<div style="font-weight:700;color:#f8fafc;">{s["title"]}</div>'
+                    f'<div style="font-size:.75rem;color:#64748b;">'
+                    f'{s["genre"]} · {s["word_count"]:,} words · {s["timestamp"]}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            with col_load:
+                if st.button("Load", key=f"sb_hist_load_{i}", use_container_width=True):
+                    st.session_state.sb_story = s["text"]
+                    st.session_state.sb_title = s["title"]
+                    st.session_state.sb_wc    = s["word_count"]
                     st.rerun()
 
-        # ── Character Tracker ──────────────────
-        st.markdown('<div class="config-label">👤 Characters</div>', unsafe_allow_html=True)
-        if st.session_state.story_characters:
-            for i, ch in enumerate(st.session_state.story_characters):
-                with st.expander(f"{ch.get('name', 'Character')} — {ch.get('role', '')}", expanded=False):
-                    st.markdown(f"**Traits:** {ch.get('traits', '')}")
-                    st.markdown(f"**Arc:** {ch.get('arc', '')}")
-                    if st.button("✕ Remove", key=f"rm_char_{i}"):
-                        st.session_state.story_characters.pop(i)
-                        st.rerun()
 
-        with st.expander("➕ Add Character", expanded=not bool(st.session_state.story_characters)):
-            ch_name = st.text_input("Name", key="new_char_name", placeholder="e.g. Elena")
-            ch_role = st.text_input("Role", key="new_char_role", placeholder="e.g. protagonist, mentor")
-            ch_traits = st.text_input("Traits", key="new_char_traits", placeholder="e.g. stubborn, scarred, brilliant")
-            ch_arc = st.text_input("Arc", key="new_char_arc", placeholder="e.g. learns to trust again")
-            if st.button("Add Character", key="add_char_btn", use_container_width=True) and ch_name:
-                st.session_state.story_characters.append({
-                    "name": ch_name, "role": ch_role,
-                    "traits": ch_traits, "arc": ch_arc,
-                })
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN RENDER
+# ─────────────────────────────────────────────────────────────────────────────
+def render_story_builder():
+    _init_state()
+
+    st.markdown("""
+<style>
+.genre-card{background:rgba(15,23,42,0.7);border:1.5px solid rgba(255,255,255,0.07);
+border-radius:14px;padding:16px 12px;text-align:center;cursor:pointer;
+transition:all .2s ease;min-height:80px;}
+.genre-card.selected{border-width:2px;}
+.genre-card:hover{transform:translateY(-2px);}
+.len-card{background:rgba(15,23,42,0.7);border:1.5px solid rgba(255,255,255,0.07);
+border-radius:12px;padding:14px;text-align:center;transition:all .2s;}
+.len-card.selected{border-color:#6366f1;}
+</style>
+""", unsafe_allow_html=True)
+
+    st.markdown("""
+<div style="background:linear-gradient(135deg,rgba(139,105,20,0.1),rgba(245,158,11,0.05));
+border:1px solid rgba(139,105,20,0.25);border-radius:20px;padding:26px 30px;margin-bottom:20px;">
+  <div style="font-family:monospace;font-size:10px;letter-spacing:4px;
+  color:rgba(245,158,11,0.6);text-transform:uppercase;margin-bottom:8px;">AI CREATIVE ENGINE</div>
+  <div style="font-size:1.8rem;font-weight:900;color:#fff;margin-bottom:5px;">📖 Story Builder</div>
+  <div style="color:rgba(255,255,255,0.4);font-size:.9rem;">
+    Choose your genre, build characters, and let AI write your story
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+    # ── GENRE SELECTOR ────────────────────────────────────────────────────────
+    st.markdown("#### 🎭 Genre")
+    genre_cols = st.columns(4)
+    for i, (emoji, genre, color) in enumerate(GENRES):
+        is_sel = st.session_state.sb_genre == genre
+        border = f"2px solid {color}" if is_sel else "1.5px solid rgba(255,255,255,0.07)"
+        bg = f"{color}18" if is_sel else "rgba(15,23,42,0.7)"
+        with genre_cols[i % 4]:
+            if st.button(
+                f"{emoji}\n**{genre}**",
+                key=f"sb_genre_{genre}",
+                use_container_width=True,
+                help=f"Select {genre}"
+            ):
+                st.session_state.sb_genre = genre
                 st.rerun()
+            if is_sel:
+                st.markdown(
+                    f'<div style="height:3px;background:{color};border-radius:2px;'
+                    f'margin-top:-8px;margin-bottom:4px;"></div>',
+                    unsafe_allow_html=True
+                )
 
-        # ── Branching Narratives ────────────────
-        if st.session_state.story_started and st.session_state.story_full_text:
-            st.markdown('<div class="config-label">🌿 Branches</div>', unsafe_allow_html=True)
-            if st.button("📌 Save Branch Point", use_container_width=True, key="save_branch"):
-                label = f"Ch{st.session_state.story_chapter} · {_word_count(st.session_state.story_full_text)}w"
-                st.session_state.story_branches.append(st.session_state.story_full_text)
-                st.session_state.story_branch_labels.append(label)
-                st.toast(f"Branch saved: {label}")
-            if st.session_state.story_branches:
-                for i, lbl in enumerate(st.session_state.story_branch_labels):
-                    if st.button(f"↩ {lbl}", key=f"load_branch_{i}", use_container_width=True):
-                        st.session_state.story_full_text = st.session_state.story_branches[i]
-                        st.session_state.story_word_count = _word_count(st.session_state.story_full_text)
-                        st.rerun()
+    st.markdown("")
 
-        # ── Author Notes ────────────────────────
-        st.markdown('<div class="config-label">📝 Author Notes</div>', unsafe_allow_html=True)
-        notes = st.text_area(
-            "Notes", placeholder="Characters, world rules, things to remember...",
-            value=st.session_state.story_notes,
-            label_visibility="collapsed",
-            key="story_notes_input",
-            height=90,
-        )
-        st.session_state.story_notes = notes
+    # ── TWO COLUMNS: Settings left, Characters right ───────────────────────────
+    col_left, col_right = st.columns([3, 2])
 
-        # ── Actions ─────────────────────────────
-        st.markdown('<div class="config-label">⚙️ Actions</div>', unsafe_allow_html=True)
-        a1, a2 = st.columns(2)
-        with a1:
-            if st.button("🗑️ Reset", use_container_width=True, key="story_reset"):
-                for k in ["story_messages", "story_full_text", "story_title",
-                          "story_started", "story_tool", "story_word_count", "story_chapter"]:
-                    st.session_state[k] = [] if k == "story_messages" else (
-                        "" if k in ["story_full_text", "story_title", "story_tool"] else
-                        False if k == "story_started" else
-                        0 if k == "story_word_count" else 1
-                    )
-                st.rerun()
-        with a2:
-            if st.session_state.story_full_text:
-                st.download_button(
-                    "📝 .txt Export",
-                    data=_export_story(),
-                    file_name=f"{(st.session_state.story_title or 'story').replace(' ','_')}.txt",
-                    mime="text/plain",
+    with col_left:
+        # Length
+        st.markdown("#### 📏 Story Length")
+        len_cols = st.columns(3)
+        for i, (label, wc, eta) in enumerate(LENGTHS):
+            is_sel = st.session_state.sb_length == label
+            with len_cols[i]:
+                if st.button(
+                    f"**{label}**\n{wc} words\n_{eta}_",
+                    key=f"sb_len_{label}",
                     use_container_width=True,
-                    key="story_export_txt",
-                )
-                
-                try:
-                    import docx
-                    from io import BytesIO
-                    doc = docx.Document()
-                    doc.add_heading(st.session_state.story_title or "Untitled", 0)
-                    doc.add_paragraph(st.session_state.story_full_text)
-                    bio = BytesIO()
-                    doc.save(bio)
-                    st.download_button("📄 .docx Export", data=bio.getvalue(), file_name=f"{(st.session_state.story_title or 'story').replace(' ','_')}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="story_export_docx")
-                except ImportError:
-                    pass
-                    
-                try:
-                    from fpdf import FPDF
-                    import textwrap
-                    pdf = FPDF()
-                    pdf.add_page()
-                    pdf.set_font("Arial", size=12)
-                    
-                    def _safe_pdf_text(t: str) -> str:
-                        t = t.encode('latin-1', 'ignore').decode('latin-1')
-                        return "\n".join(["\n".join(textwrap.wrap(line, 85)) for line in t.splitlines()])
-                        
-                    safe_title = _safe_pdf_text(st.session_state.story_title or "Untitled")
-                    safe_body = _safe_pdf_text(st.session_state.story_full_text)
-                    
-                    pdf.multi_cell(0, 10, txt=safe_title)
-                    pdf.ln(5)
-                    pdf.multi_cell(0, 10, txt=safe_body)
-                    pdf_bytes = pdf.output(dest='S').encode('latin-1')
-                    st.download_button("📕 .pdf Export", data=pdf_bytes, file_name=f"{(st.session_state.story_title or 'story').replace(' ','_')}.pdf", mime="application/pdf", use_container_width=True, key="story_export_pdf")
-                except ImportError:
-                    pass
-
-        # ── Back to study ───────────────────────
-        st.markdown("---")
-        if st.button("← Back to Study Chat", use_container_width=True, key="story_back"):
-            st.session_state.app_mode = "chat"
-            st.rerun()
-
-    # ══════════════════════════════════════
-    # RIGHT PANEL — Canvas + Input
-    # ══════════════════════════════════════
-    with canvas_col:
-
-        # ── Story Stats Bar ─────────────────────
-        if st.session_state.story_started:
-            wc = _word_count(st.session_state.story_full_text)
-            chapters = st.session_state.story_chapter
-            genre_tag = st.session_state.story_genre.split(" ", 1)[0]
-            voice_tag = st.session_state.story_voice.split(" ", 1)[1] if " " in st.session_state.story_voice else st.session_state.story_voice
-            st.markdown(f"""
-            <div class="story-stat-bar">
-              <span>📖 <b>{wc:,}</b> words</span>
-              <span>📂 Chapter <b>{chapters}</b></span>
-              <span>🎭 <b>{genre_tag}</b></span>
-              <span>🖊️ <b>{voice_tag[:18]}</b></span>
-              {f'<span>🔧 <b>{st.session_state.story_tool.split(" ",1)[1] if st.session_state.story_tool else ""}</b></span>' if st.session_state.story_tool else ''}
-            </div>
-            """, unsafe_allow_html=True)
-
-        # ── Story Canvas ────────────────────────
-        if st.session_state.story_full_text:
-            # Show full story text beautifully
-            st.markdown(f"""
-            <div class="story-canvas">{st.session_state.story_full_text}</div>
-            """, unsafe_allow_html=True)
-        else:
-            # Empty state with spark prompts
-            st.markdown(f"""
-            <div class="story-canvas">
-              <div class="story-canvas-empty">
-                Your story will appear here.<br><br>
-                Type your opening line below, or pick a spark prompt →
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # Spark prompts for current genre
-            st.markdown('<div class="config-label">✨ Spark Prompts</div>', unsafe_allow_html=True)
-            examples = GENRES[st.session_state.story_genre].get("examples", [])
-            for ex in examples:
-                if st.button(f'"{ex}"', key=f"spark_{ex[:20]}", use_container_width=True):
-                    st.session_state["_queued_story_prompt"] = ex
+                    type="primary" if is_sel else "secondary"
+                ):
+                    st.session_state.sb_length    = label
+                    st.session_state.sb_length_wc = wc
                     st.rerun()
 
-        # ── Continuation Input ──────────────────
-        st.markdown("")
+        # Tone
+        st.markdown("#### 🎨 Tone")
+        tone_cols = st.columns(len(TONES))
+        for i, tone in enumerate(TONES):
+            is_sel = st.session_state.sb_tone == tone
+            with tone_cols[i]:
+                if st.button(
+                    tone,
+                    key=f"sb_tone_{tone}",
+                    use_container_width=True,
+                    type="primary" if is_sel else "secondary"
+                ):
+                    st.session_state.sb_tone = tone
+                    st.rerun()
 
-        if not st.session_state.story_started:
-            placeholder_text = f'Begin your {st.session_state.story_genre.split(" ",1)[-1]} story... (first line, opening scene, or just a feeling)'
-        else:
-            placeholder_text = "Continue the story, or type what happens next... (leave blank to let the AI decide)"
+        # Setting
+        st.markdown("#### 🌍 Setting")
+        st.session_state.sb_setting = st.text_input(
+            "Time period + Location:",
+            value=st.session_state.sb_setting,
+            placeholder="e.g. Futuristic Tokyo 2087",
+            key="sb_setting_input",
+            label_visibility="collapsed"
+        )
+        st.markdown("**Quick picks:**")
+        sug_cols = st.columns(3)
+        for i, sug in enumerate(SETTING_SUGGESTIONS[:9]):
+            with sug_cols[i % 3]:
+                if st.button(sug, key=f"sb_sug_{i}", use_container_width=True):
+                    st.session_state.sb_setting = sug
+                    st.rerun()
 
-        user_story_input = st.chat_input(
-            placeholder_text,
-            key="story_chat_input",
+        # Options row
+        st.markdown("#### ⚙️ Options")
+        opt1, opt2 = st.columns(2)
+        with opt1:
+            st.session_state.sb_twist = st.toggle(
+                "🌀 Surprise Plot Twist",
+                value=st.session_state.sb_twist,
+                key="sb_twist_toggle",
+                help="AI will add a shocking twist in the final act"
+            )
+        with opt2:
+            if st.session_state.sb_twist:
+                st.info("Twist ON — AI will surprise you!")
+
+        # Custom prompt
+        st.session_state.sb_custom = st.text_area(
+            "✨ Custom element to include (optional):",
+            value=st.session_state.sb_custom,
+            height=80,
+            placeholder="e.g. A mysterious blue clock that stops time, a betrayal at the feast...",
+            key="sb_custom_input"
         )
 
-        # Check for queued spark prompt
-        if st.session_state.get("_queued_story_prompt"):
-            user_story_input = st.session_state.pop("_queued_story_prompt")
+    with col_right:
+        # Character builder
+        st.markdown("#### 👥 Characters (up to 5)")
+        chars = st.session_state.sb_chars
 
-        # ── Process input ───────────────────────
-        if user_story_input is not None and user_story_input.strip() != "" or user_story_input == "":
-            # Allow empty input after start (AI continues freely)
-            raw_input = (user_story_input or "").strip()
+        with st.form("sb_char_form", clear_on_submit=True):
+            c_name  = st.text_input("Name", placeholder="e.g. Aria", key="sb_cname")
+            c_role  = st.selectbox("Role", ROLES, key="sb_crole")
+            c_trait = st.text_input("Personality trait", placeholder="e.g. fiercely loyal", key="sb_ctrait")
+            add_char = st.form_submit_button("➕ Add Character", use_container_width=True)
 
-            if not raw_input and not st.session_state.story_started:
-                st.info("✍️ Type your opening line to begin the story.")
-            else:
-                # Build the message to send
-                tool = st.session_state.story_tool
-                tool_instruction = ""
-                if tool:
-                    tool_instruction = f"\n\n[NARRATIVE DIRECTIVE: {NARRATIVE_TOOLS[tool]}]"
+        if add_char and c_name.strip() and len(chars) < 5:
+            chars.append({"name": c_name, "role": c_role, "trait": c_trait})
+            st.session_state.sb_chars = chars
+            st.rerun()
 
-                length_tokens = STORY_LENGTHS[st.session_state.story_length]
+        if chars:
+            for i, ch in enumerate(chars):
+                c_card, c_del = st.columns([5, 1])
+                with c_card:
+                    st.markdown(
+                        f'<div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);'
+                        f'border-radius:10px;padding:8px 12px;margin:3px 0;">'
+                        f'<span style="font-weight:700;color:#a5b4fc;">{ch["name"]}</span> '
+                        f'<span style="background:rgba(99,102,241,0.2);border-radius:100px;'
+                        f'padding:1px 8px;font-size:.72rem;color:#818cf8;">{ch["role"]}</span><br>'
+                        f'<span style="font-size:.78rem;color:#94a3b8;">"{ch["trait"]}"</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                with c_del:
+                    if st.button("🗑", key=f"sb_del_char_{i}"):
+                        chars.pop(i)
+                        st.session_state.sb_chars = chars
+                        st.rerun()
+        else:
+            st.caption("No characters added — AI will create its own.")
 
-                if not st.session_state.story_started:
-                    # First turn — start the story
-                    if raw_input:
-                        user_msg_content = f"Begin the story with this opening. Develop it beautifully into a full opening scene:\n\n\"{raw_input}\"{tool_instruction}"
-                    else:
-                        user_msg_content = f"Begin an original {st.session_state.story_genre} story with a compelling opening scene.{tool_instruction}"
-                else:
-                    # Continuation
-                    if raw_input:
-                        user_msg_content = f"Continue the story. The user directs: \"{raw_input}\"{tool_instruction}\n\nPick up exactly where we left off. Match the established voice perfectly."
-                    else:
-                        user_msg_content = f"Continue the story naturally from where it ended. Use your literary judgment to advance the plot, character, or atmosphere.{tool_instruction}"
+    st.markdown("---")
 
-                    # Add chapter divider every ~600 words
-                    wc = _word_count(st.session_state.story_full_text)
-                    if wc > 0 and wc % 600 < 80:
-                        st.session_state.story_chapter += 1
-                        chapter_break = f"\n\n\n— Chapter {st.session_state.story_chapter} —\n\n"
-                        st.session_state.story_full_text += chapter_break
+    # ── GENERATE BUTTON ────────────────────────────────────────────────────────
+    gen_label = "✨ Generate Story"
+    if st.session_state.get("sb_trigger") == "regen":
+        gen_label = "🔄 Regenerating..."
+    elif st.session_state.get("sb_trigger") == "continue":
+        gen_label = "✏️ Continuing Story..."
 
-                # Add user message to history
-                st.session_state.story_messages.append({
-                    "role": "user",
-                    "content": user_msg_content,
-                })
+    do_generate = st.button(
+        gen_label,
+        type="primary",
+        use_container_width=True,
+        key="sb_generate_btn"
+    )
+    trigger = st.session_state.pop("sb_trigger", None)
 
-                # Build system prompt
-                sys_prompt = build_story_system_prompt(
-                    st.session_state.story_genre,
-                    st.session_state.story_voice,
-                    st.session_state.story_pacing,
-                    extra_context=st.session_state.story_notes,
-                    style_mimicry=st.session_state.story_style_mimicry,
-                    collab_mode=st.session_state.story_collab_mode,
-                    characters=st.session_state.story_characters,
-                )
+    if do_generate or trigger:
+        seed = random.randint(1000, 9999) if trigger == "regen" else 0
 
-                # Keep only last 10 exchanges for context (saves tokens, maintains continuity)
-                context_messages = st.session_state.story_messages[-20:]
+        if trigger == "continue" and st.session_state.sb_story:
+            wc  = st.session_state.sb_length_wc
+            prompt = (
+                f"Continue this {st.session_state.sb_genre} story for another {wc} words. "
+                f"Maintain all characters, tone ({st.session_state.sb_tone}), and narrative consistency.\n\n"
+                f"Story so far:\n{st.session_state.sb_story[-3000:]}"
+            )
+            system = "You are a master storyteller continuing a story. Match the exact style, voice, and tone of the existing narrative."
+        else:
+            prompt, system = _build_story_prompt(seed=seed)
 
-                # Stream the story continuation
-                with st.spinner("✍️ Writing..."):
-                    generated = ""
-                    try:
-                        for chunk in ai_engine.generate_stream(
-                            messages=context_messages,
-                            context_text="",
-                            model="llama-3.3-70b-versatile",
-                            persona_prompt=sys_prompt,
-                        ):
-                            generated += chunk
+        # Generate with streaming
+        with st.spinner("Crafting your story... ✨"):
+            placeholder = st.empty()
+            full_text = ""
+            try:
+                stream = _ai_stream(prompt, system, max_tokens=st.session_state.sb_length_wc * 5)
+                for chunk in stream:
+                    full_text += chunk
+                    placeholder.markdown(
+                        f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;'
+                        f'padding:16px;font-family:Georgia;line-height:1.8;color:#cbd5e1;'
+                        f'max-height:300px;overflow:hidden;">{full_text[-1000:]}...</div>',
+                        unsafe_allow_html=True
+                    )
+                placeholder.empty()
+            except Exception:
+                full_text = _ai_generate(prompt, system, max_tokens=st.session_state.sb_length_wc * 5)
 
-                        # Clean up any AI meta-commentary
-                        generated = re.sub(
-                            r'^(Sure|Certainly|Of course|Here\'s|Here is|I\'ll|I will|Let me)[^\n]*\n+',
-                            '', generated.strip(), flags=re.IGNORECASE
-                        )
-                        generated = generated.strip()
+        # Parse title
+        lines = full_text.strip().split("\n")
+        title = st.session_state.sb_genre + " Story"
+        story_body = full_text
+        if lines and lines[0].upper().startswith("TITLE:"):
+            title = lines[0][6:].strip().strip('"').strip("'")
+            story_body = "\n".join(lines[1:]).strip()
 
-                        # Append to story canvas
-                        if st.session_state.story_full_text:
-                            st.session_state.story_full_text += "\n\n" + generated
-                        else:
-                            st.session_state.story_full_text = generated
+        if trigger == "continue":
+            story_body = st.session_state.sb_story + "\n\n---\n\n" + story_body
 
-                        # Add AI response to message history
-                        st.session_state.story_messages.append({
-                            "role": "assistant",
-                            "content": generated,
-                        })
+        wc = len(story_body.split())
+        st.session_state.sb_story = story_body
+        st.session_state.sb_title = title
+        st.session_state.sb_wc    = wc
+        st.session_state.sb_rating = 0
+        st.session_state.sb_story_id += 1
 
-                        # Generate title on first turn
-                        if not st.session_state.story_started:
-                            st.session_state.story_title = _generate_title(
-                                generated, st.session_state.story_genre
-                            )
-                            st.session_state.story_started = True
+        # Save to history
+        hist_entry = {
+            "title":      title,
+            "genre":      st.session_state.sb_genre,
+            "word_count": wc,
+            "text":       story_body,
+            "timestamp":  datetime.now().strftime("%d %b %Y %H:%M"),
+        }
+        st.session_state.sb_history = ([hist_entry] + st.session_state.sb_history)[:5]
+        st.rerun()
 
-                        # Clear narrative tool after use
-                        st.session_state.story_tool = None
+    # ── DISPLAY STORY ──────────────────────────────────────────────────────────
+    if st.session_state.sb_story:
+        _render_story_display(
+            st.session_state.sb_story,
+            st.session_state.sb_title,
+            st.session_state.sb_wc,
+        )
+        _render_action_bar()
 
-                        # Update word count
-                        st.session_state.story_word_count = _word_count(st.session_state.story_full_text)
+    # ── STORY HISTORY ──────────────────────────────────────────────────────────
+    _render_story_history()
 
-                        # Continuity Check
-                        if st.session_state.story_characters:
-                            st.toast("Checking continuity against character sheets...")
-                            char_sheet = json.dumps(st.session_state.story_characters)
-                            cont_prompt = f"Check this new text for contradictions against the character sheet. If there is a major contradiction (e.g. eye color changed, dead character alive), explain it briefly. If none, reply 'OK'.\n\nCHARACTERS: {char_sheet}\n\nNEW TEXT: {generated}"
-                            try:
-                                cont_res = ai_engine.generate(cont_prompt, model="llama-3.1-8b-instant", max_tokens=150, temperature=0.1)
-                                if "OK" not in cont_res[:10]:
-                                    st.warning(f"⚠️ Continuity Warning: {cont_res}")
-                            except Exception:
-                                pass
-
-                    except Exception as e:
-                        st.error(f"Story generation failed: {e}")
-
-                st.rerun()
+    st.markdown("---")
+    if st.button("💬 Back to Chat", use_container_width=True, key="sb_back"):
+        st.session_state.app_mode = "chat"
+        st.rerun()

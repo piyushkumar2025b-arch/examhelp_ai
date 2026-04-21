@@ -12,7 +12,7 @@ import base64
 import zlib
 import streamlit as st
 import ssl
-from utils.api_key_ui import render_api_key_section
+from utils.api_key_ui import render_api_key_section, render_api_status_bar
 
 # ── Auth + Integrations — MASKED (Supabase/Google/Stripe disabled for direct access) ──
 # All functions below are safe no-ops so the app runs without any external auth.
@@ -95,7 +95,12 @@ def render_google_connect_button(): pass
 def render_gmail_panel(**kwargs): st.info("📧 Gmail integration coming soon.")
 def render_drive_panel(**kwargs): st.info("📁 Google Drive integration coming soon.")
 def render_calendar_panel(**kwargs): st.info("📅 Google Calendar integration coming soon.")
-def render_maps_panel(**kwargs): st.info("🗺️ Google Maps integration coming soon.")
+def render_maps_panel(**kwargs):
+    try:
+        from map_engine import render_maps_panel as _real_maps
+        _real_maps()
+    except Exception as _me:
+        st.error(f"Map engine error: {_me}")
 def is_google_connected(): return False
 def render_pricing_page(**kwargs): st.info("💳 Plans & Pricing coming soon.")
 def render_upgrade_banner(**kwargs): pass
@@ -4450,6 +4455,9 @@ with st.sidebar:
         render_stats_dashboard()
 
         st.divider()
+
+        # ── Live API Usage Status Bar ───────────────────────────
+        render_api_status_bar()
 
         # ── API Key Management (New Multi-Provider System) ─────────
         render_api_key_section()

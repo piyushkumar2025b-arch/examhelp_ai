@@ -314,6 +314,14 @@ def generate(
     if not image_data:
         _cache_set(_cache_key(prompt, system), result)
 
+    # ── Live usage tracking for API status bar ─────────────────────────
+    try:
+        import streamlit as _st
+        from utils.api_key_ui import track_api_call
+        track_api_call(prompt=prompt, response=result)
+    except Exception:
+        pass  # never break generation due to tracking
+
     return result
 
 
