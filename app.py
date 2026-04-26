@@ -4630,6 +4630,34 @@ with st.sidebar:
             if st.button("📖 Story", use_container_width=True, key="side_story_new"):
                 st.session_state.app_mode = "story"; st.rerun()
 
+        # ── Smart Reader ─────────────────────────────────────────────────
+        st.markdown("""
+        <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(6,182,212,0.08));
+            border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:3px 4px;">
+        """, unsafe_allow_html=True)
+        if st.button("🔬 Smart Reader — PDF · IMG · PPT · Video", use_container_width=True,
+                     key="side_smart_reader", type="primary"):
+            st.session_state.app_mode = "smart_reader"; st.rerun()
+        st.markdown("""
+        <div style="font-size:0.68rem;color:rgba(99,102,241,0.6);text-align:center;letter-spacing:1px;
+            font-family:'Space Mono',monospace;padding:2px 6px 6px;">40+ AI FUNCTIONS</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Caring Zone ────────────────────────────────────────────
+        st.markdown("""
+        <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(244,114,182,0.12),rgba(139,92,246,0.08));
+            border:1px solid rgba(244,114,182,0.25);border-radius:14px;padding:3px 4px;">
+        """, unsafe_allow_html=True)
+        if st.button("💚 Caring Zone — Talk to Aria 🌸", use_container_width=True, key="side_caring_zone",
+                     type="primary"):
+            st.session_state.app_mode = "caring_zone"; st.rerun()
+        st.markdown("""
+        <div style="font-size:0.68rem;color:rgba(244,114,182,0.6);text-align:center;letter-spacing:1px;
+            font-family:'Space Mono',monospace;padding:2px 6px 6px;">YOUR SAFE HEALING SPACE</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         # ── Exam Countdown Widget ────────────────────────────
         st.markdown('<div class="section-label">🎯 Exam Countdown</div>', unsafe_allow_html=True)
         exam_d = st.date_input(
@@ -7328,6 +7356,20 @@ elif app_mode == "contest_page":
 elif app_mode == "dev_profile":
     from profile_engine import render_profile_page
     render_profile_page()
+
+# ─────────────────────────────────────────────
+# SMART AI READER — PDF · Image · PPT · Video
+# ─────────────────────────────────────────────
+elif app_mode == "smart_reader":
+    from smart_reader_engine import render_smart_reader
+    render_smart_reader()
+
+# ─────────────────────────────────────────────
+# CARING ZONE — Aria AI Healing Companion
+# ─────────────────────────────────────────────
+elif app_mode == "caring_zone":
+    from caring_zone_engine import render_caring_zone
+    render_caring_zone()
 
 else:
 
