@@ -5282,6 +5282,7 @@ with st.sidebar:
             ("🔥", "AI Companion",         "Nova · Luna · Zara — personas, scenarios & stories", "ai_companion"),
             ("📎", "Doc Analyser",         "Review any file: what\u2019s good, what to add", "doc_analyser"),
             ("🎵", "Sound Library",        "50+ ambient background sounds for focus", "bg_sounds"),
+            ("🎶", "Music Player",         "Search & stream free real songs, upload your own", "music_player"),
             ("📂", "File Viewer",          "Open & view any file — images, PDF, code, CSV, video", "file_viewer"),
             # ── New Premium UI Pages ────────────────────────────────────────
             ("🌐", "Live Dashboard",       "NASA · Crypto · Earthquakes · Space live", "live_dashboard"),
@@ -7355,6 +7356,11 @@ elif app_mode == "bg_sounds":
 elif app_mode == "doc_analyser":
     from doc_analyser_engine import render_doc_analyser
     render_doc_analyser()
+
+# ─── MUSIC PLAYER ───────────────────────────────────────────────────────────
+elif app_mode == "music_player":
+    from music_player_addon import render_music_player_page
+    render_music_player_page()
 
 # ─── UNIVERSAL FILE VIEWER ────────────────────────────────────────────────────
 elif app_mode == "file_viewer":
