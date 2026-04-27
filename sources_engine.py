@@ -224,6 +224,8 @@ def gather_all_sources(topic: str, instructions: str = "") -> List[Dict]:
     all_sources.extend(_fetch_arxiv(topic))
     all_sources.extend(_fetch_crossref(topic))
     all_sources.extend(_fetch_duckduckgo(topic))
+    all_sources.extend(_fetch_pubmed(topic))
+    all_sources.extend(_fetch_openlibrary(topic))
 
     # Deduplicate by URL
     seen_urls = set()
@@ -240,6 +242,57 @@ def gather_all_sources(topic: str, instructions: str = "") -> List[Dict]:
     # Sort by quality score
     unique.sort(key=lambda x: x["quality_score"], reverse=True)
     return unique[:12]
+
+
+def _fetch_pubmed(topic: str) -> List[Dict]:
+    """Fetch PubMed research papers (free, no key needed for basic search)."""
+    sources = []
+    try:
+        import urllib.request as _ur
+        search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={urllib.parse.quote(topic)}&retmax=3&retmode=json"
+        req = _ur.Request(search_url, headers={"User-Agent": "ExamHelp/1.0"})
+        with _ur.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        ids = data.get("esearchresult", {}).get("idlist", [])
+        for pid in ids[:3]:
+            sources.append({
+                "title": f"PubMed Article {pid}",
+                "url": f"https://pubmed.ncbi.nlm.nih.gov/{pid}/",
+                "snippet": f"Scientific research paper on {topic}. View on PubMed for full details.",
+                "type": "Academic",
+                "quality_score": 92,
+            })
+    except Exception:
+        pass
+    return sources
+
+
+def _fetch_openlibrary(topic: str) -> List[Dict]:
+    """Fetch books from Open Library API (free, no key)."""
+    sources = []
+    try:
+        import urllib.request as _ur
+        url = f"https://openlibrary.org/search.json?q={urllib.parse.quote(topic)}&limit=3"
+        req = _ur.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with _ur.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        for doc in data.get("docs", [])[:3]:
+            key = doc.get("key", "")
+            title = doc.get("title", "")
+            authors = ", ".join(doc.get("author_name", [])[:2])
+            year = doc.get("first_publish_year", "")
+            if title and key:
+                sources.append({
+                    "title": f"{title}{' by ' + authors if authors else ''}{'(' + str(year) + ')' if year else ''}",
+                    "url": f"https://openlibrary.org{key}",
+                    "snippet": f"Open Library book on {topic}. {doc.get('subject', [''])[0] if doc.get('subject') else ''}",
+                    "type": "Academic",
+                    "quality_score": 80,
+                })
+    except Exception:
+        pass
+    return sources
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

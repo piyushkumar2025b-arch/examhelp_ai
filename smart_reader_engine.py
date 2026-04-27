@@ -1617,3 +1617,69 @@ def render_smart_reader():
 
     with tab_vid:
         _render_video_tab()
+
+
+# ── FREE API ADDITIONS ───────────────────────────────────────────────────────
+
+def enrich_topic_with_wiki(topic: str) -> dict:
+    """Fetch Wikipedia summary to enrich document context (free, no key)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(topic)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        return {"title": data.get("title", ""), "summary": data.get("extract", "")[:500],
+                "url": data.get("content_urls", {}).get("desktop", {}).get("page", "")}
+    except Exception:
+        return {}
+
+
+def search_arxiv_papers(query: str, max_results: int = 5) -> list:
+    """Search arXiv for related research papers (free, no key)."""
+    import urllib.request, urllib.parse, re
+    try:
+        url = f"https://export.arxiv.org/api/query?search_query=all:{urllib.parse.quote(query)}&max_results={max_results}&sortBy=relevance"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            text = r.read().decode()
+        entries = re.findall(r"<entry>(.*?)</entry>", text, re.DOTALL)
+        papers = []
+        for entry in entries[:max_results]:
+            title_m = re.search(r"<title>(.*?)</title>", entry)
+            link_m = re.search(r"<id>(.*?)</id>", entry)
+            summ_m = re.search(r"<summary>(.*?)</summary>", entry, re.DOTALL)
+            if title_m and link_m:
+                papers.append({
+                    "title": title_m.group(1).strip().replace("\n", " "),
+                    "url": link_m.group(1).strip(),
+                    "abstract": summ_m.group(1).strip()[:250] if summ_m else "",
+                })
+        return papers
+    except Exception:
+        return []
+
+
+def lookup_crossref_doi(query: str) -> list:
+    """Search CrossRef for academic citations (free, no key)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://api.crossref.org/works?query={urllib.parse.quote(query)}&rows=5"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0 (mailto:help@examhelp.ai)"})
+        with urllib.request.urlopen(req, timeout=7) as r:
+            data = json.loads(r.read().decode())
+        items = data.get("message", {}).get("items", [])
+        return [{"title": i.get("title", [""])[0], "doi": i.get("DOI", ""),
+                 "url": f"https://doi.org/{i.get('DOI','')}", "year": i.get("published-print", {}).get("date-parts", [[""]])[0][0]}
+                for i in items[:5] if i.get("title")]
+    except Exception:
+        return []
+
+
+def get_reading_time(text: str, wpm: int = 200) -> dict:
+    """Calculate estimated reading time for extracted document text."""
+    words = len(text.split())
+    minutes = max(1, round(words / wpm))
+    return {"words": words, "minutes": minutes,
+            "label": f"~{minutes} min read" if minutes < 60 else f"~{minutes // 60}h {minutes % 60}m read"}
+

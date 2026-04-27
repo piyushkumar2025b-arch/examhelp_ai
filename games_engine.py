@@ -250,3 +250,75 @@ def render_games_page():
             st.markdown("#### 🏅 All High Scores")
             for game, score in sorted(scores.items(), key=lambda x: -x[1]):
                 st.markdown(f"- **{game}**: {score}")
+
+
+# ── FREE API ADDITIONS ───────────────────────────────────────────────────────
+
+def fetch_trivia_question(category_id: str = "18", difficulty: str = "medium") -> dict:
+    """Fetch a live trivia question from Open Trivia DB (free, no key)."""
+    import urllib.request, json, html
+    try:
+        url = f"https://opentdb.com/api.php?amount=1&category={category_id}&difficulty={difficulty}&type=multiple"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        results = data.get("results", [])
+        if results:
+            q = results[0]
+            return {
+                "question": html.unescape(q.get("question", "")),
+                "correct": html.unescape(q.get("correct_answer", "")),
+                "incorrect": [html.unescape(a) for a in q.get("incorrect_answers", [])],
+                "difficulty": q.get("difficulty", ""),
+                "category": q.get("category", ""),
+            }
+    except Exception:
+        pass
+    return {}
+
+
+def fetch_trivia_batch(n: int = 5, category_id: str = "18") -> list:
+    """Fetch multiple trivia questions at once (Open Trivia DB, free)."""
+    import urllib.request, json, html
+    try:
+        url = f"https://opentdb.com/api.php?amount={n}&category={category_id}&type=multiple"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode())
+        results = []
+        for q in data.get("results", []):
+            results.append({
+                "question": html.unescape(q.get("question", "")),
+                "correct": html.unescape(q.get("correct_answer", "")),
+                "incorrect": [html.unescape(a) for a in q.get("incorrect_answers", [])],
+                "difficulty": q.get("difficulty", ""),
+            })
+        return results
+    except Exception:
+        return []
+
+
+def fetch_joke(category: str = "Programming") -> str:
+    """Fetch a joke from JokeAPI for fun breaks (free, no key)."""
+    import urllib.request, json
+    try:
+        url = f"https://v2.jokeapi.dev/joke/{category}?safe-mode"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        if data.get("type") == "single":
+            return data.get("joke", "")
+        return f"{data.get('setup', '')} ... {data.get('delivery', '')}"
+    except Exception:
+        return "Why do programmers prefer dark mode? Because light attracts bugs! 🐛"
+
+
+def fetch_random_activity() -> dict:
+    """Fetch a random activity suggestion from Bored API (free, no key)."""
+    import urllib.request, json
+    try:
+        req = urllib.request.Request("https://www.boredapi.com/api/activity", headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return json.loads(r.read().decode())
+    except Exception:
+        return {"activity": "Take a 5-minute walk to refresh your mind!", "type": "relaxation"}

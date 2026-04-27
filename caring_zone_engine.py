@@ -1006,3 +1006,66 @@ def _send_caring_message(text: str, mood: str, user_name: str = ""):
             reply = random.choice(fallback_replies)
 
     st.session_state.caring_messages.append({"role": "assistant", "content": reply})
+
+
+# ── FREE API ADDITIONS ───────────────────────────────────────────────────────
+
+def get_caring_quote() -> dict:
+    """Fetch a motivational/uplifting quote from ZenQuotes (free, no key)."""
+    import urllib.request, json
+    try:
+        req = urllib.request.Request("https://zenquotes.io/api/random", headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        if isinstance(data, list) and data:
+            return {"q": data[0].get("q", ""), "a": data[0].get("a", "")}
+    except Exception:
+        pass
+    return {"q": "You are stronger than you think.", "a": "Unknown"}
+
+
+def get_calm_activity() -> dict:
+    """Get a calming activity suggestion from Bored API (free, no key)."""
+    import urllib.request, json
+    try:
+        req = urllib.request.Request(
+            "https://www.boredapi.com/api/activity?type=relaxation",
+            headers={"User-Agent": "ExamHelp/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return json.loads(r.read().decode())
+    except Exception:
+        return {"activity": "Take slow deep breaths for 2 minutes", "type": "relaxation"}
+
+
+def get_affirmation_quote() -> dict:
+    """Get an affirmation-style quote from affirmations.dev (free, no key)."""
+    import urllib.request, json
+    try:
+        req = urllib.request.Request(
+            "https://www.affirmations.dev/",
+            headers={"User-Agent": "ExamHelp/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        return {"affirmation": data.get("affirmation", "You are enough, just as you are.")}
+    except Exception:
+        return {"affirmation": "You are enough, just as you are."}
+
+
+def get_mental_health_joke() -> str:
+    """Light-hearted safe joke from JokeAPI to lift mood (free, no key)."""
+    import urllib.request, json
+    try:
+        req = urllib.request.Request(
+            "https://v2.jokeapi.dev/joke/Misc?safe-mode&blacklistFlags=nsfw,religious,political,racist,sexist",
+            headers={"User-Agent": "ExamHelp/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        if data.get("type") == "single":
+            return data.get("joke", "")
+        return f"{data.get('setup', '')} ... {data.get('delivery', '')}"
+    except Exception:
+        return "😄 Remember: even rainy days help flowers grow."
+

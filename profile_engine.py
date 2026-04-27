@@ -579,3 +579,80 @@ display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:#f
         if st.button("💬 Back to Chat", use_container_width=True, key="prof_back"):
             st.session_state.app_mode = "chat"
             st.rerun()
+
+
+# ── FREE API ADDITIONS ───────────────────────────────────────────────────────
+
+def fetch_devto_articles(username: str, n: int = 5) -> list:
+    """Fetch a user's published articles from DEV.to API (free, no key)."""
+    import urllib.request, json
+    try:
+        url = f"https://dev.to/api/articles?username={username}&per_page={n}"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        return [{"title": a.get("title", ""), "url": a.get("url", ""),
+                 "reactions": a.get("positive_reactions_count", 0),
+                 "comments": a.get("comments_count", 0),
+                 "tags": a.get("tag_list", [])} for a in data[:n]]
+    except Exception:
+        return []
+
+
+def fetch_npm_package(package_name: str) -> dict:
+    """Fetch npm package details (free, no key) — useful for developers."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://registry.npmjs.org/{urllib.parse.quote(package_name)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        latest = data.get("dist-tags", {}).get("latest", "")
+        return {"name": data.get("name", ""), "description": data.get("description", ""),
+                "latest_version": latest, "homepage": data.get("homepage", ""),
+                "keywords": data.get("keywords", [])[:8],
+                "license": data.get("license", "")}
+    except Exception:
+        return {}
+
+
+def fetch_hn_by_user(username: str, n: int = 5) -> list:
+    """Fetch a user's top HackerNews submissions (free, no key)."""
+    import urllib.request, json
+    try:
+        url = f"https://hacker-news.firebaseio.com/v0/user/{username}.json"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            user_data = json.loads(r.read().decode())
+        submitted = user_data.get("submitted", [])[:n] if user_data else []
+        stories = []
+        for sid in submitted:
+            s_req = urllib.request.Request(
+                f"https://hacker-news.firebaseio.com/v0/item/{sid}.json",
+                headers={"User-Agent": "ExamHelp/1.0"}
+            )
+            with urllib.request.urlopen(s_req, timeout=4) as r2:
+                s = json.loads(r2.read().decode())
+            if s and s.get("title"):
+                stories.append({"title": s.get("title", ""), "score": s.get("score", 0),
+                                 "url": s.get("url", f"https://news.ycombinator.com/item?id={sid}")})
+        return stories
+    except Exception:
+        return []
+
+
+def fetch_wakatime_leaders() -> list:
+    """Fetch public WakaTime leaderboard (free, no key for public data)."""
+    import urllib.request, json
+    try:
+        req = urllib.request.Request(
+            "https://wakatime.com/api/v1/leaders?language=Python",
+            headers={"User-Agent": "ExamHelp/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        return [{"rank": e.get("rank", 0), "user": e.get("user", {}).get("display_name", ""),
+                 "hours": e.get("running_total", {}).get("human_readable_total", "")}
+                for e in data.get("data", [])[:10]]
+    except Exception:
+        return []

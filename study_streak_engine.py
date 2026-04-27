@@ -589,3 +589,58 @@ def render_streak_page():
     with c3:
         if st.button("💬 Back to Chat", use_container_width=True, key="streak_back"):
             st.session_state.app_mode = "chat"; st.rerun()
+
+
+# ── FREE API ADDITIONS ───────────────────────────────────────────────────────
+
+def get_streak_motivation_quote() -> dict:
+    """Fetch a motivational quote from ZenQuotes API (free, no key)."""
+    import urllib.request, json
+    try:
+        req = urllib.request.Request("https://zenquotes.io/api/random", headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        if isinstance(data, list) and data:
+            return {"q": data[0].get("q", ""), "a": data[0].get("a", "")}
+    except Exception:
+        pass
+    return {"q": "Push yourself because no one else is going to do it for you.", "a": "Unknown"}
+
+
+def get_daily_trivia_challenge(category: str = "Science: Computers") -> dict:
+    """Fetch a trivia question from Open Trivia DB (free, no key)."""
+    import urllib.request, urllib.parse, json, html
+    category_map = {
+        "Science": "17", "Math": "19", "Computers": "18",
+        "History": "23", "Geography": "22", "General": "9"
+    }
+    cat_id = category_map.get(category, "18")
+    try:
+        url = f"https://opentdb.com/api.php?amount=1&category={cat_id}&difficulty=medium&type=multiple"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        results = data.get("results", [])
+        if results:
+            q = results[0]
+            return {
+                "question": html.unescape(q.get("question", "")),
+                "correct": html.unescape(q.get("correct_answer", "")),
+                "incorrect": [html.unescape(a) for a in q.get("incorrect_answers", [])],
+                "difficulty": q.get("difficulty", ""),
+                "category": q.get("category", ""),
+            }
+    except Exception:
+        pass
+    return {}
+
+
+def get_xp_number_fact(xp: int) -> str:
+    """Get a fun math fact about the XP number (NumbersAPI, free)."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(f"http://numbersapi.com/{xp}/math", headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            return r.read().decode()
+    except Exception:
+        return f"You have earned {xp:,} XP — keep going!"

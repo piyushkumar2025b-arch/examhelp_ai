@@ -5759,6 +5759,10 @@ elif app_mode == "editor":
 elif app_mode == "story":
     from ui.story_builder import render_story_builder
     render_story_builder()
+    st.markdown("---")
+    with st.expander("👤 Advanced Story Tools — Character Creator · Plot Twists · Story Expander · Exporter", expanded=False):
+        from story_addon import render_story_addon
+        render_story_addon()
 
 # ─────────────────────────────────────────────
 # CODE DEBUGGER MODE
@@ -6028,27 +6032,59 @@ elif app_mode == "debugger":
 # ─────────────────────────────────────────────
 elif app_mode == "circuit_solver":
     render_circuit_solver()
+    st.markdown("---")
+    with st.expander("🔬 Advanced Circuit Tools — Formula Bank · AI Image Analysis · Quiz", expanded=False):
+        from circuit_solver_addon import render_circuit_addon
+        render_circuit_addon()
 
 elif app_mode == "math_solver":
     render_math_solver()
+    st.markdown("---")
+    with st.expander("📈 Advanced Math Tools — Grapher · Matrix · Statistics · Number Theory", expanded=False):
+        from math_solver_addon import render_math_addon
+        render_math_addon()
 
 elif app_mode == "dictionary":
     render_dictionary()
+    st.markdown("---")
+    with st.expander("⭐ Enhanced Dictionary — Word of Day · Etymology · Vocab Quiz · Translate", expanded=False):
+        from dictionary_addon import render_dictionary_addon
+        render_dictionary_addon()
 
 elif app_mode == "stocks":
     render_stocks_dashboard()
+    st.markdown("---")
+    with st.expander("📈 Advanced Market Tools — Live Charts · Portfolio · Sentiment", expanded=False):
+        from stocks_addon import render_stocks_addon
+        render_stocks_addon()
 
 elif app_mode == "legal_expert":
     render_legal_expert()
+    st.markdown("---")
+    with st.expander("⚖️ Advanced Legal Tools — Contract Analyzer · Red Flags · Indian Law · Templates", expanded=False):
+        from legal_addon import render_legal_addon
+        render_legal_addon()
 
 elif app_mode == "medical_expert":
     render_medical_expert()
+    st.markdown("---")
+    with st.expander("🩺 Advanced Medical Tools — Symptom Checker · Drug Interactions · First Aid · BMI", expanded=False):
+        from medical_addon import render_medical_addon
+        render_medical_addon()
 
 elif app_mode == "research_pro":
     render_research_pro()
+    st.markdown("---")
+    with st.expander("🔍 Advanced Research — Multi-Source Search · Citations · Outline · Mind Map", expanded=False):
+        from research_addon import render_research_addon
+        render_research_addon()
 
 elif app_mode == "project_architect":
     render_project_architect()
+    st.markdown("---")
+    with st.expander("📅 Advanced Project Tools — Gantt Chart · Tech Stack · Risk Matrix · Cost Estimator", expanded=False):
+        from project_addon import render_project_addon
+        render_project_addon()
 
 # ─────────────────────────────────────────────
 # LEARN CODING MODE
@@ -7258,6 +7294,10 @@ elif app_mode == "calculator":
 elif app_mode == "study_insights":
     from study_insights_engine import render_study_insights_page
     render_study_insights_page()
+    st.markdown("---")
+    with st.expander("🧠 Advanced Study Tools — Spaced Repetition · Gap Analyzer · Performance Predictor", expanded=False):
+        from wellness_addon import render_insights_addon
+        render_insights_addon()
 
     if st.button("💬 Back to Chat", key="calc_back_main"):
         st.session_state.app_mode = "chat"
@@ -7278,17 +7318,29 @@ elif app_mode == "context_focus":
 elif app_mode == "daily_briefing":
     from daily_briefing_engine import render_daily_briefing_page
     render_daily_briefing_page()
+    st.markdown("---")
+    with st.expander("🌤️ Enhanced Briefing — Live Weather · This Day in History", expanded=False):
+        from briefing_addon import render_briefing_addon
+        render_briefing_addon()
 
 
 # ─── POMODORO FOCUS TIMER ────────────────────────────────────────────────────
 elif app_mode == "pomodoro":
     from pomodoro_engine import render_pomodoro_page
     render_pomodoro_page()
+    st.markdown("---")
+    with st.expander("🎵 Enhanced Pomodoro — Ambient Sounds · Session Analytics", expanded=False):
+        from wellness_addon import render_pomodoro_addon
+        render_pomodoro_addon()
 
 # ─── STUDY STREAK & GAMIFICATION ─────────────────────────────────────────────
 elif app_mode == "study_streak":
     from study_streak_engine import render_streak_page
     render_streak_page()
+    st.markdown("---")
+    with st.expander("🏅 Enhanced Streak — XP Badges · Level System · Daily Challenges", expanded=False):
+        from wellness_addon import render_streak_addon
+        render_streak_addon()
 
 # ─── AI COMPANION ────────────────────────────────────────────────────────────────
 
@@ -7350,16 +7402,28 @@ elif app_mode == "study_wellness":
 elif app_mode == "games":
     from games_engine import render_games_page
     render_games_page()
+    st.markdown("---")
+    with st.expander("⌨️ New Games — Typing Speed · Memory Cards · Leaderboard", expanded=False):
+        from games_addon import render_games_addon
+        render_games_addon()
 
 # ─── BEST SOURCES GENERATOR ───────────────────────────────────────────────────
 elif app_mode == "sources":
     from sources_engine import render_sources_page
     render_sources_page()
+    st.markdown("---")
+    with st.expander("🔍 Enhanced Sources — Credibility Scorer · Citation Exporter · Trusted List", expanded=False):
+        from sources_addon import render_sources_addon
+        render_sources_addon()
 
 # ─── YOUTUBE VIDEO FINDER ─────────────────────────────────────────────────────
 elif app_mode == "youtube_finder":
     from utils.youtube_handler import render_youtube_finder
     render_youtube_finder()
+    st.markdown("---")
+    with st.expander("📝 Enhanced YouTube — Transcript + Summary · Playlist Analyzer · Study Plan", expanded=False):
+        from youtube_addon import render_youtube_addon
+        render_youtube_addon()
 
 # ─── CONTEST TRACKER (full page) ──────────────────────────────────────────────
 elif app_mode == "contest_page":
@@ -7370,6 +7434,10 @@ elif app_mode == "contest_page":
 elif app_mode == "dev_profile":
     from profile_engine import render_profile_page
     render_profile_page()
+    st.markdown("---")
+    with st.expander("🐙 Enhanced Profile — GitHub Stats · Skills Radar · Portfolio Generator", expanded=False):
+        from profile_addon import render_profile_addon
+        render_profile_addon()
 
 # ─────────────────────────────────────────────
 # SMART AI READER — PDF · Image · PPT · Video
@@ -7377,6 +7445,10 @@ elif app_mode == "dev_profile":
 elif app_mode == "smart_reader":
     from smart_reader_engine import render_smart_reader
     render_smart_reader()
+    st.markdown("---")
+    with st.expander("📦 Advanced Reader Tools — Bulk Batch · OCR Tables · Smart Search", expanded=False):
+        from smart_reader_addon import render_smart_reader_addon
+        render_smart_reader_addon()
 
 # ─────────────────────────────────────────────
 # MEDIA TOOLS — Photo Editor · PDF · QR Share
@@ -7384,6 +7456,10 @@ elif app_mode == "smart_reader":
 elif app_mode == "media_tools":
     from media_tools_engine import render_media_tools
     render_media_tools()
+    st.markdown("---")
+    with st.expander("📦 Advanced Media — Batch Converter · Metadata · Background Remover", expanded=False):
+        from media_tools_addon import render_media_tools_addon
+        render_media_tools_addon()
 
 # ─────────────────────────────────────────────
 # CARING ZONE — Aria AI Healing Companion
@@ -7391,6 +7467,10 @@ elif app_mode == "media_tools":
 elif app_mode == "caring_zone":
     from caring_zone_engine import render_caring_zone
     render_caring_zone()
+    st.markdown("---")
+    with st.expander("📊 Enhanced Caring Zone — Mood Tracker · AI Journal · Affirmations", expanded=False):
+        from caring_addon import render_caring_addon
+        render_caring_addon()
 
 else:
 

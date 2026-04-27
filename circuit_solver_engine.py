@@ -223,3 +223,64 @@ def get_solver_output_html(result: Dict) -> str:
             <div style="font-size:14px;color:rgba(255,255,255,0.82);">{sol.replace(chr(10),"<br>")}</div>
         </div>
     </div>"""
+
+
+# ── FREE API ADDITIONS ───────────────────────────────────────────────────────
+
+def lookup_component_wiki(component_name: str) -> dict:
+    """Look up component details from Wikipedia API (free, no key)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(component_name)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        return {
+            "title": data.get("title", ""),
+            "summary": data.get("extract", "")[:400],
+            "url": data.get("content_urls", {}).get("desktop", {}).get("page", "")
+        }
+    except Exception:
+        return {}
+
+
+def search_electronics_books(query: str) -> list:
+    """Search Open Library for electronics textbooks (free, no key)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://openlibrary.org/search.json?q={urllib.parse.quote(query + ' electronics')}&limit=5"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        return [
+            {"title": d.get("title", ""), "author": ", ".join(d.get("author_name", [])[:1]),
+             "year": d.get("first_publish_year", ""), "url": f"https://openlibrary.org{d.get('key','')}"}
+            for d in data.get("docs", [])[:5]
+        ]
+    except Exception:
+        return []
+
+
+def get_component_number_fact(value: float, unit: str = "") -> str:
+    """Get an interesting number fact for a component value (NumbersAPI, free)."""
+    import urllib.request
+    try:
+        n = int(value)
+        req = urllib.request.Request(f"http://numbersapi.com/{n}/math", headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            return r.read().decode()
+    except Exception:
+        return f"{value} {unit} — a standard component value."
+
+
+def fetch_electronics_news(tag: str = "electronics") -> list:
+    """Fetch latest electronics articles from DEV.to API (free, no key)."""
+    import urllib.request, json
+    try:
+        url = f"https://dev.to/api/articles?tag={tag}&per_page=5&top=1"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        return [{"title": a.get("title", ""), "url": a.get("url", ""), "reactions": a.get("positive_reactions_count", 0)} for a in data[:5]]
+    except Exception:
+        return []

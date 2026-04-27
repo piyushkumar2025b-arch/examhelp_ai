@@ -841,3 +841,62 @@ def render_media_tools():
     with tab2: _render_image_to_pdf()
     with tab3: _render_pdf_converter()
     with tab4: _render_file_qr_share()
+
+
+# ── FREE API ADDITIONS ───────────────────────────────────────────────────────
+
+def get_random_image_url(width: int = 800, height: int = 600, seed: int = None) -> str:
+    """Get a free placeholder image URL from Picsum Photos (free, no key)."""
+    if seed:
+        return f"https://picsum.photos/seed/{seed}/{width}/{height}"
+    return f"https://picsum.photos/{width}/{height}"
+
+
+def get_color_name(hex_color: str) -> dict:
+    """Get the name of a color from its hex code (TheColorAPI, free, no key)."""
+    import urllib.request, json
+    try:
+        clean = hex_color.lstrip("#")
+        req = urllib.request.Request(
+            f"https://www.thecolorapi.com/id?hex={clean}",
+            headers={"User-Agent": "ExamHelp/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        return {"name": data.get("name", {}).get("value", ""),
+                "hex": data.get("hex", {}).get("value", ""),
+                "rgb": data.get("rgb", {}).get("value", ""),
+                "hsl": data.get("hsl", {}).get("value", "")}
+    except Exception:
+        return {"name": hex_color, "hex": hex_color}
+
+
+def generate_qr_url(data: str, size: int = 200) -> str:
+    """Generate a QR code image URL using QR Server API (free, no key)."""
+    import urllib.parse
+    return f"https://api.qrserver.com/v1/create-qr-code/?size={size}x{size}&data={urllib.parse.quote(data)}"
+
+
+def get_image_color_palette(image_url: str) -> list:
+    """Extract dominant colors from an online image using ColorTag API (free)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://colortagit.com/api/extract?img={urllib.parse.quote(image_url)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        return data.get("colors", [])[:5]
+    except Exception:
+        return []
+
+
+def shorten_url(long_url: str) -> str:
+    """Shorten a URL using is.gd API (free, no key, for file share links)."""
+    import urllib.request, urllib.parse
+    try:
+        api_url = f"https://is.gd/create.php?format=simple&url={urllib.parse.quote(long_url)}"
+        req = urllib.request.Request(api_url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return r.read().decode().strip()
+    except Exception:
+        return long_url

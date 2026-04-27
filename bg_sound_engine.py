@@ -380,3 +380,50 @@ def render_bg_sounds_page():
                         st.session_state.bg_sound_id     = sound["id"]
                         st.session_state.bg_sound_volume = volume
                     st.rerun()
+
+
+# ── FREE API ADDITIONS ───────────────────────────────────────────────────────
+
+def get_radio_stations(tag: str = "ambient", limit: int = 5) -> list:
+    """Fetch online radio stations from Radio Browser API (free, no key)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://de1.api.radio-browser.info/json/stations/bytag/{urllib.parse.quote(tag)}?limit={limit}&order=votes&reverse=true"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        return [{"name": s.get("name", ""), "url": s.get("url_resolved", ""),
+                 "country": s.get("countrycode", ""), "votes": s.get("votes", 0),
+                 "codec": s.get("codec", "")} for s in data[:limit]]
+    except Exception:
+        return []
+
+
+def get_sound_recommendation(mood: str) -> list:
+    """Return curated sound IDs based on mood (local logic, zero API cost)."""
+    mood_map = {
+        "focus":    ["binaural_focus", "deep_focus", "white_noise", "library", "rain_light"],
+        "relax":    ["ocean_waves", "forest", "birds", "zen_garden", "river"],
+        "sleep":    ["sleep_rain", "delta_waves", "deep_sleep", "whale_song", "lullaby_soft"],
+        "energy":   ["cafe_busy", "city_traffic", "lofi_chill", "chillhop", "jazz_cafe"],
+        "study":    ["library", "cafe", "brown_noise", "piano_soft", "rain_window"],
+        "creative": ["lofi_rain", "ambient_synth", "guitar_ambient", "space_ambient", "jazz_cafe"],
+    }
+    key = mood.lower().strip()
+    for k, v in mood_map.items():
+        if k in key:
+            return v
+    return mood_map["study"]
+
+
+def get_music_fact(genre: str = "ambient") -> str:
+    """Fetch a Wikipedia summary about a music genre (free, no key)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(genre + ' music')}"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        return data.get("extract", "")[:300]
+    except Exception:
+        return f"{genre.title()} music is great for focus and study sessions."

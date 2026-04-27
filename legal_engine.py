@@ -238,3 +238,54 @@ Check:
             max_tokens=1500,
         )
         return (result or "Checklist unavailable.") + DISCLAIMER
+
+
+# ── FREE API ADDITIONS ───────────────────────────────────────────────────────
+
+def lookup_law_wiki(law_name: str) -> dict:
+    """Fetch a legal concept summary from Wikipedia (free, no key)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(law_name)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        return {"title": data.get("title", ""), "summary": data.get("extract", "")[:500],
+                "url": data.get("content_urls", {}).get("desktop", {}).get("page", "")}
+    except Exception:
+        return {}
+
+
+def search_legal_books(topic: str) -> list:
+    """Search Open Library for legal textbooks (free, no key)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://openlibrary.org/search.json?q={urllib.parse.quote(topic + ' law')}&limit=5"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as r:
+            data = json.loads(r.read().decode())
+        return [{"title": d.get("title", ""), "author": ", ".join(d.get("author_name", [])[:1]),
+                 "year": d.get("first_publish_year", ""), "url": f"https://openlibrary.org{d.get('key','')}"}
+                for d in data.get("docs", [])[:5]]
+    except Exception:
+        return []
+
+
+def get_country_legal_info(country_name: str) -> dict:
+    """Get country info including legal system from REST Countries API (free, no key)."""
+    import urllib.request, urllib.parse, json
+    try:
+        url = f"https://restcountries.com/v3.1/name/{urllib.parse.quote(country_name)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read().decode())
+        if isinstance(data, list) and data:
+            c = data[0]
+            return {"name": c.get("name", {}).get("common", country_name),
+                    "capital": c.get("capital", [""])[0],
+                    "region": c.get("region", ""),
+                    "currencies": list(c.get("currencies", {}).keys()),
+                    "languages": list(c.get("languages", {}).values())}
+    except Exception:
+        pass
+    return {}
