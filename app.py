@@ -4672,6 +4672,36 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
+        # ── AI Image Generator ──────────────────────────────────────
+        st.markdown("""
+        <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(139,92,246,0.18),rgba(6,182,212,0.08));
+            border:1px solid rgba(139,92,246,0.4);border-radius:14px;padding:3px 4px;
+            box-shadow:0 0 20px rgba(139,92,246,0.1);">
+        """, unsafe_allow_html=True)
+        if st.button("🖼️ AI Image Generator — Create Any Image", use_container_width=True,
+                     key="side_image_gen", type="primary"):
+            st.session_state.app_mode = "image_generator"; st.rerun()
+        st.markdown("""
+        <div style="font-size:0.68rem;color:rgba(167,139,250,0.7);text-align:center;letter-spacing:1px;
+            font-family:'Space Mono',monospace;padding:2px 6px 6px;">FREE · 12 STYLES · BATCH · DOWNLOAD</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Universal File Viewer ──────────────────────────────────────
+        st.markdown("""
+        <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(239,68,68,0.08));
+            border:1px solid rgba(245,158,11,0.3);border-radius:14px;padding:3px 4px;">
+        """, unsafe_allow_html=True)
+        if st.button("📂 Universal File Viewer — Open Any File", use_container_width=True,
+                     key="side_file_viewer_main", type="primary"):
+            st.session_state.app_mode = "file_viewer"; st.rerun()
+        st.markdown("""
+        <div style="font-size:0.68rem;color:rgba(245,158,11,0.7);text-align:center;letter-spacing:1px;
+            font-family:'Space Mono',monospace;padding:2px 6px 6px;">IMAGES · PDF · PPT · DOCX · CODE</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
         # ── Exam Countdown Widget ────────────────────────────
         st.markdown('<div class="section-label">🎯 Exam Countdown</div>', unsafe_allow_html=True)
         exam_d = st.date_input(
@@ -5289,6 +5319,7 @@ with st.sidebar:
             ("⚡", "API Explorer",         "Test all 72 free APIs interactively",      "api_explorer"),
             ("🎓", "Knowledge Hub",        "arXiv · PubMed · Books · Stack Overflow",  "knowledge_hub"),
             ("🌿", "Study Wellness",       "Breaks · Affirmations · Concept of Day",   "study_wellness"),
+            ("🖼️", "AI Image Generator",   "Create any image — 12 styles · batch · free", "image_generator"),
         ]
         for icon, name, desc, mode in _power_tools:
             col_icon, col_info, col_btn = st.columns([1, 4, 2])
@@ -7484,6 +7515,13 @@ elif app_mode == "caring_zone":
     with st.expander("📊 Enhanced Caring Zone — Mood Tracker · AI Journal · Affirmations", expanded=False):
         from caring_addon import render_caring_addon
         render_caring_addon()
+
+# ─────────────────────────────────────────────
+# 🎨 AI IMAGE GENERATOR — Create Any Image
+# ─────────────────────────────────────────────
+elif app_mode == "image_generator":
+    from image_generator_addon import render_image_generator
+    render_image_generator()
 
 else:
 

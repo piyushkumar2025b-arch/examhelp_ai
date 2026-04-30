@@ -1,0 +1,4 @@
+5301: ("📂", "File Viewer",          "Open & view any file — images, PDF, code, CSV, video", "file_viewer"),
+7382: elif app_mode == "file_viewer":
+7383: from file_viewer_addon import render_file_viewer_page
+7384: render_file_viewer_page()

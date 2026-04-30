@@ -1,0 +1,200 @@
+4601:                 </div>''', unsafe_allow_html=True)
+4602:         except Exception:
+4603:             pass
+4604: 
+4605:         # ── Daily Briefing button ───
+4606:         if st.button("🌅 Daily AI Briefing", use_container_width=True, key="side_briefing"):
+4607:             st.session_state.app_mode = "daily_briefing"; st.rerun()
+4608: 
+4609:         st.divider()
+4610: 
+4611:         # ── New Features Panel ─────────────────────────────────
+4612:         st.markdown('<div class="section-label">🚀 New Features</div>', unsafe_allow_html=True)
+4613:         nf1, nf2 = st.columns(2)
+4614:         with nf1:
+4615:             if st.button("🎮 Games", use_container_width=True, key="side_games"):
+4616:                 st.session_state.app_mode = "games"; st.rerun()
+4617:             if st.button("🗣️ Contests", use_container_width=True, key="side_contests"):
+4618:                 st.session_state.app_mode = "contest_page"; st.rerun()
+4619:             if st.button("🔎 Sources", use_container_width=True, key="side_sources"):
+4620:                 st.session_state.app_mode = "sources"; st.rerun()
+4621:             if st.button("🛒 Products", use_container_width=True, key="side_shopping"):
+4622:                 st.session_state.app_mode = "shopping"; st.rerun()
+4623:         with nf2:
+4624:             if st.button("📽️ Maps", use_container_width=True, key="side_maps"):
+4625:                 st.session_state.app_mode = "maps_panel"; st.rerun()
+4626:             if st.button("💺 YouTube", use_container_width=True, key="side_yt"):
+4627:                 st.session_state.app_mode = "youtube_finder"; st.rerun()
+4628:             if st.button("👤 Profile", use_container_width=True, key="side_profile"):
+4629:                 st.session_state.app_mode = "dev_profile"; st.rerun()
+4630:             if st.button("📖 Story", use_container_width=True, key="side_story_new"):
+4631:                 st.session_state.app_mode = "story"; st.rerun()
+4632: 
+4633:         # ── Smart Reader ─────────────────────────────────────────────────
+4634:         st.markdown("""
+4635:         <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(6,182,212,0.08));
+4636:             border:1px solid rgba(99,102,241,0.3);border-radius:14px;padding:3px 4px;">
+4637:         """, unsafe_allow_html=True)
+4638:         if st.button("🔬 Smart Reader — PDF · IMG · PPT · Video", use_container_width=True,
+4639:                      key="side_smart_reader", type="primary"):
+4640:             st.session_state.app_mode = "smart_reader"; st.rerun()
+4641:         st.markdown("""
+4642:         <div style="font-size:0.68rem;color:rgba(99,102,241,0.6);text-align:center;letter-spacing:1px;
+4643:             font-family:'Space Mono',monospace;padding:2px 6px 6px;">40+ AI FUNCTIONS</div>
+4644:         </div>
+4645:         """, unsafe_allow_html=True)
+4646: 
+4647:         # ── Caring Zone ────────────────────────────────────────────
+4648:         st.markdown("""
+4649:         <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(244,114,182,0.12),rgba(139,92,246,0.08));
+4650:             border:1px solid rgba(244,114,182,0.25);border-radius:14px;padding:3px 4px;">
+4651:         """, unsafe_allow_html=True)
+4652:         if st.button("💚 Caring Zone — Talk to Aria 🌸", use_container_width=True, key="side_caring_zone",
+4653:                      type="primary"):
+4654:             st.session_state.app_mode = "caring_zone"; st.rerun()
+4655:         st.markdown("""
+4656:         <div style="font-size:0.68rem;color:rgba(244,114,182,0.6);text-align:center;letter-spacing:1px;
+4657:             font-family:'Space Mono',monospace;padding:2px 6px 6px;">YOUR SAFE HEALING SPACE</div>
+4658:         </div>
+4659:         """, unsafe_allow_html=True)
+4660: 
+4661:         # ── Media Tools Suite ───────────────────────────────────────
+4662:         st.markdown("""
+4663:         <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(99,102,241,0.08));
+4664:             border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:3px 4px;">
+4665:         """, unsafe_allow_html=True)
+4666:         if st.button("🎨 Media Tools — Photo · PDF · QR Share", use_container_width=True,
+4667:                      key="side_media_tools", type="primary"):
+4668:             st.session_state.app_mode = "media_tools"; st.rerun()
+4669:         st.markdown("""
+4670:         <div style="font-size:0.68rem;color:rgba(16,185,129,0.6);text-align:center;letter-spacing:1px;
+4671:             font-family:'Space Mono',monospace;padding:2px 6px 6px;">EDIT · CONVERT · SHARE</div>
+4672:         </div>
+4673:         """, unsafe_allow_html=True)
+4674: 
+4675:         # ── AI Image Generator ──────────────────────────────────────
+4676:         st.markdown("""
+4677:         <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(139,92,246,0.18),rgba(6,182,212,0.08));
+4678:             border:1px solid rgba(139,92,246,0.4);border-radius:14px;padding:3px 4px;
+4679:             box-shadow:0 0 20px rgba(139,92,246,0.1);">
+4680:         """, unsafe_allow_html=True)
+4681:         if st.button("🖼️ AI Image Generator — Create Any Image", use_container_width=True,
+4682:                      key="side_image_gen", type="primary"):
+4683:             st.session_state.app_mode = "image_generator"; st.rerun()
+4684:         st.markdown("""
+4685:         <div style="font-size:0.68rem;color:rgba(167,139,250,0.7);text-align:center;letter-spacing:1px;
+4686:             font-family:'Space Mono',monospace;padding:2px 6px 6px;">FREE · 12 STYLES · BATCH · DOWNLOAD</div>
+4687:         </div>
+4688:         """, unsafe_allow_html=True)
+4689: 
+4690:         # ── Exam Countdown Widget ────────────────────────────
+4691:         st.markdown('<div class="section-label">🎯 Exam Countdown</div>', unsafe_allow_html=True)
+4692:         exam_d = st.date_input(
+4693:             "Exam Date",
+4694:             value=st.session_state.get("exam_date", datetime.date.today() + datetime.timedelta(days=30)),
+4695:             min_value=datetime.date.today(),
+4696:             label_visibility="collapsed",
+4697:             key="sidebar_exam_date",
+4698:         )
+4699:         st.session_state.exam_date = exam_d
+4700:         try:
+4701:             days_left = (exam_d - datetime.date.today()).days
+4702:             bar_pct   = max(0, min(100, int((1 - days_left / 30) * 100)))
+4703:             if days_left <= 7:   clr = "#ef4444"
+4704:             elif days_left <= 14: clr = "#f97316"
+4705:             else:                 clr = "#10b981"
+4706:             st.markdown(f'''
+4707:             <div style="margin:-4px 0 8px;">
+4708:               <div style="display:flex;justify-content:space-between;
+4709:                 font-family:'Space Mono',monospace;font-size:9px;
+4710:                 color:rgba(255,255,255,0.3);letter-spacing:1px;margin-bottom:5px;">
+4711:                 <span>🎯 Exam day</span>
+4712:                 <span style="color:{clr};font-weight:700;">{days_left}d left</span>
+4713:               </div>
+4714:               <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:100px;overflow:hidden;">
+4715:                 <div style="width:{bar_pct}%;height:100%;border-radius:100px;
+4716:                   background:linear-gradient(90deg,{clr},{clr}88);
+4717:                   transition:width 0.6s ease;"></div>
+4718:               </div>
+4719:             </div>''', unsafe_allow_html=True)
+4720:         except Exception:
+4721:             pass
+4722: 
+4723:         st.divider()
+4724: 
+4725:         with st.expander("⚠️ Advanced"):
+4726:             if st.button("🔄 Emergency Reset", use_container_width=True):
+4727:                 if st.session_state.get("_confirm_reset", False):
+4728:                     keys_to_keep = [k for k in st.session_state if "key" in k.lower()]
+4729:                     for k in list(st.session_state.keys()):
+4730:                         if k not in keys_to_keep:
+4731:                             del st.session_state[k]
+4732:                     st.success("Session reset!")
+4733:                     st.rerun()
+4734:                 else:
+4735:                     st.session_state["_confirm_reset"] = True
+4736:                     st.warning("Click again to confirm reset.")
+4737:             
+4738:             st.markdown('<div style="font-family:monospace; font-size:0.65rem; color:#00ff00; background:#000; padding:10px; border-radius:5px; border:1px solid #004400;"><b>NEURAL_LOG_v5.0.3</b><br>> Booting OmniEngine... OK<br>> Verifying 70B Quantization... OK<br>> Persona Latency: 42ms<br>> Neural Link Active.</div>', unsafe_allow_html=True)
+4739:         
+4740:         st.divider()
+4741: 
+4742:     # ── Toolbar icons ──────────────────────────────
+4743:     tb_cols = st.columns(8)
+4744:     _tb_items = [
+4745:         ("📅", "tb_cal", "Calendar",    "calendar_open"),
+4746:         ("🧮", "tb_calc", "Calculator", None),
+4747:         ("📈", "tb_graph", "Graphs",    None),
+4748:         ("📝", "tb_editor", "AI Editor", None),
+4749:         ("✍️", "tb_story", "Story Builder", None),
+4750:         ("🔕" if st.session_state.focus_mode else "🔔", "tb_focus", "Focus Mode", None),
+4751:         ("🔖", "tb_bm",  "Bookmarks",   "bookmarks_open"),
+4752:         ("📜", "tb_hist", "History",    None),
+4753:     ]
+4754:     for col, (icon, k, tip, toggle_key) in zip(tb_cols, _tb_items):
+4755:         with col:
+4756:             if st.button(icon, key=k, help=tip, use_container_width=True):
+4757:                 if k == "tb_calc":
+4758:                     st.session_state.calculator_open = not st.session_state.calculator_open
+4759:                 elif k == "tb_graph":
+4760:                     st.session_state.app_mode = "graph"; st.rerun()
+4761:                 elif k == "tb_editor":
+4762:                     st.session_state.app_mode = "editor"; st.rerun()
+4763:                 elif k == "tb_story":
+4764:                     st.session_state.app_mode = "story"; st.rerun()
+4765:                 elif k == "tb_focus":
+4766:                     st.session_state.focus_mode = not st.session_state.focus_mode; st.rerun()
+4767:                 elif k == "tb_hist":
+4768:                     st.session_state.chat_history_open = not st.session_state.chat_history_open
+4769:                 elif toggle_key:
+4770:                     st.session_state[toggle_key] = not st.session_state.get(toggle_key, False)
+4771:                 st.rerun()
+4772: 
+4773:     # ── Calendar popup ─────────────────────────────
+4774:     if st.session_state.get("calendar_open"):
+4775:         st.markdown('<div class="section-label">📅 Calendar</div>', unsafe_allow_html=True)
+4776:         cal_date = st.date_input("Date", value=datetime.date.today(), label_visibility="collapsed", key="cal_pick")
+4777:         cal_note = st.text_input("Event", placeholder="Physics exam Ch.5…", label_visibility="collapsed", key="cal_note")
+4778:         if st.button("➕ Save Event", use_container_width=True, key="cal_save") and cal_note:
+4779:             dkey = cal_date.isoformat()
+4780:             if dkey not in st.session_state.calendar_events:
+4781:                 st.session_state.calendar_events[dkey] = []
+4782:             st.session_state.calendar_events[dkey].append(cal_note)
+4783:             st.success(f"Saved: {cal_note}")
+4784:         if st.session_state.calendar_events:
+4785:             st.markdown("**Upcoming:**")
+4786:             for d, events in sorted(st.session_state.calendar_events.items())[-4:]:
+4787:                 for ev in events:
+4788:                     st.markdown(f"📌 `{d}` — {ev}")
+4789: 
+4790:     # ── Calculator popup ───────────────────────────
+4791:     if st.session_state.calculator_open:
+4792:         st.markdown('<div class="section-label">🧮 Calculator</div>', unsafe_allow_html=True)
+4793:         if "calc_expr" not in st.session_state: st.session_state.calc_expr = ""
+4794:         if "calc_result" not in st.session_state: st.session_state.calc_result = ""
+4795:         expr_disp = st.session_state.calc_expr or "0"
+4796:         st.markdown(
+4797:             f'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;'
+4798:             f'padding:12px 16px;font-family:var(--mono);font-size:1.2rem;color:var(--text);'
+4799:             f'min-height:52px;text-align:right;margin-bottom:.5rem;">{expr_disp}</div>',
+4800:             unsafe_allow_html=True)

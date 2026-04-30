@@ -56,7 +56,7 @@ VIEWER_CSS = """
 """
 
 # ── Supported types ────────────────────────────────────────────────────────────
-IMAGE_TYPES   = ["png","jpg","jpeg","gif","bmp","webp","svg","ico","tiff"]
+IMAGE_TYPES   = ["png","jpg","jpeg","gif","bmp","webp","svg","ico","tiff","heic","psd","ai"]
 TEXT_TYPES    = ["txt","md","py","js","ts","css","html","xml","yaml","yml",
                  "toml","ini","cfg","env","sh","bat","sql","log","rst","tex"]
 CODE_LANG_MAP = {
@@ -73,8 +73,12 @@ AUDIO_TYPES   = ["mp3","wav","ogg","flac","m4a"]
 VIDEO_TYPES   = ["mp4","webm","ogv","mov"]
 EXCEL_TYPES   = ["xlsx","xls"]
 DOCX_TYPES    = ["docx","doc"]
+PPT_TYPES     = ["pptx","ppt"]
+ZIP_TYPES     = ["zip","rar","7z","tar","gz"]
+SYSTEM_TYPES  = ["exe","dll","iso","dmg","app"]
+
 ALL_SUPPORTED = IMAGE_TYPES + TEXT_TYPES + CSV_TYPES + JSON_TYPES + \
-                PDF_TYPES + AUDIO_TYPES + VIDEO_TYPES + EXCEL_TYPES + DOCX_TYPES
+                PDF_TYPES + AUDIO_TYPES + VIDEO_TYPES + EXCEL_TYPES + DOCX_TYPES + PPT_TYPES + ZIP_TYPES + SYSTEM_TYPES
 
 
 def _fmt_size(n: int) -> str:
@@ -85,7 +89,43 @@ def _fmt_size(n: int) -> str:
 
 
 def _render_image(file):
-    st.image(file, use_container_width=True)
+    from PIL import Image
+    ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else ""
+    
+    # Special native rendering for SVGs to keep them sharp
+    if ext == "svg":
+        try:
+            svg_content = file.read().decode('utf-8')
+            st.markdown(f'<div style="text-align:center; background:#fff; padding:20px; border-radius:12px;">{svg_content}</div>', unsafe_allow_html=True)
+            return
+        except Exception:
+            file.seek(0)
+            
+    try:
+        img = Image.open(file)
+        
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            st.markdown("### 🖼️ View Controls")
+            rot = st.slider("Rotate (Degrees)", -180, 180, 0, 90, key="fv_img_rot")
+            if rot != 0:
+                img = img.rotate(-rot, expand=True)
+                
+            w_percent = st.slider("Scale %", 10, 200, 100, 10, key="fv_img_scale")
+            if w_percent != 100:
+                new_w = int(img.width * (w_percent / 100))
+                new_h = int(img.height * (w_percent / 100))
+                img = img.resize((new_w, new_h))
+                
+            st.caption(f"Dimensions: {img.width}x{img.height}")
+            
+        with col1:
+            st.image(img, use_container_width=True)
+    except Exception as e:
+        # If pillow can't handle it (like PSD, HEIC without plugin, or AI), fall back to raw viewing
+        st.warning(f"Could not render image natively. Falling back to Raw Viewer.")
+        file.seek(0)
+        _render_hex_fallback(file)
 
 
 def _render_text(file, ext: str):
@@ -207,6 +247,112 @@ def _render_docx(file):
         st.error(f"DOCX error: {e}")
 
 
+def _render_ppt(file):
+    try:
+        from pptx import Presentation
+        import io
+        prs = Presentation(io.BytesIO(file.read()))
+        st.markdown(f"**Total Slides:** {len(prs.slides)}")
+        
+        slide_texts = []
+        for i, slide in enumerate(prs.slides):
+            text_runs = []
+            for shape in slide.shapes:
+                if not shape.has_text_frame:
+                    continue
+                for paragraph in shape.text_frame.paragraphs:
+                    for run in paragraph.runs:
+                        text_runs.append(run.text)
+            slide_texts.append((i+1, " ".join(text_runs)))
+            
+        for idx, text in slide_texts:
+            with st.expander(f"Slide {idx}"):
+                if text.strip():
+                    st.write(text)
+                else:
+                    st.caption("No text found on this slide.")
+                    
+        st.download_button("⬇️ Download PPT", file.getvalue() if hasattr(file, 'getvalue') else b"",
+                           file_name=file.name, use_container_width=True, key="fv_dl_ppt")
+    except ImportError:
+        st.error("Install python-pptx: `pip install python-pptx`")
+    except Exception as e:
+        st.error(f"PPT Error: {e}")
+
+
+def _render_zip(file):
+    import zipfile
+    ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else ""
+    if ext != "zip":
+        st.warning(f"Native archive explorer only supports .zip. Falling back to Raw Viewer for .{ext}.")
+        file.seek(0)
+        _render_hex_fallback(file)
+        return
+
+    try:
+        with zipfile.ZipFile(file, 'r') as z:
+            info_list = z.infolist()
+            st.markdown(f"**Archive contains {len(info_list):,} items:**")
+            
+            data = []
+            for info in info_list[:200]:
+                data.append({
+                    "Name": info.filename, 
+                    "Size": _fmt_size(info.file_size), 
+                    "Compressed": _fmt_size(info.compress_size)
+                })
+                
+            st.dataframe(data, use_container_width=True)
+            if len(info_list) > 200:
+                st.caption(f"Showing first 200 items of {len(info_list):,} total.")
+                
+        st.download_button("⬇️ Download Original ZIP", file.getvalue() if hasattr(file, 'getvalue') else b"",
+                           file_name=file.name, use_container_width=True, key="fv_dl_zip")
+    except Exception as e:
+        st.error(f"ZIP parsing error: {e}")
+
+
+def _render_hex_fallback(file):
+    """Fallback viewer: shows raw hex and ascii representation for unknown binary/text formats."""
+    try:
+        raw_bytes = file.read()
+        st.warning(f"⚠️ Native viewer not available for this extension. Showing raw file contents ({_fmt_size(len(raw_bytes))}).")
+        
+        # Try to decode as text first
+        try:
+            text_content = raw_bytes.decode('utf-8')
+            st.markdown("**Detected as Text:**")
+            st.text_area("File Content", text_content[:50000], height=400, disabled=True)
+            if len(text_content) > 50000:
+                st.caption("Showing first 50,000 characters.")
+        except UnicodeDecodeError:
+            # If not text, show hex dump
+            st.markdown("**Detected as Binary (Hex Dump):**")
+            
+            # Create hex dump for first 2KB to avoid browser freeze
+            display_bytes = raw_bytes[:2048]
+            
+            hex_lines = []
+            for i in range(0, len(display_bytes), 16):
+                chunk = display_bytes[i:i+16]
+                hex_part = " ".join(f"{b:02x}" for b in chunk)
+                # Pad hex part to 48 chars (16 bytes * 3 - 1)
+                hex_part = hex_part.ljust(47)
+                
+                ascii_part = "".join(chr(b) if 32 <= b <= 126 else "." for b in chunk)
+                hex_lines.append(f"{i:08x}  {hex_part}  |{ascii_part}|")
+                
+            hex_dump = "\n".join(hex_lines)
+            st.code(hex_dump, language="text")
+            
+            if len(raw_bytes) > 2048:
+                st.caption(f"Showing first 2 KB of {len(raw_bytes):,} bytes.")
+
+        st.download_button("⬇️ Download Original File", raw_bytes,
+                           file_name=file.name, use_container_width=True, key="fv_dl_fallback")
+    except Exception as e:
+        st.error(f"Fallback view error: {e}")
+
 # ── Main page ─────────────────────────────────────────────────────────────────
 def render_file_viewer_page():
     """Main File Viewer page — no AI, pure file rendering."""
@@ -228,17 +374,17 @@ def render_file_viewer_page():
         ("📊 CSV/TSV", CSV_TYPES), ("🔧 JSON", JSON_TYPES),
         ("📕 PDF", PDF_TYPES), ("🎵 Audio", AUDIO_TYPES),
         ("🎬 Video", VIDEO_TYPES), ("📊 Excel", EXCEL_TYPES),
-        ("📝 Word", DOCX_TYPES),
+        ("📝 Word", DOCX_TYPES), ("📊 Powerpoint", PPT_TYPES),
+        ("🗜️ Archive", ZIP_TYPES), ("⚙️ System", SYSTEM_TYPES),
     ]:
         badges += f'<span class="fv-badge">{label}</span>'
     st.markdown(badges, unsafe_allow_html=True)
     st.markdown("")
 
-    # File uploader — accept all listed types
-    all_ext = [f".{e}" for e in ALL_SUPPORTED]
+    # File uploader — accept ANY type
     uploaded = st.file_uploader(
         "Choose any file to view",
-        type=ALL_SUPPORTED,
+        type=None,  # Accept everything
         key="fv_uploader",
         label_visibility="collapsed",
         help="Drag & drop or click to browse. Max 200 MB."
@@ -307,10 +453,14 @@ def render_file_viewer_page():
     elif ext in DOCX_TYPES:
         _render_docx(uploaded)
 
+    elif ext in PPT_TYPES:
+        _render_ppt(uploaded)
+
+    elif ext in ZIP_TYPES:
+        _render_zip(uploaded)
+
     else:
-        st.warning(f"⚠️ `.{ext}` is not directly previewable. Downloading instead.")
-        st.download_button("⬇️ Download File", uploaded.getvalue(),
-                           file_name=uploaded.name, use_container_width=True, key="fv_dl_fallback")
+        _render_hex_fallback(uploaded)
 
     # ── Footer ─────────────────────────────────────────────────────────────────
     st.markdown("---")
