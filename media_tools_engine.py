@@ -661,22 +661,23 @@ MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 def _upload_fileio(file_bytes: bytes, filename: str, expiry: str = "14d") -> dict:
     """Upload file to file.io and return response dict."""
-    import urllib.request, urllib.parse
-    boundary = f"----FormBoundary{random.randint(100000,999999)}"
-    body_parts = []
-    body_parts.append(f"--{boundary}\r\n".encode())
-    body_parts.append(f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode())
-    body_parts.append(b"Content-Type: application/octet-stream\r\n\r\n")
-    body_parts.append(file_bytes)
-    body_parts.append(f"\r\n--{boundary}--\r\n".encode())
-    body = b"".join(body_parts)
-    url = f"https://file.io/?expires={expiry}&autoDelete=true"
-    req = urllib.request.Request(url, data=body,
-          headers={"Content-Type": f"multipart/form-data; boundary={boundary}",
-                   "User-Agent": "ExamHelp/1.0"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            return json.loads(resp.read().decode())
+        import requests as _req
+        resp = _req.post(
+            "https://file.io",
+            files={"file": (filename, file_bytes, "application/octet-stream")},
+            data={"expires": expiry, "autoDelete": "true"},
+            timeout=60,
+            headers={"User-Agent": "ExamHelp/1.0"},
+        )
+        # file.io returns JSON; guard against empty/HTML responses
+        text = resp.text.strip()
+        if not text:
+            return {"success": False, "error": "Empty response from server. Check your internet connection."}
+        try:
+            return resp.json()
+        except Exception:
+            return {"success": False, "error": f"Unexpected server response (HTTP {resp.status_code}). Try again later."}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
