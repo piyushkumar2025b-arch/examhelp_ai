@@ -5038,6 +5038,20 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
+        # ── YouTube Music Player ──────────────────────────────────────
+        st.markdown("""
+        <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(255,0,0,0.18),rgba(139,92,246,0.08));
+            border:1px solid rgba(255,0,0,0.35);border-radius:14px;padding:3px 4px;
+            box-shadow:0 0 20px rgba(255,0,0,0.08);">
+        """, unsafe_allow_html=True)
+        if st.button("🎧 YouTube Music Player — Play Any Song", use_container_width=True,
+                     key="side_yt_player", type="primary"):
+            st.session_state.app_mode = "youtube_player"; st.rerun()
+        st.markdown("""
+        <div style="font-size:0.68rem;color:rgba(255,100,100,0.7);text-align:center;letter-spacing:1px;
+            font-family:'Space Mono',monospace;padding:2px 6px 6px;">SEARCH · QUEUE · TRENDING · FREE</div>
+        </div>
+        """, unsafe_allow_html=True)
 
         # ── Exam Countdown Widget ────────────────────────────
         st.markdown('<div class="section-label">🎯 Exam Countdown</div>', unsafe_allow_html=True)
@@ -5659,6 +5673,7 @@ with st.sidebar:
             ("🖼️", "AI Image Generator",   "Create any image — 12 styles · batch · free", "image_generator"),
             ("🔍", "Web Search",           "Free Google-style search — DuckDuckGo + Wikipedia", "web_search"),
             ("📸", "Image Search",         "Browse & download free photos — Pixabay · Unsplash", "image_search_free"),
+            ("🎧", "YouTube Player",       "Search & play any YouTube song or video — free, no login", "youtube_player"),
         ]
         for icon, name, desc, mode in _power_tools:
             col_icon, col_info, col_btn = st.columns([1, 4, 2])
@@ -7731,6 +7746,12 @@ elif app_mode == "doc_analyser":
 elif app_mode == "music_player":
     from music_player_addon import render_music_player_page
     render_music_player_page()
+
+# ─── 🎧 YOUTUBE MUSIC PLAYER ─────────────────────────────────────────────────
+elif app_mode == "youtube_player":
+    from youtube_player_addon import render_youtube_player
+    render_youtube_player()
+
 
 # ─── UNIVERSAL FILE VIEWER ────────────────────────────────────────────────────
 elif app_mode == "file_viewer":
