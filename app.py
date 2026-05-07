@@ -5053,6 +5053,21 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
+        # ── Share & QR Center ──────────────────────────────────────
+        st.markdown("""
+        <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(16,185,129,0.08));
+            border:1px solid rgba(99,102,241,0.35);border-radius:14px;padding:3px 4px;
+            box-shadow:0 0 20px rgba(99,102,241,0.08);">
+        """, unsafe_allow_html=True)
+        if st.button("📤 Share & QR Center — Share Anything", use_container_width=True,
+                     key="side_share_center", type="primary"):
+            st.session_state.app_mode = "share_center"; st.rerun()
+        st.markdown("""
+        <div style="font-size:0.68rem;color:rgba(99,102,241,0.7);text-align:center;letter-spacing:1px;
+            font-family:'Space Mono',monospace;padding:2px 6px 6px;">TEXT · IMAGE · QR · CHAT · URL</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         # ── Exam Countdown Widget ────────────────────────────
         st.markdown('<div class="section-label">🎯 Exam Countdown</div>', unsafe_allow_html=True)
         exam_d = st.date_input(
@@ -5674,6 +5689,7 @@ with st.sidebar:
             ("🔍", "Web Search",           "Free Google-style search — DuckDuckGo + Wikipedia", "web_search"),
             ("📸", "Image Search",         "Browse & download free photos — Pixabay · Unsplash", "image_search_free"),
             ("🎧", "YouTube Player",       "Search & play any YouTube song or video — free, no login", "youtube_player"),
+            ("📤", "Share & QR Center",    "Upload · Shorten · QR · Share text, image, chat, URL", "share_center"),
         ]
         for icon, name, desc, mode in _power_tools:
             col_icon, col_info, col_btn = st.columns([1, 4, 2])
@@ -7751,6 +7767,11 @@ elif app_mode == "music_player":
 elif app_mode == "youtube_player":
     from youtube_player_addon import render_youtube_player
     render_youtube_player()
+
+# ─── 📤 SHARE & QR CENTER ────────────────────────────────────────────────────
+elif app_mode == "share_center":
+    from share_addon import render_share_center
+    render_share_center()
 
 
 # ─── UNIVERSAL FILE VIEWER ────────────────────────────────────────────────────
