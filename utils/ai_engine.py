@@ -18,8 +18,6 @@ All providers use OpenAI-compatible /v1/chat/completions EXCEPT:
 Vision (image input) is supported for:
   gemini, openai, anthropic, nvidia, replicate
 """
-# Providers that support vision/image input
-_VISION_CAPABLE_PROVIDERS = {"gemini", "openai", "anthropic", "nvidia", "replicate", "openrouter", "together"}
 
 from __future__ import annotations
 
@@ -366,13 +364,6 @@ def _route_call(
     image_mime: str = "image/jpeg",
 ) -> str:
     """Route the call to the correct provider backend."""
-
-    # ── Vision guard: strip image if provider doesn't support it ─────────────
-    if image_data and provider not in _VISION_CAPABLE_PROVIDERS:
-        raise RuntimeError(
-            f"Vision AI is not supported by your current provider ({provider}). "
-            f"Please switch to Gemini, OpenAI, Anthropic, or another vision-capable provider in Settings."
-        )
 
     # ── Gemini ───────────────────────────────────────────────────────────────
     if provider == "gemini":
