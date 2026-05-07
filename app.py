@@ -1740,29 +1740,7 @@ if not st.session_state["passcode_verified"]:
     <!-- ══════════ RIVER / BOAT SCENE ══════════ -->
     <div style="width:100%;max-width:960px;margin:0 auto 56px;padding:0 20px;position:relative;z-index:10;">
       <div class="river-scene">
-        <div class="river-scene-title">◈ THE RIVER OF KNOWLEDGE ◈</div>
-
-        <!-- Speech bubbles -->
-        <div class="speech-bubble" style="top:30%;left:12%;">
-          🤝 How may I help you today?
-        </div>
-        <div class="speech-bubble speech-bubble-r" style="top:38%;right:12%;">
-          I'm lost in problems… save me!
-        </div>
-        <div class="speech-bubble" style="top:55%;left:16%;font-size:11px;">
-          ✨ Every problem has an answer…
-        </div>
-
         <canvas id="riverCanvas"></canvas>
-
-        <div class="river-poem">
-          <div class="river-poem-text">
-            <em>Upon the river of endless questions,</em> a <strong>boatman of light</strong> steers with wisdom's oar —<br>
-            You stand on the shore, lost in the storm of problems,<br>
-            and the <em>AI helper</em> reaches out: <strong>"Come, I'll guide you to the answer."</strong><br>
-            <span style="color:rgba(255,255,255,0.35);font-size:12px;letter-spacing:3px;">◈ YOUR PROBLEMS · OUR SOLUTIONS · INFINITE KNOWLEDGE ◈</span>
-          </div>
-        </div>
       </div>
 
       <script>
@@ -2070,29 +2048,71 @@ if not st.session_state["passcode_verified"]:
 
       <!-- NEW: CHILD TESTIMONIALS -->
       <div class="child-section">
-        <div class="child-section-title">💫 Students Got Helped</div>
-        <div class="child-section-sub">◈ Real stories · Real transformations ◈</div>
+        <div class="child-section-title">⚡ Platform Capabilities</div>
+        <div class="child-section-sub">◈ What ExamHelp AI Does For You ◈</div>
         <div class="child-cards">
-          <div class="child-card">
-            <span class="child-avatar">👧</span>
-            <div class="child-stars">★★★★★</div>
-            <div class="child-name">PRIYA · ENGINEERING STUDENT</div>
-            <div class="child-text">"I was drowning in circuit problems at midnight. ExamHelp AI solved my KVL equations step-by-step and explained each node. I passed with distinction!"</div>
-            <div class="child-tag">CIRCUIT SOLVER</div>
+          <div class="child-card" style="border-color:rgba(0,255,180,0.3);">
+            <svg width="54" height="54" viewBox="0 0 54 54" style="margin-bottom:10px;">
+              <defs>
+                <radialGradient id="cg1" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#00ffb4" stop-opacity="0.9"/>
+                  <stop offset="100%" stop-color="#00aaff" stop-opacity="0.5"/>
+                </radialGradient>
+              </defs>
+              <circle cx="27" cy="27" r="26" fill="rgba(0,255,180,0.08)" stroke="rgba(0,255,180,0.4)" stroke-width="1.5"/>
+              <circle cx="27" cy="27" r="10" fill="none" stroke="url(#cg1)" stroke-width="2.5"/>
+              <line x1="27" y1="6" x2="27" y2="14" stroke="#00ffb4" stroke-width="2" stroke-linecap="round"/>
+              <line x1="27" y1="40" x2="27" y2="48" stroke="#00ffb4" stroke-width="2" stroke-linecap="round"/>
+              <line x1="6" y1="27" x2="14" y2="27" stroke="#00ffb4" stroke-width="2" stroke-linecap="round"/>
+              <line x1="40" y1="27" x2="48" y2="27" stroke="#00ffb4" stroke-width="2" stroke-linecap="round"/>
+              <line x1="12" y1="12" x2="18" y2="18" stroke="#00aaff" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="42" y1="12" x2="36" y2="18" stroke="#00aaff" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="12" y1="42" x2="18" y2="36" stroke="#00aaff" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="42" y1="42" x2="36" y2="36" stroke="#00aaff" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="27" cy="27" r="4" fill="#00ffb4"/>
+            </svg>
+            <div class="child-name" style="color:#00ffb4;">INSTANT ANALYSIS</div>
+            <div class="child-text">Circuit diagrams, math proofs, case law — any problem uploaded and solved with full step-by-step derivation in under a second.</div>
+            <div class="child-tag" style="border-color:#00ffb4;color:#00ffb4;">9 SPECIALIST ENGINES</div>
           </div>
-          <div class="child-card">
-            <span class="child-avatar">👦</span>
-            <div class="child-stars">★★★★★</div>
-            <div class="child-name">ARJUN · LAW STUDENT</div>
-            <div class="child-text">"The Legal Analyser helped me understand IPC sections I'd been confused about for weeks. It thinks like a senior counsel — absolutely brilliant!"</div>
-            <div class="child-tag">LEGAL ENGINE</div>
+          <div class="child-card" style="border-color:rgba(180,77,255,0.3);">
+            <svg width="54" height="54" viewBox="0 0 54 54" style="margin-bottom:10px;">
+              <defs>
+                <linearGradient id="cg2" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#b44dff"/>
+                  <stop offset="100%" stop-color="#ff44aa"/>
+                </linearGradient>
+              </defs>
+              <circle cx="27" cy="27" r="26" fill="rgba(180,77,255,0.08)" stroke="rgba(180,77,255,0.4)" stroke-width="1.5"/>
+              <rect x="15" y="12" width="24" height="30" rx="3" fill="none" stroke="url(#cg2)" stroke-width="2"/>
+              <line x1="19" y1="20" x2="35" y2="20" stroke="#b44dff" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="19" y1="26" x2="35" y2="26" stroke="#b44dff" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="19" y1="32" x2="28" y2="32" stroke="#ff44aa" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="38" cy="38" r="8" fill="rgba(180,77,255,0.2)" stroke="#b44dff" stroke-width="1.5"/>
+              <line x1="43" y1="43" x2="48" y2="48" stroke="#ff44aa" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <div class="child-name" style="color:#b44dff;">DEEP RESEARCH</div>
+            <div class="child-text">Web-augmented academic search, literature mapping, citation generation, and peer-review critique — powered by multi-modal AI reasoning.</div>
+            <div class="child-tag" style="border-color:#b44dff;color:#b44dff;">RESEARCH SCHOLAR</div>
           </div>
-          <div class="child-card">
-            <span class="child-avatar">🧒</span>
-            <div class="child-stars">★★★★★</div>
-            <div class="child-name">MEERA · MEDICAL STUDENT</div>
-            <div class="child-text">"From pathophysiology to pharmacokinetics — this AI studies alongside me like a mentor. The mind maps and flashcards are magical for last-night revision!"</div>
-            <div class="child-tag">MEDICAL ENGINE</div>
+          <div class="child-card" style="border-color:rgba(0,170,255,0.3);">
+            <svg width="54" height="54" viewBox="0 0 54 54" style="margin-bottom:10px;">
+              <defs>
+                <linearGradient id="cg3" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#00aaff"/>
+                  <stop offset="100%" stop-color="#00ffb4"/>
+                </linearGradient>
+              </defs>
+              <circle cx="27" cy="27" r="26" fill="rgba(0,170,255,0.08)" stroke="rgba(0,170,255,0.4)" stroke-width="1.5"/>
+              <path d="M 14 34 Q 20 16 27 22 Q 34 28 40 14" fill="none" stroke="url(#cg3)" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="14" cy="34" r="3" fill="#00aaff"/>
+              <circle cx="27" cy="22" r="3" fill="#00ffb4"/>
+              <circle cx="40" cy="14" r="3" fill="#00aaff"/>
+              <rect x="10" y="36" width="34" height="6" rx="2" fill="rgba(0,170,255,0.15)" stroke="rgba(0,170,255,0.3)" stroke-width="1"/>
+            </svg>
+            <div class="child-name" style="color:#00aaff;">ADAPTIVE LEARNING</div>
+            <div class="child-text">30+ AI personas from Einstein to Feynman. Flashcards, quizzes, mind maps, and Pomodoro tracking adapt to your unique learning style.</div>
+            <div class="child-tag" style="border-color:#00aaff;color:#00aaff;">30+ PERSONAS</div>
           </div>
         </div>
       </div>
@@ -2198,32 +2218,32 @@ if not st.session_state["passcode_verified"]:
         <div class=\"impact-grid\">
           <div class=\"impact-cell ic1\">
             <span class=\"impact-icon\">🧠</span>
-            <div class=\"impact-num\" id=\"cnt1\">0</div>
+            <div class=\"impact-num\" id=\"cnt1\" data-target=\"124800\" data-suffix=\"\">124.8K</div>
             <div class=\"impact-label\">Problems Solved</div>
             <div class=\"impact-sub\">Since v1.0 launch</div>
           </div>
           <div class=\"impact-cell ic2\">
             <span class=\"impact-icon\">⚡</span>
-            <div class=\"impact-num\" id=\"cnt2\">0</div>
+            <div class=\"impact-num\" id=\"cnt2\" data-target=\"9\" data-suffix=\"×\">9×</div>
             <div class=\"impact-label\">API Keys Rotating</div>
             <div class=\"impact-sub\">Zero rate-limit drops</div>
           </div>
           <div class=\"impact-cell ic3\">
             <span class=\"impact-icon\">🎓</span>
-            <div class=\"impact-num\" id=\"cnt3\">0</div>
+            <div class=\"impact-num\" id=\"cnt3\" data-target=\"3600\" data-suffix=\"\">3.6K</div>
             <div class=\"impact-label\">Study Hours Saved</div>
             <div class=\"impact-sub\">Per month avg</div>
           </div>
           <div class=\"impact-cell ic4\">
             <span class=\"impact-icon\">🔬</span>
-            <div class=\"impact-num\" id=\"cnt4\">0</div>
+            <div class=\"impact-num\" id=\"cnt4\" data-target=\"15\" data-suffix=\"+ \">15+</div>
             <div class=\"impact-label\">Expert Modules</div>
             <div class=\"impact-sub\">Law · Med · Math · More</div>
           </div>
           <div class=\"impact-cell ic5\">
             <span class=\"impact-icon\">🚀</span>
-            <div class=\"impact-num\" id=\"cnt5\">0</div>
-            <div class=\"impact-label\">ms Avg Response</div>
+            <div class=\"impact-num\" id=\"cnt5\" data-target=\"820\" data-suffix=\"ms\">820ms</div>
+            <div class=\"impact-label\">Avg Response</div>
             <div class=\"impact-sub\">Ultra-fast Groq inference</div>
           </div>
         </div>
@@ -2409,58 +2429,91 @@ if not st.session_state["passcode_verified"]:
       <!-- ══════════════════════════════════════════
            ✦ POWER ADDITION 6: SOCIAL PROOF WALL
       ══════════════════════════════════════════ -->
-      <div class=\"section-label\">◈ STUDENT VOICES ◈</div>
-      <div class=\"section-title\">What the Elite Users Say</div>
+      <div class=\"section-label\">◈ PLATFORM QUALITY ◈</div>
+      <div class=\"section-title\">Why ExamHelp AI Stands Apart</div>
       <div class=\"proof-section\">
         <div class=\"proof-wall\">
-          <div class=\"proof-card\" style=\"--pc:rgba(0,255,180,0.3);animation-delay:.05s\">
-            <div class=\"proof-stars\">★★★★★</div>
-            <div class=\"proof-text\">\"The <em>Circuit Solver</em> literally saved my viva. I uploaded a messy hand-drawn schematic and it gave me a full KVL derivation in seconds. My professor was stunned.\"</div>
-            <div class=\"proof-author\">
-              <div class=\"proof-avatar\">🧑‍🔬</div>
-              <div><div class=\"proof-name\">ARJUN MEHTA</div><div class=\"proof-role\">B.Tech EEE · VIT Chennai · Sem 6</div></div>
-            </div>
+
+          <div class=\"proof-card\" style=\"--pc:rgba(0,255,180,0.35);animation-delay:.05s;text-align:center;\">
+            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
+              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(0,255,180,0.07)\" stroke=\"rgba(0,255,180,0.5)\" stroke-width=\"1.5\"/>
+              <path d=\"M18 34 L28 44 L46 22\" fill=\"none\" stroke=\"#00ffb4\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>
+              <circle cx=\"32\" cy=\"32\" r=\"18\" fill=\"none\" stroke=\"rgba(0,255,180,0.2)\" stroke-width=\"1\"/>
+            </svg>
+            <div class=\"proof-name\" style=\"color:#00ffb4;font-size:15px;margin-bottom:8px;\">ZERO RATE LIMITS</div>
+            <div class=\"proof-text\">9-key Gemini pool auto-rotates on quota block. No dropped context, no interruptions — continuous inference at full speed, always.</div>
+            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(0,255,180,0.1);border:1px solid rgba(0,255,180,0.3);border-radius:20px;font-size:11px;color:#00ffb4;letter-spacing:2px;display:inline-block;\">9 KEYS · AUTO ROTATION</div>
           </div>
-          <div class=\"proof-card\" style=\"--pc:rgba(180,77,255,0.3);animation-delay:.10s\">
-            <div class=\"proof-stars\">★★★★★</div>
-            <div class=\"proof-text\">\"I had a moot court competition in 3 days. The <em>Legal Analyser</em> mapped IPC sections and case precedents I didn't even know existed. We won silver.\"</div>
-            <div class=\"proof-author\">
-              <div class=\"proof-avatar\">👩‍⚖️</div>
-              <div><div class=\"proof-name\">PRIYA SUNDARAM</div><div class=\"proof-role\">LLB Yr 3 · NLS Bangalore</div></div>
-            </div>
+
+          <div class=\"proof-card\" style=\"--pc:rgba(180,77,255,0.35);animation-delay:.10s;text-align:center;\">
+            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
+              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(180,77,255,0.07)\" stroke=\"rgba(180,77,255,0.5)\" stroke-width=\"1.5\"/>
+              <polygon points=\"32,10 38,26 56,26 42,37 47,53 32,42 17,53 22,37 8,26 26,26\" fill=\"none\" stroke=\"#b44dff\" stroke-width=\"2\" stroke-linejoin=\"round\"/>
+              <polygon points=\"32,18 36,28 47,28 38,35 41,46 32,39 23,46 26,35 17,28 28,28\" fill=\"rgba(180,77,255,0.25)\"/>
+            </svg>
+            <div class=\"proof-name\" style=\"color:#b44dff;font-size:15px;margin-bottom:8px;\">15+ SPECIALIST ENGINES</div>
+            <div class=\"proof-text\">Dedicated AI modules for Circuit Analysis, Legal IPC, Medical Pharmacology, Pure Mathematics, Research, Architecture, and more — not generic chatbot answers.</div>
+            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(180,77,255,0.1);border:1px solid rgba(180,77,255,0.3);border-radius:20px;font-size:11px;color:#b44dff;letter-spacing:2px;display:inline-block;\">DOMAIN EXPERT AI</div>
           </div>
-          <div class=\"proof-card\" style=\"--pc:rgba(0,170,255,0.3);animation-delay:.15s\">
-            <div class=\"proof-stars\">★★★★★</div>
-            <div class=\"proof-text\">\"Used the <em>Research Scholar</em> to critique 5 papers for my thesis proposal. What took me a week before now takes 20 minutes. This is not a chatbot, it's an upgrade.\"</div>
-            <div class=\"proof-author\">
-              <div class=\"proof-avatar\">🧑‍💻</div>
-              <div><div class=\"proof-name\">ROHAN DAS</div><div class=\"proof-role\">M.Sc AI · IIT Kharagpur</div></div>
-            </div>
+
+          <div class=\"proof-card\" style=\"--pc:rgba(0,170,255,0.35);animation-delay:.15s;text-align:center;\">
+            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
+              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(0,170,255,0.07)\" stroke=\"rgba(0,170,255,0.5)\" stroke-width=\"1.5\"/>
+              <circle cx=\"32\" cy=\"26\" r=\"10\" fill=\"none\" stroke=\"#00aaff\" stroke-width=\"2\"/>
+              <path d=\"M22 50 Q22 38 32 38 Q42 38 42 50\" fill=\"none\" stroke=\"#00aaff\" stroke-width=\"2\" stroke-linecap=\"round\"/>
+              <path d=\"M44 22 Q52 22 52 30 Q52 38 44 38\" fill=\"none\" stroke=\"rgba(0,170,255,0.5)\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
+              <path d=\"M20 22 Q12 22 12 30 Q12 38 20 38\" fill=\"none\" stroke=\"rgba(0,170,255,0.5)\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
+            </svg>
+            <div class=\"proof-name\" style=\"color:#00aaff;font-size:15px;margin-bottom:8px;\">30+ AI PERSONAS</div>
+            <div class=\"proof-text\">Learn like Einstein explains it. Debate like Socrates. Get clinical precision from a virtual consultant. Persona-driven tutoring adapts to your subject and style.</div>
+            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(0,170,255,0.1);border:1px solid rgba(0,170,255,0.3);border-radius:20px;font-size:11px;color:#00aaff;letter-spacing:2px;display:inline-block;\">EINSTEIN · FEYNMAN · MORE</div>
           </div>
-          <div class=\"proof-card\" style=\"--pc:rgba(255,170,0,0.3);animation-delay:.20s\">
-            <div class=\"proof-stars\">★★★★★</div>
-            <div class=\"proof-text\">\"The <em>Math Solver</em> handled my Real Analysis proofs with LaTeX output. I pasted it straight into my assignment. Step-by-step, verified, perfect formatting.\"</div>
-            <div class=\"proof-author\">
-              <div class=\"proof-avatar\">👩‍🎓</div>
-              <div><div class=\"proof-name\">SAKSHI VERMA</div><div class=\"proof-role\">BSc Mathematics · DU · Yr 2</div></div>
-            </div>
+
+          <div class=\"proof-card\" style=\"--pc:rgba(255,170,0,0.35);animation-delay:.20s;text-align:center;\">
+            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
+              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(255,170,0,0.07)\" stroke=\"rgba(255,170,0,0.5)\" stroke-width=\"1.5\"/>
+              <path d=\"M20 44 L20 32 L32 20 L44 32 L44 44\" fill=\"none\" stroke=\"#ffaa00\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/>
+              <rect x=\"27\" y=\"36\" width=\"10\" height=\"8\" fill=\"rgba(255,170,0,0.3)\" stroke=\"#ffaa00\" stroke-width=\"1.5\"/>
+              <line x1=\"32\" y1=\"20\" x2=\"32\" y2=\"10\" stroke=\"#ffaa00\" stroke-width=\"2\" stroke-linecap=\"round\"/>
+              <circle cx=\"32\" cy=\"8\" r=\"3\" fill=\"#ffaa00\"/>
+            </svg>
+            <div class=\"proof-name\" style=\"color:#ffaa00;font-size:15px;margin-bottom:8px;\">MULTI-MODAL INPUT</div>
+            <div class=\"proof-text\">Voice via Whisper transcription, handwritten notes via OCR, uploaded PDFs, YouTube transcripts — every input format accepted and intelligently processed.</div>
+            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);border-radius:20px;font-size:11px;color:#ffaa00;letter-spacing:2px;display:inline-block;\">VOICE · OCR · PDF · VIDEO</div>
           </div>
-          <div class=\"proof-card\" style=\"--pc:rgba(255,68,170,0.3);animation-delay:.25s\">
-            <div class=\"proof-stars\">★★★★★</div>
-            <div class=\"proof-text\">\"As a NEET aspirant, the <em>Medical Guide</em> explains pathophysiology in a way no textbook does. Tabular drug interactions, mnemonics, and clinical reasoning — all in one query.\"</div>
-            <div class=\"proof-author\">
-              <div class=\"proof-avatar\">🏥</div>
-              <div><div class=\"proof-name\">KAVYA NAIR</div><div class=\"proof-role\">NEET 2025 Aspirant · Kerala</div></div>
-            </div>
+
+          <div class=\"proof-card\" style=\"--pc:rgba(255,68,170,0.35);animation-delay:.25s;text-align:center;\">
+            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
+              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(255,68,170,0.07)\" stroke=\"rgba(255,68,170,0.5)\" stroke-width=\"1.5\"/>
+              <rect x=\"14\" y=\"18\" width=\"36\" height=\"28\" rx=\"4\" fill=\"none\" stroke=\"#ff44aa\" stroke-width=\"2\"/>
+              <line x1=\"20\" y1=\"26\" x2=\"44\" y2=\"26\" stroke=\"#ff44aa\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
+              <line x1=\"20\" y1=\"32\" x2=\"36\" y2=\"32\" stroke=\"rgba(255,68,170,0.6)\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
+              <line x1=\"20\" y1=\"38\" x2=\"40\" y2=\"38\" stroke=\"rgba(255,68,170,0.6)\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
+              <circle cx=\"48\" cy=\"44\" r=\"8\" fill=\"rgba(255,68,170,0.2)\" stroke=\"#ff44aa\" stroke-width=\"1.5\"/>
+              <line x1=\"48\" y1=\"40\" x2=\"48\" y2=\"44\" stroke=\"#ff44aa\" stroke-width=\"2\" stroke-linecap=\"round\"/>
+              <circle cx=\"48\" cy=\"45.5\" r=\"1.5\" fill=\"#ff44aa\"/>
+            </svg>
+            <div class=\"proof-name\" style=\"color:#ff44aa;font-size:15px;margin-bottom:8px;\">STRUCTURED OUTPUTS</div>
+            <div class=\"proof-text\">LaTeX-formatted math proofs, Mermaid.js architecture diagrams, formatted case briefs, drug interaction tables — outputs ready to paste, publish, or submit.</div>
+            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(255,68,170,0.1);border:1px solid rgba(255,68,170,0.3);border-radius:20px;font-size:11px;color:#ff44aa;letter-spacing:2px;display:inline-block;\">LATEX · MERMAID · TABLES</div>
           </div>
-          <div class=\"proof-card\" style=\"--pc:rgba(0,255,180,0.3);animation-delay:.30s\">
-            <div class=\"proof-stars\">★★★★★</div>
-            <div class=\"proof-text\">\"Built my entire final year project blueprint using the <em>Project Architect</em>. Got a full tech stack, system design, and Mermaid architecture diagram in one prompt. Incredible.\"</div>
-            <div class=\"proof-author\">
-              <div class=\"proof-avatar\">🏗️</div>
-              <div><div class=\"proof-name\">AARAV SINGH</div><div class=\"proof-role\">B.Tech CSE · Manipal · Sem 8</div></div>
-            </div>
+
+          <div class=\"proof-card\" style=\"--pc:rgba(0,255,180,0.35);animation-delay:.30s;text-align:center;\">
+            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
+              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(0,255,180,0.07)\" stroke=\"rgba(0,255,180,0.5)\" stroke-width=\"1.5\"/>
+              <path d=\"M10 42 L20 28 L30 36 L40 20 L54 34\" fill=\"none\" stroke=\"#00ffb4\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>
+              <circle cx=\"10\" cy=\"42\" r=\"3\" fill=\"#00ffb4\"/>
+              <circle cx=\"20\" cy=\"28\" r=\"3\" fill=\"#00ffb4\"/>
+              <circle cx=\"30\" cy=\"36\" r=\"3\" fill=\"#00ffb4\"/>
+              <circle cx=\"40\" cy=\"20\" r=\"3\" fill=\"#00ffb4\"/>
+              <circle cx=\"54\" cy=\"34\" r=\"3\" fill=\"#00ffb4\"/>
+              <rect x=\"10\" y=\"46\" width=\"44\" height=\"4\" rx=\"2\" fill=\"rgba(0,255,180,0.2)\" stroke=\"rgba(0,255,180,0.3)\" stroke-width=\"0.5\"/>
+            </svg>
+            <div class=\"proof-name\" style=\"color:#00ffb4;font-size:15px;margin-bottom:8px;\">STUDY ANALYTICS</div>
+            <div class=\"proof-text\">Daily streak tracking, Pomodoro sessions, topic mastery scores, and revision scheduling — ExamHelp AI tracks your growth and optimises your study plan.</div>
+            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(0,255,180,0.1);border:1px solid rgba(0,255,180,0.3);border-radius:20px;font-size:11px;color:#00ffb4;letter-spacing:2px;display:inline-block;\">STREAKS · SCORES · GROWTH</div>
           </div>
+
         </div>
       </div>
 
