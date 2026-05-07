@@ -532,7 +532,7 @@ border:1px solid rgba(239,68,68,0.2);border-radius:20px;padding:28px 32px;margin
                     cat_colors = {"Beginner": "#22c55e", "Deep Dive": "#3b82f6", "Quick": "#f59e0b"}
                     cat_color = cat_colors.get(v["category"], "#6b7280")
                     if v.get("thumbnail"):
-                        st.image(v["thumbnail"], use_column_width=True)
+                        st.image(v["thumbnail"], use_container_width=True)
                     views_str = f"{v['views']:,}" if v["views"] > 0 else "N/A"
                     st.markdown(f"""
 <div style="background:rgba(15,23,42,0.7);border:1px solid rgba(255,255,255,0.08);

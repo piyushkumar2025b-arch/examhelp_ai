@@ -428,7 +428,7 @@ border:1px solid rgba(99,102,241,0.15);border-radius:20px;padding:28px 32px;marg
     with col_img:
         img_file = st.file_uploader("📷 Or upload image", type=["jpg","jpeg","png","webp"], key="src_img")
         if img_file:
-            st.image(img_file, use_column_width=True)
+            st.image(img_file, use_container_width=True)
 
     instructions = st.text_input(
         "🎯 Custom focus (optional)",
