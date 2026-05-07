@@ -38,7 +38,7 @@ def _parse_json_list(raw):
 # ═══════════════════════════════════════════
 def render_reaction_timer():
     st.markdown('<div style="font-size:1.4rem;font-weight:900;color:#34d399;margin-bottom:8px;">⚡ Reaction Timer</div><div style="color:#64748b;font-size:.85rem;margin-bottom:10px;">Wait for GREEN, then click as fast as possible! Best of 5 rounds.</div>', unsafe_allow_html=True)
-    if "rt_times" not in st.session_state: st.session_state.rt_times=[]; st.session_state.rt_state="idle"; st.session_state.rt_start=None
+    if "rt_times" not in st.session_state: st.session_state.rt_times=[]; st.session_state.rt_state="idle"; st.session_state.rt_start_ts=None
     state=st.session_state.rt_state; times=st.session_state.rt_times
     if len(times)>0:
         avg=sum(times)/len(times)
@@ -64,11 +64,11 @@ def render_reaction_timer():
             st.markdown('<div style="background:#374151;border-radius:16px;padding:40px;text-align:center;font-size:1.3rem;color:#9ca3af;">⏳ Wait for it...</div>',unsafe_allow_html=True)
             time.sleep(0.1); st.rerun()
         else:
-            st.session_state.rt_state="go"; st.session_state.rt_start=time.time(); st.rerun()
+            st.session_state.rt_state="go"; st.session_state.rt_start_ts=time.time(); st.rerun()
     elif state=="go":
         st.markdown('<div style="background:#16a34a;border-radius:16px;padding:40px;text-align:center;font-size:1.5rem;font-weight:900;color:#fff;animation:pulse 0.3s infinite;">🟢 CLICK NOW!</div>',unsafe_allow_html=True)
         if st.button("🟢 CLICK!",type="primary",use_container_width=True,key=f"rt_click_{len(times)}"):
-            rt=int((time.time()-st.session_state.rt_start)*1000)
+            rt=int((time.time()-st.session_state.rt_start_ts)*1000)
             st.session_state.rt_times.append(rt); st.session_state.rt_state="idle"; st.success(f"⚡ {rt}ms!"); st.rerun()
 
 
