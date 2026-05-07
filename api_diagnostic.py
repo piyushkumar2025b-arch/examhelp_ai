@@ -97,7 +97,7 @@
 #             # Mock check for sympy/matplotlib imports
 #             results.append({"Component": "Math Engine", "Status": "✅ Working", "API": "Sympy/Plotly"})
 #             s.update(label="Math Engine Verified", state="complete")
-#         except:
+#         except Exception:
 #             results.append({"Component": "Math Engine", "Status": "❌ Error", "API": "Sympy"})
 # 
 #     st.table(results)

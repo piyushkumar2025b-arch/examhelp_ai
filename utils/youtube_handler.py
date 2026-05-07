@@ -217,8 +217,7 @@ def _find_videos_with_api(topic: str, api_key: str, filters: dict) -> List[Dict]
         r = requests.get(
             "https://www.googleapis.com/youtube/v3/search",
             params=search_params,
-            timeout=8
-        )
+            timeout=8)
         if r.status_code != 200:
             return _find_videos_scrape(topic, filters)
 
@@ -234,7 +233,7 @@ def _find_videos_with_api(topic: str, api_key: str, filters: dict) -> List[Dict]
             "https://www.googleapis.com/youtube/v3/videos",
             params={
                 "part": "statistics,contentDetails",
-                "id": ",".join(video_ids),
+                "id": ",".join(video_ids, timeout=10),
                 "key": api_key
             },
             timeout=8
@@ -309,8 +308,7 @@ def _find_videos_scrape(topic: str, filters: dict) -> List[Dict]:
         r = requests.get(
             f"https://www.youtube.com/results?search_query={query}",
             headers=headers,
-            timeout=10
-        )
+            timeout=10)
         if r.status_code != 200:
             return []
 
@@ -454,6 +452,8 @@ def _parse_dur_text(text: str) -> int:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def render_youtube_finder():
+    import streamlit as _st_yt
+    _secret_yt = _st_yt.secrets.get("YOUTUBE_API_KEY", "") if hasattr(_st_yt, "secrets") else ""
     """Full Streamlit YouTube Video Finder page."""
     import streamlit as st
 
@@ -503,7 +503,7 @@ border:1px solid rgba(239,68,68,0.2);border-radius:20px;padding:28px 32px;margin
             videos = find_best_youtube_videos(topic.strip(), api_key, filters)
 
         if not videos:
-            st.warning("No videos found. Try a different topic.")
+            st.warning("No videos found. If this happens often, add a YouTube Data API v3 key in Settings for better results. Without it, YouTube may block scraping requests.")
             return
 
         st.success(f"Found **{len(videos)}** videos ranked by relevance!")

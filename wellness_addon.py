@@ -77,7 +77,7 @@ def render_pomodoro_addon():
         hist = st.session_state.pom_history
         total_sessions = sum(h["sessions"] for h in hist)
         total_minutes = sum(h["minutes"] for h in hist)
-        avg_sessions = total_sessions / len(hist)
+        avg_sessions = total_sessions / len(hist) if hist else 0
 
         c1,c2,c3,c4 = st.columns(4)
         for col,(lbl,val,clr) in zip([c1,c2,c3,c4],[

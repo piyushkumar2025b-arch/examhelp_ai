@@ -5383,51 +5383,51 @@ st.markdown(f"""
 </div>""", unsafe_allow_html=True)
 
 st.markdown('<div class="section-label">🛠️ Study Toolbox</div>', unsafe_allow_html=True)
-    _tools = [
-        ("🃏", "Flashcards",      "Generate Q&A deck",           "flashcards"),
-        ("📝", "Quiz Mode",       "MCQ assessment",               "quiz"),
-        ("📊", "Mind Map",        "Visual concept map",           "mindmap"),
-        ("📅", "Study Planner",   "Revision timetable",          "planner"),
-        ("📈", "Graph Plotter",   "Plot equations",               "graph"),
-        ("✍️", "Story Builder",   "AI creative writing",          "story"),
-        ("🐛", "Code Debugger",   "Fix code in any language",     "debugger"),
-        ("🎓", "Learn Coding",    "Interactive coding tutor",     "learn_coding"),
-        ("📄", "Essay Writer",    "AI academic essay generator",  "essay_writer"),
-        ("🎤", "Interview Coach", "Mock interviews + feedback",   "interview_coach"),
-        ("⚡", "Study Toolkit",   "Formulas, PYQs & Pomodoro",    "study_toolkit"),
-        ("🎓", "VIT Academics",    "GPA, Attendance & Slots",      "vit_academics"),
-        ("🔬", "Research Assist", "Paper analysis & summaries",   "research_assistant"),
-        ("🌍", "Language Tools",  "Translate + grammar + learn",  "language_tools"),
-        ("🧮", "Science Solver",  "Math & science step solver",   "science_solver"),
-        ("📓", "Smart Notes",     "AI notes from any content",    "smart_notes"),
-        ("💬", "Chat",            "Standard AI study chat",       "chat"),
-    ]
-    for icon, name, desc, mode in _tools:
-        col_icon, col_info, col_btn = st.columns([1, 4, 2])
-        with col_icon:
-            st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
-        with col_info:
-            st.markdown(
-                f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
-                f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
-                unsafe_allow_html=True)
-        with col_btn:
-            if st.button("Open", key=f"tool_{mode}", use_container_width=True):
-                st.session_state.app_mode = mode
-                st.rerun()
+_tools = [
+    ("🃏", "Flashcards",      "Generate Q&A deck",           "flashcards"),
+    ("📝", "Quiz Mode",       "MCQ assessment",               "quiz"),
+    ("📊", "Mind Map",        "Visual concept map",           "mindmap"),
+    ("📅", "Study Planner",   "Revision timetable",          "planner"),
+    ("📈", "Graph Plotter",   "Plot equations",               "graph"),
+    ("✍️", "Story Builder",   "AI creative writing",          "story"),
+    ("🐛", "Code Debugger",   "Fix code in any language",     "debugger"),
+    ("🎓", "Learn Coding",    "Interactive coding tutor",     "learn_coding"),
+    ("📄", "Essay Writer",    "AI academic essay generator",  "essay_writer"),
+    ("🎤", "Interview Coach", "Mock interviews + feedback",   "interview_coach"),
+    ("⚡", "Study Toolkit",   "Formulas, PYQs & Pomodoro",    "study_toolkit"),
+    ("🎓", "VIT Academics",    "GPA, Attendance & Slots",      "vit_academics"),
+    ("🔬", "Research Assist", "Paper analysis & summaries",   "research_assistant"),
+    ("🌍", "Language Tools",  "Translate + grammar + learn",  "language_tools"),
+    ("🧮", "Science Solver",  "Math & science step solver",   "science_solver"),
+    ("📓", "Smart Notes",     "AI notes from any content",    "smart_notes"),
+    ("💬", "Chat",            "Standard AI study chat",       "chat"),
+]
+for icon, name, desc, mode in _tools:
+    col_icon, col_info, col_btn = st.columns([1, 4, 2])
+    with col_icon:
+        st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
+    with col_info:
+        st.markdown(
+            f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
+            f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
+            unsafe_allow_html=True)
+    with col_btn:
+        if st.button("Open", key=f"tool_{mode}", use_container_width=True):
+            st.session_state.app_mode = mode
+            st.rerun()
 
-    # ── Exotic Power Tools ──────────────────────
-    st.markdown('<div class="section-label">⚡ Exotic Power Tools</div>', unsafe_allow_html=True)
-    _power_tools = [
-        ("🔄", "Universal Converter", "Convert any file format instantly", "file_converter"),
-        ("📚", "Citation Gen",        "IEEE/APA/MLA AI generator",      "citation_gen"),
-        ("🔣", "Regex Builder",      "AI regex architect & tester",    "regex_tester"),
-        ("🔲", "QR Code Engine",      "Generate pro QR codes & data links", "qr_creator"),
-        ("🤖", "AI Text Humaniser",   "Bypass AI detectors & sound human", "ai_humaniser"),
-        ("🎨", "HTML Generator",      "AI to beautiful single-page website", "html_generator"),
-        ("🕵️", "Reverse Image Search", "AI vision lookup & deep analysis", "image_searcher"),
-        ("📰", "AI News Hub",         "Live AI news & tool recommendations", "news_hub"),
-        ("🗺️", "Campus & India Map",  "VIT Campus Guide & Trip Planner", "map_planner"),
+# ── Exotic Power Tools ──────────────────────
+st.markdown('<div class="section-label">⚡ Exotic Power Tools</div>', unsafe_allow_html=True)
+_power_tools = [
+    ("🔄", "Universal Converter", "Convert any file format instantly", "file_converter"),
+    ("📚", "Citation Gen",        "IEEE/APA/MLA AI generator",      "citation_gen"),
+    ("🔣", "Regex Builder",      "AI regex architect & tester",    "regex_tester"),
+    ("🔲", "QR Code Engine",      "Generate pro QR codes & data links", "qr_creator"),
+    ("🤖", "AI Text Humaniser",   "Bypass AI detectors & sound human", "ai_humaniser"),
+    ("🎨", "HTML Generator",      "AI to beautiful single-page website", "html_generator"),
+    ("🕵️", "Reverse Image Search", "AI vision lookup & deep analysis", "image_searcher"),
+    ("📰", "AI News Hub",         "Live AI news & tool recommendations", "news_hub"),
+    ("🗺️", "Campus & India Map",  "VIT Campus Guide & Trip Planner", "map_planner"),
         ("🔀", "Code Converter",      "AI code translation + diff + zip",   "code_converter"),
         ("🛒", "Smart Shopping",      "Compare prices across platforms",     "smart_shopping"),
         ("🔬", "Context Focus",       "Deep internet research engine",      "context_focus"),
@@ -5436,24 +5436,24 @@ st.markdown('<div class="section-label">🛠️ Study Toolbox</div>', unsafe_all
         ("📎", "Doc Analyser",         "Review any file: what\u2019s good, what to add", "doc_analyser"),
         ("🎵", "Sound Library",        "50+ ambient background sounds for focus", "bg_sounds"),
     ]
-    for icon, name, desc, mode in _power_tools:
-        col_icon, col_info, col_btn = st.columns([1, 4, 2])
-        with col_icon:
-            st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
-        with col_info:
-            st.markdown(
-                f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
-                f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
-                unsafe_allow_html=True)
-        with col_btn:
-            if st.button("Launch", key=f"ptool_{mode}", use_container_width=True):
-                st.session_state.app_mode = mode
-                st.rerun()
+for icon, name, desc, mode in _power_tools:
+    col_icon, col_info, col_btn = st.columns([1, 4, 2])
+    with col_icon:
+        st.markdown(f'<div style="font-size:1.2rem;padding-top:8px;">{icon}</div>', unsafe_allow_html=True)
+    with col_info:
+        st.markdown(
+            f'<div style="font-size:.84rem;font-weight:600;color:var(--text);">{name}</div>'
+            f'<div style="font-size:.7rem;color:var(--text3);">{desc}</div>',
+            unsafe_allow_html=True)
+    with col_btn:
+        if st.button("Launch", key=f"ptool_{mode}", use_container_width=True):
+            st.session_state.app_mode = mode
+            st.rerun()
 
-    # ── Account ──────────────────────────────────────────────────────
-    # (Google Suite & Stripe integrations coming soon)
-    st.markdown('<div class=\"poweredby\">Powered by <span>Groq</span> · <span>Gemini</span> · <span>LLaMA</span></div>',
-                unsafe_allow_html=True)
+# ── Account ──────────────────────────────────────────────────────
+# (Google Suite & Stripe integrations coming soon)
+st.markdown('<div class=\"poweredby\">Powered by <span>Groq</span> · <span>Gemini</span> · <span>LLaMA</span></div>',
+            unsafe_allow_html=True)
 
 
 def render_hero_header_v2():
@@ -5592,25 +5592,25 @@ def render_quick_actions_toolbar():
         ("🃏", "Cards",      "s04_cards"),
         ("📄", "PDF",        "s04_context"),
     ]
-    for i, (icon, label, key) in enumerate(actions):
-        with cols[i]:
-            if st.button(f"{icon} {label}", key=key, use_container_width=True):
-                if key == "s04_new_chat":
-                    st.session_state.messages = []
-                    st.session_state.total_tokens_used = 0
-                    st.rerun()
-                elif key == "s04_focus":
-                    st.session_state.focus_mode = not st.session_state.get("focus_mode", False)
-                    st.rerun()
-                elif key == "s04_mindmap":
-                    st.session_state.app_mode = "mindmap"; st.rerun()
-                elif key == "s04_cards":
-                    st.session_state.app_mode = "flashcards"; st.rerun()
-                elif key == "s04_context":
-                    st.session_state.app_mode = "chat"
-                    st.session_state["s04_show_context_panel"] = True
-                    st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+for i, (icon, label, key) in enumerate(actions):
+    with cols[i]:
+        if st.button(f"{icon} {label}", key=key, use_container_width=True):
+            if key == "s04_new_chat":
+                st.session_state.messages = []
+                st.session_state.total_tokens_used = 0
+                st.rerun()
+            elif key == "s04_focus":
+                st.session_state.focus_mode = not st.session_state.get("focus_mode", False)
+                st.rerun()
+            elif key == "s04_mindmap":
+                st.session_state.app_mode = "mindmap"; st.rerun()
+            elif key == "s04_cards":
+                st.session_state.app_mode = "flashcards"; st.rerun()
+            elif key == "s04_context":
+                st.session_state.app_mode = "chat"
+                st.session_state["s04_show_context_panel"] = True
+                st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
 def render_source_cards():
     """STEP 06: Render visual source cards with summarize action."""
@@ -5624,50 +5624,50 @@ def render_source_cards():
     type_icons = {"pdf": "📄", "youtube": "▶️", "web": "🌐", "ocr": "📸", "text": "📝"}
     cols = st.columns(min(len(sources), 3))
 
-    for i, src in enumerate(sources):
-        with cols[i % 3]:
-            icon = type_icons.get(src.get("type", "text"), "📎")
-            label = src.get("label", "Unknown")
-            char_count = len(src.get("text", st.session_state.get("context_text", "")))
-            st.markdown(f"""
-            <div class="source-card">
-              <div class="source-card-header">
-                <span class="source-card-icon">{icon}</span>
-                <span class="source-card-title">{label[:35]}{'…' if len(label)>35 else ''}</span>
-              </div>
-              <div class="source-card-meta">{src.get("type","text").upper()} SOURCE</div>
-              <div class="source-card-badge">{char_count:,} chars</div>
-            </div>""", unsafe_allow_html=True)
+for i, src in enumerate(sources):
+    with cols[i % 3]:
+        icon = type_icons.get(src.get("type", "text"), "📎")
+        label = src.get("label", "Unknown")
+        char_count = len(src.get("text", st.session_state.get("context_text", "")))
+        st.markdown(f"""
+        <div class="source-card">
+          <div class="source-card-header">
+            <span class="source-card-icon">{icon}</span>
+            <span class="source-card-title">{label[:35]}{'…' if len(label)>35 else ''}</span>
+          </div>
+          <div class="source-card-meta">{src.get("type","text").upper()} SOURCE</div>
+          <div class="source-card-badge">{char_count:,} chars</div>
+        </div>""", unsafe_allow_html=True)
 
-            if st.button("✨ Summarize", key=f"s06_sum_{i}", use_container_width=True):
-                if label not in st.session_state["source_summaries"]:
-                    ctx_snippet = st.session_state.get("context_text", "")[:4000]
-                    with st.spinner("Distilling key ideas…"):
-                        try:
-                            from utils import ai_engine
-                            summary = ai_engine.generate(
-                                prompt=f"Summarize this content in exactly 3 sentences. Be academic and precise:\n\n{ctx_snippet}",
-                                system="You are a research summarizer. Return exactly 3 sentences, no more.",
-                                max_tokens=200
-                            )
-                            st.session_state["source_summaries"][label] = summary
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"⚠️ Summarize failed: {e}")
+        if st.button("✨ Summarize", key=f"s06_sum_{i}", use_container_width=True):
+            if label not in st.session_state["source_summaries"]:
+                ctx_snippet = st.session_state.get("context_text", "")[:4000]
+                with st.spinner("Distilling key ideas…"):
+                    try:
+                        from utils import ai_engine
+                        summary = ai_engine.generate(
+                            prompt=f"Summarize this content in exactly 3 sentences. Be academic and precise:\n\n{ctx_snippet}",
+                            system="You are a research summarizer. Return exactly 3 sentences, no more.",
+                            max_tokens=200
+                        )
+                        st.session_state["source_summaries"][label] = summary
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"⚠️ Summarize failed: {e}")
 
+        if label in st.session_state["source_summaries"]:
+            st.markdown(f'<div class="source-summary-box">{st.session_state["source_summaries"][label]}</div>',
+                        unsafe_allow_html=True)
+
+        if st.button("🗑 Remove", key=f"s06_rem_{i}"):
+            st.session_state.context_sources = [
+                s for j, s in enumerate(sources) if j != i
+            ]
             if label in st.session_state["source_summaries"]:
-                st.markdown(f'<div class="source-summary-box">{st.session_state["source_summaries"][label]}</div>',
-                            unsafe_allow_html=True)
-
-            if st.button("🗑 Remove", key=f"s06_rem_{i}"):
-                st.session_state.context_sources = [
-                    s for j, s in enumerate(sources) if j != i
-                ]
-                if label in st.session_state["source_summaries"]:
-                    del st.session_state["source_summaries"][label]
-                if len(st.session_state.context_sources) == 0:
-                    st.session_state.context_text = ""
-                st.rerun()
+                del st.session_state["source_summaries"][label]
+            if len(st.session_state.context_sources) == 0:
+                st.session_state.context_text = ""
+            st.rerun()
 
 def show_typing_indicator():
     """STEP 07: Show animated typing indicator while AI generates."""
@@ -5686,31 +5686,31 @@ def render_persona_carousel():
     current = st.session_state.get("selected_persona", "Default (ExamHelp)")
 
     chips_html = '<div class="persona-carousel">'
-    for name in all_names:
-        p = get_persona_by_name(name)
-        if not p:
-            emoji, short = "🤖", name[:8]
-        else:
-            emoji = p.get("emoji", "🤖")
-            short = p.get("name", name)[:9]
-        active_cls = "persona-chip-active" if name == current else ""
-        chips_html += f"""
-        <div class="persona-chip-v2 {active_cls}" title="{name}">
-          <span class="persona-chip-emoji">{emoji}</span>
-          <span class="persona-chip-name">{short}</span>
-        </div>"""
-    chips_html += '</div>'
-    st.markdown(chips_html, unsafe_allow_html=True)
+for name in all_names:
+    p = get_persona_by_name(name)
+    if not p:
+        emoji, short = "🤖", name[:8]
+    else:
+        emoji = p.get("emoji", "🤖")
+        short = p.get("name", name)[:9]
+    active_cls = "persona-chip-active" if name == current else ""
+    chips_html += f"""
+    <div class="persona-chip-v2 {active_cls}" title="{name}">
+      <span class="persona-chip-emoji">{emoji}</span>
+      <span class="persona-chip-name">{short}</span>
+    </div>"""
+chips_html += '</div>'
+st.markdown(chips_html, unsafe_allow_html=True)
 
-    # Selectbox-based switcher (functional driver behind the visual carousel)
-    selected = st.selectbox(
-        "Switch persona", all_names,
-        index=all_names.index(current) if current in all_names else 0,
-        label_visibility="collapsed", key="s08_persona_switcher"
-    )
-    if selected != current:
-        st.session_state.selected_persona = selected
-        st.rerun()
+# Selectbox-based switcher (functional driver behind the visual carousel)
+selected = st.selectbox(
+    "Switch persona", all_names,
+    index=all_names.index(current) if current in all_names else 0,
+    label_visibility="collapsed", key="s08_persona_switcher"
+)
+if selected != current:
+    st.session_state.selected_persona = selected
+    st.rerun()
 
 def render_quick_prompts():
     """STEP 09: Context-aware quick prompt suggestion grid."""
@@ -5731,21 +5731,21 @@ def render_quick_prompts():
     st.markdown('<div class="qprompt-grid">', unsafe_allow_html=True)
 
     cols = st.columns(3)
-    for i, (icon, text, tag, css_var) in enumerate(QUICK_PROMPTS):
-        with cols[i % 3]:
-            st.markdown(f"""
-            <div class="qprompt-chip" style="{css_var}">
-              <span class="qprompt-icon">{icon}</span>
-              <div>
-                <div class="qprompt-text">{text}</div>
-                <span class="qprompt-tag">{tag}</span>
-              </div>
-            </div>""", unsafe_allow_html=True)
-            if st.button(f"{icon} Ask", key=f"s09_qp_{i}", use_container_width=True):
-                st.session_state.queued_prompt = text
-                st.rerun()
+for i, (icon, text, tag, css_var) in enumerate(QUICK_PROMPTS):
+    with cols[i % 3]:
+        st.markdown(f"""
+        <div class="qprompt-chip" style="{css_var}">
+          <span class="qprompt-icon">{icon}</span>
+          <div>
+            <div class="qprompt-text">{text}</div>
+            <span class="qprompt-tag">{tag}</span>
+          </div>
+        </div>""", unsafe_allow_html=True)
+        if st.button(f"{icon} Ask", key=f"s09_qp_{i}", use_container_width=True):
+            st.session_state.queued_prompt = text
+            st.rerun()
 
-    st.markdown('</div></div>', unsafe_allow_html=True)
+st.markdown('</div></div>', unsafe_allow_html=True)
 
 def render_tool_loader(tool_name: str, tool_icon: str = "⚙️"):
     """STEP 10: Show animated transition loader for tool switches."""
@@ -5867,7 +5867,7 @@ def parse_debug_response(response_text: str) -> dict:
     import re
     sections = {"summary": "", "root_cause": "", "fixed_code": "", "explanation": ""}
     # Try to extract code blocks
-    code_match = re.search(r'
+    code_match = re.search(r'```(?:python)?\n(.*?)\n```', response_text, re.DOTALL)
 def estimate_plagiarism_risk(text: str) -> tuple:
     """STEP 18: Heuristic plagiarism risk estimation."""
     COMMON_PHRASES = ["in conclusion", "it is important to", "in today's world",
@@ -7857,14 +7857,14 @@ else:
             elif "math_calc" in intent_cls:
                 st.session_state.app_mode = "calculator"
                 st.rerun()
-        except:
+        except Exception:
             pass
 
         from utils.query_engine import QueryEngine
         try:
             augmented_prompt, matched_sources, intent = QueryEngine.route_and_enrich(
                 user_input, st.session_state.get("context_text",""))
-        except:
+        except Exception:
             augmented_prompt, matched_sources, intent = user_input, [], "complex"
 
         assistant_avatar = persona["emoji"] if (persona and st.session_state.selected_persona != "Default (ExamHelp)") else "🎓"

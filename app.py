@@ -7863,14 +7863,14 @@ else:
             elif "math_calc" in intent_cls:
                 st.session_state.app_mode = "calculator"
                 st.rerun()
-        except:
+        except Exception:
             pass
 
         from utils.query_engine import QueryEngine
         try:
             augmented_prompt, matched_sources, intent = QueryEngine.route_and_enrich(
                 user_input, st.session_state.get("context_text",""))
-        except:
+        except Exception:
             augmented_prompt, matched_sources, intent = user_input, [], "complex"
 
         assistant_avatar = persona["emoji"] if (persona and st.session_state.selected_persona != "Default (ExamHelp)") else "🎓"

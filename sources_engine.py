@@ -91,10 +91,12 @@ def _fetch_wikipedia(topic: str) -> List[Dict]:
         slug = urllib.parse.quote(topic.replace(" ", "_"))
         r = requests.get(
             f"https://en.wikipedia.org/api/rest_v1/page/summary/{slug}",
-            timeout=6, headers={"User-Agent": "ExamHelpAI/1.0"}
-        )
+            timeout=6, headers={"User-Agent": "ExamHelpAI/1.0"})
         if r.status_code == 200:
-            d = r.json()
+            try:
+                d = r.json()
+            except Exception:
+                d = {}
             url = d.get("content_urls", {}).get("desktop", {}).get("page", "")
             if url:
                 sources.append({
@@ -110,11 +112,14 @@ def _fetch_wikipedia(topic: str) -> List[Dict]:
     # Also search Wikipedia
     try:
         r = requests.get(
-            f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(topic)}&limit=3&format=json",
+            f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(topic, timeout=10)}&limit=3&format=json",
             timeout=5
         )
         if r.status_code == 200:
-            data = r.json()
+            try:
+                data = r.json()
+            except Exception:
+                data = {}
             titles, _, urls = data[1], data[2], data[3]
             for t, u in zip(titles, urls):
                 if u and u not in [s["url"] for s in sources]:
@@ -136,8 +141,7 @@ def _fetch_arxiv(topic: str) -> List[Dict]:
         query = urllib.parse.quote(topic)
         r = requests.get(
             f"https://export.arxiv.org/api/query?search_query=all:{query}&max_results=3&sortBy=relevance",
-            timeout=7
-        )
+            timeout=7)
         if r.status_code == 200:
             import re
             entries = re.findall(r"<entry>(.*?)</entry>", r.text, re.DOTALL)
@@ -162,7 +166,7 @@ def _fetch_crossref(topic: str) -> List[Dict]:
     sources = []
     try:
         r = requests.get(
-            f"https://api.crossref.org/works?query={urllib.parse.quote(topic)}&rows=3",
+            f"https://api.crossref.org/works?query={urllib.parse.quote(topic, timeout=10)}&rows=3",
             timeout=6, headers={"User-Agent": "ExamHelpAI/1.0 (mailto:examhelp@ai.com)"}
         )
         if r.status_code == 200:
@@ -187,11 +191,14 @@ def _fetch_duckduckgo(topic: str) -> List[Dict]:
     sources = []
     try:
         r = requests.get(
-            f"https://api.duckduckgo.com/?q={urllib.parse.quote(topic)}&format=json&no_redirect=1",
+            f"https://api.duckduckgo.com/?q={urllib.parse.quote(topic, timeout=10)}&format=json&no_redirect=1",
             timeout=6
         )
         if r.status_code == 200:
-            data = r.json()
+            try:
+                data = r.json()
+            except Exception:
+                data = {}
             # Abstract
             if data.get("AbstractURL"):
                 sources.append({

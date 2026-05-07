@@ -186,8 +186,10 @@ def _extract_video_frames(data: bytes, max_frames: int = 6) -> List[Tuple[str, s
             if not ret:
                 continue
             ts = idx / fps
-            _, buf = cv2.imencode(".jpg", frame)
-            b64 = base64.b64encode(buf.tobytes()).decode()
+            success, jpeg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+            if not success:
+                continue
+            b64 = base64.b64encode(jpeg.tobytes()).decode()
             frames.append((b64, "image/jpeg", ts))
         cap.release()
         try:

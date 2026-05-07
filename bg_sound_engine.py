@@ -145,11 +145,20 @@ def _inject_audio_player():
             <source src="{url}" type="audio/mpeg">
         </audio>
         <script>
-            var a = document.getElementById('bgAudio');
-            if (a) {{
+            (function() {{
+                var a = document.getElementById('bgAudio');
+                if (!a) return;
+                // Only change src if it's different to prevent interruption
+                var newSrc = "{url}";
+                var curSrc = a.currentSrc || a.src || "";
+                a.loop = true;
                 a.volume = {volume:.2f};
+                if (!curSrc.includes(newSrc.split('/').pop())) {{
+                    a.src = newSrc;
+                    a.load();
+                }}
                 a.play().catch(function(e){{ console.log('Autoplay blocked:', e); }});
-            }}
+            }})();
         </script>
         """, height=0)
     else:

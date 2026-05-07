@@ -55,14 +55,20 @@ def list_profiles() -> list:
 
 def fetch_github_stats(username: str) -> Dict:
     try:
-        r = requests.get(f"https://api.github.com/users/{username}", headers=HEADERS, timeout=6)
+        import streamlit as _st
+        github_token = _st.secrets.get("GITHUB_TOKEN", "") if hasattr(_st, "secrets") else ""
+        auth_headers = {**HEADERS, "Authorization": f"token {github_token}"} if github_token else HEADERS
+        r = requests.get(f"https://api.github.com/users/{username}", headers=auth_headers, timeout=10)
         if r.status_code != 200:
             return {"error": f"User not found ({r.status_code})"}
-        u = r.json()
+        try:
+            u = r.json()
+        except Exception:
+            u = {}
 
         # Get top language from repos
         r2 = requests.get(f"https://api.github.com/users/{username}/repos?per_page=30&sort=pushed",
-                          headers=HEADERS, timeout=6)
+                          headers=auth_headers, timeout=10)
         lang_count: Dict[str, int] = {}
         if r2.status_code == 200:
             for repo in r2.json():
@@ -90,11 +96,13 @@ def fetch_leetcode_stats(username: str) -> Dict:
     try:
         r = requests.get(
             f"https://leetcode-stats-api.herokuapp.com/{username}",
-            headers=HEADERS, timeout=8
-        )
+            headers=HEADERS, timeout=8)
         if r.status_code != 200:
             return {"error": f"LeetCode user not found"}
-        d = r.json()
+        try:
+            d = r.json()
+        except Exception:
+            d = {}
         if d.get("status") == "error":
             return {"error": d.get("message", "Not found")}
         return {
@@ -115,11 +123,13 @@ def fetch_codeforces_stats(handle: str) -> Dict:
     try:
         r = requests.get(
             f"https://codeforces.com/api/user.info?handles={handle}",
-            headers=HEADERS, timeout=8
-        )
+            headers=HEADERS, timeout=8)
         if r.status_code != 200:
             return {"error": "CF API error"}
-        data = r.json()
+        try:
+            data = r.json()
+        except Exception:
+            data = {}
         if data.get("status") != "OK":
             return {"error": data.get("comment", "Not found")}
         u = data["result"][0]
@@ -141,8 +151,7 @@ def fetch_gfg_stats(username: str) -> Dict:
     try:
         r = requests.get(
             f"https://auth.geeksforgeeks.org/user/{username}/profile",
-            headers={**HEADERS, "Accept": "text/html"}, timeout=8
-        )
+            headers={**HEADERS, "Accept": "text/html"}, timeout=8)
         if r.status_code != 200:
             return {"error": f"GFG profile not found"}
 

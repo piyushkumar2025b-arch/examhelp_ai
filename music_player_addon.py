@@ -287,6 +287,7 @@ def render_music_player_page():
     if "mp_track" not in st.session_state: st.session_state.mp_track = None
     if "mp_results" not in st.session_state: st.session_state.mp_results = []
     if "mp_radio" not in st.session_state: st.session_state.mp_radio = []
+    if "mp_volume" not in st.session_state: st.session_state.mp_volume = 80
 
     # ── Now Playing ───────────────────────────────────────────────────────────
     track = st.session_state.mp_track
@@ -310,8 +311,38 @@ def render_music_player_page():
         </div>
         """, unsafe_allow_html=True)
         
-        # Audio Player
-        st.audio(track["url"])
+        # Audio Player — looping HTML5 player (plays until user stops)
+        import streamlit.components.v1 as _comp
+        _url = track.get("url", "")
+        if isinstance(_url, str) and _url:
+            # Stream URL — use HTML5 audio with loop=true so it plays forever
+            _vol = st.session_state.get("mp_volume", 80) / 100.0
+            _comp.html(f'''
+            <audio id="mpAudio" autoplay loop style="width:100%;border-radius:8px;margin:6px 0;">
+                <source src="{_url}" type="audio/mpeg">
+                <source src="{_url}" type="audio/ogg">
+                Your browser does not support the audio element.
+            </audio>
+            <script>
+                var a = document.getElementById('mpAudio');
+                if (a) {{
+                    a.volume = {_vol:.2f};
+                    a.play().catch(function(e){{ console.log('Autoplay blocked:', e); }});
+                }}
+            </script>
+            ''', height=60)
+        else:
+            # Local file upload — st.audio handles bytes/file objects, add loop via JS
+            st.audio(_url)
+            _comp.html('''
+            <script>
+                // Find Streamlit audio element and set loop
+                setTimeout(function() {
+                    var audios = window.parent.document.querySelectorAll('audio');
+                    audios.forEach(function(a) {{ a.loop = true; a.play(); }});
+                }, 500);
+            </script>
+            ''', height=0)
         
         c1, c2 = st.columns(2)
         with c1:

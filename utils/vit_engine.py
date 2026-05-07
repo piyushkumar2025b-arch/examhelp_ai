@@ -82,7 +82,7 @@ def attendance_status(attended: int, total: int) -> Dict:
     """Check attendance percentage and requirements for 75%."""
     if total <= 0:
         return {"percentage": 0, "status": "No data", "required_more": 0}
-    pct = (attended / total) * 100
+    pct = (attended / total) * 100 if total > 0 else 0.0
     safe = pct >= 75
     req = 0
     if not safe:
@@ -138,7 +138,7 @@ def attendance_status(attended: int, total: int) -> Dict:
     """
     if total <= 0: return {"percentage": 0, "status": "No data", "required_more": 0}
     
-    pct = (attended / total) * 100
+    pct = (attended / total) * 100 if total > 0 else 0.0
     safe = pct >= 75
     
     # Calculate how many more classes needed if below 75%

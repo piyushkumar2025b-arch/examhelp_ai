@@ -33,3 +33,7 @@ node_modules/
 # ── Backup files that might contain secrets ──
 *.bak
 *.zip
+.env
+.streamlit/secrets.toml
+__pycache__/
+*.pyc

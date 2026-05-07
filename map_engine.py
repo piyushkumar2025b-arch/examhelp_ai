@@ -194,7 +194,7 @@ def get_wiki_summary(place: str) -> str:
     try:
         clean = place.split(",")[0].strip().replace(" ", "_")
         r = requests.get(
-            f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(clean)}",
+            f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(clean, timeout=10)}",
             headers=_NOM_HEADERS, timeout=5
         )
         if r.status_code == 200:

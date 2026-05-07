@@ -51,7 +51,7 @@ class QueryEngine:
             return [{"title": i["volumeInfo"].get("title"),
                      "snippet": i["volumeInfo"].get("description", "")[:400],
                      "link": i["volumeInfo"].get("infoLink")} for i in items]
-        except:
+        except Exception:
             return []
 
     @staticmethod
@@ -65,7 +65,7 @@ class QueryEngine:
                      "snippet": f"Author: {', '.join(d.get('author_name', []))}",
                      "link": f"https://openlibrary.org{d.get('key')}"}
                     for d in docs if d.get("title")]
-        except:
+        except Exception:
             return []
 
     @staticmethod
@@ -78,7 +78,7 @@ class QueryEngine:
             links = re.findall(r'<id>(http[^<]+)</id>', resp.text)
             return [{"title": t.strip(), "snippet": s.strip()[:400], "link": l.strip()}
                     for t, s, l in zip(titles, summaries, links)]
-        except:
+        except Exception:
             return []
 
     @staticmethod
@@ -97,7 +97,7 @@ class QueryEngine:
                     "link": p.get("url", f"https://www.semanticscholar.org/paper/{p.get('paperId','')}")
                 })
             return results
-        except:
+        except Exception:
             return []
 
     @staticmethod
@@ -123,7 +123,7 @@ class QueryEngine:
                         "link": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
                     })
             return results
-        except:
+        except Exception:
             return []
 
     @staticmethod
@@ -135,7 +135,7 @@ class QueryEngine:
             items = data.get("items", [])
             return [{"title": i.get("title"), "snippet": "StackOverflow Answer", "link": i.get("link")}
                     for i in items[:2]]
-        except:
+        except Exception:
             return []
 
     @staticmethod
@@ -147,7 +147,7 @@ class QueryEngine:
         try:
             resp = requests.get(f"https://wttr.in/{urllib.parse.quote(city)}?format=3", timeout=3)
             return resp.text.strip()
-        except:
+        except Exception:
             return ""
 
     @staticmethod
@@ -160,7 +160,7 @@ class QueryEngine:
                 defns = data[0].get("meanings", [{}])[0].get("definitions", [{}])[0].get("definition", "")
                 example = data[0].get("meanings", [{}])[0].get("definitions", [{}])[0].get("example", "")
                 return defns + (f" (e.g. {example})" if example else "")
-        except:
+        except Exception:
             return ""
 
     @staticmethod
@@ -177,7 +177,7 @@ class QueryEngine:
                 abstract = " ".join(item.get("abstract", "").split()[:60]) if item.get("abstract") else ""
                 results.append({"title": title, "snippet": abstract[:300], "link": item.get("URL", "")})
             return results
-        except:
+        except Exception:
             return []
 
     @staticmethod
@@ -209,7 +209,7 @@ class QueryEngine:
             try:
                 page = wikipedia.page(e.options[0], auto_suggest=False)
                 return [{"title": page.title, "snippet": page.summary[:800] + "...", "link": page.url}]
-            except:
+            except Exception:
                 return []
         except Exception:
             return []
