@@ -420,17 +420,27 @@ def render_music_player_page():
                         st.rerun()
                     else:
                         st.error("No playable URL found for this track.")
+                # Download button — direct link to audio file
+                _dl_url = r.get("preview_url") or ""
+                if _dl_url and isinstance(_dl_url, str) and _dl_url.startswith("http"):
+                    st.link_button("⬇️ Download / Open Audio", _dl_url, use_container_width=True)
 
     # ═══════════ LIVE RADIO TAB ══════════════════════════════════════════════
     with tab_radio:
         st.markdown("**Listen to live internet radio (Hindi, English, News, etc):**")
         r_cols = st.columns([3, 1])
         with r_cols[0]:
-            r_tag = st.selectbox("Select Station Category:", ["hindi", "bollywood", "english", "lofi", "ambient", "news", "pop", "jazz"], label_visibility="collapsed")
+            r_tag = st.selectbox("Select Station Category:", [
+                "hindi", "bollywood", "indian", "tamil", "telugu", "punjabi", "devotional",
+                "english", "pop", "rock", "jazz", "classical", "lofi", "ambient",
+                "news", "talk", "sports", "comedy",
+                "electronic", "edm", "hiphop", "rnb", "reggae", "country",
+                "christmas", "kids", "80s", "90s", "2000s"
+            ], label_visibility="collapsed")
         with r_cols[1]:
             if st.button("📡 Load Stations", use_container_width=True):
                 with st.spinner("Fetching live stations..."):
-                    st.session_state.mp_radio = get_radio_stations(r_tag, limit=15)
+                    st.session_state.mp_radio = get_radio_stations(r_tag, limit=25)
         
         stations = st.session_state.mp_radio
         if stations:

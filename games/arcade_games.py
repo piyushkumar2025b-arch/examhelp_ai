@@ -56,7 +56,7 @@ def render_reaction_timer():
         if st.button("🔄 Play Again",type="primary",use_container_width=True,key="rt_new"): st.session_state.rt_times=[]; st.session_state.rt_state="idle"; st.rerun()
         return
     if state=="idle":
-        if st.button("🚦 Start Round",type="primary",use_container_width=True,key="rt_start"):
+        if st.button("🚦 Start Round",type="primary",use_container_width=True,key="rt_start_btn"):
             st.session_state.rt_state="waiting"; st.session_state.rt_delay=random.uniform(2,5); st.session_state.rt_trigger=time.time(); st.rerun()
     elif state=="waiting":
         delay=st.session_state.rt_delay; elapsed=time.time()-st.session_state.rt_trigger
@@ -175,7 +175,7 @@ def render_true_false_blitz():
     if "tf_stmts" not in st.session_state: st.session_state.tf_stmts=None; st.session_state.tf_idx=0; st.session_state.tf_correct=0; st.session_state.tf_start=None; st.session_state.tf_done=False
     topic=st.selectbox("Topic",TF_TOPICS,key="tf_topic")
     if st.session_state.tf_stmts is None:
-        if st.button("🚀 Start Blitz!",type="primary",use_container_width=True,key="tf_start"):
+        if st.button("🚀 Start Blitz!",type="primary",use_container_width=True,key="tf_start_btn"):
             with st.spinner("AI generating statements..."):
                 raw=_ai(f'Give 10 true/false trivia statements about {topic}. Return ONLY valid JSON array: [{{"statement":"...","is_true":true}}]',600)
                 stmts=_parse_json_list(raw)
@@ -274,3 +274,108 @@ def render_typing_speed():
         else:
             if st.session_state.ts_start is None and typed: st.session_state.ts_start=time.time()
     if st.button("🔄 New Text",use_container_width=True,key="ts_new"): st.session_state.ts_rst=True; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════
+# 32. COLOR MATCH CHALLENGE
+# ═══════════════════════════════════════════════════════
+def render_color_match():
+    import random
+    st.markdown('<div style="font-size:1.4rem;font-weight:900;color:#f472b6;margin-bottom:8px;">🎨 Color Match Challenge</div><div style="color:#64748b;font-size:.85rem;margin-bottom:10px;">Match the COLOR NAME shown to its actual color — NOT the word! Stroop effect challenge.</div>', unsafe_allow_html=True)
+    COLORS = {"Red":"#ef4444","Blue":"#3b82f6","Green":"#22c55e","Yellow":"#eab308","Purple":"#a855f7","Orange":"#f97316","Pink":"#ec4899","Cyan":"#06b6d4"}
+    if "cm_score" not in st.session_state: st.session_state.cm_score=0; st.session_state.cm_streak=0; st.session_state.cm_q=None; st.session_state.cm_rounds=0
+    if st.session_state.cm_q is None:
+        words=list(COLORS.keys()); ink_col=random.choice(words); word=random.choice(words)
+        st.session_state.cm_q={"word":word,"ink":ink_col,"answer":ink_col}
+    q=st.session_state.cm_q
+    st.markdown(f'<div style="text-align:center;padding:30px;background:#1e1e3a;border-radius:16px;margin-bottom:16px;"><span style="font-size:3rem;font-weight:900;color:{COLORS[q["ink"]]};">{q["word"]}</span><br><div style="color:#64748b;font-size:.8rem;margin-top:8px;">What COLOR is this text printed in?</div></div>', unsafe_allow_html=True)
+    c1,c2 = st.columns(2); st.metric("Score",st.session_state.cm_score); 
+    cols=st.columns(4)
+    color_names=list(COLORS.keys()); random.shuffle(color_names)
+    for i,cn in enumerate(color_names[:4]):
+        if cols[i].button(f"● {cn}",key=f"cm_{cn}_{st.session_state.cm_rounds}",use_container_width=True):
+            if cn==q["answer"]:
+                st.session_state.cm_score+=1; st.session_state.cm_streak+=1; st.success(f"✅ Correct! Streak: {st.session_state.cm_streak}")
+            else:
+                st.session_state.cm_streak=0; st.error(f"❌ Wrong! It was {q['answer']}")
+            _score_update("Color Match",st.session_state.cm_score)
+            st.session_state.cm_q=None; st.session_state.cm_rounds+=1; st.rerun()
+
+
+# ═══════════════════════════════════════════════════════
+# 33. QUIZ BLITZ (AI-generated trivia, 60-second timed)
+# ═══════════════════════════════════════════════════════
+_STATIC_QUIZ = [
+    {"q":"What is the capital of India?","opts":["Mumbai","New Delhi","Kolkata","Chennai"],"ans":"New Delhi"},
+    {"q":"Which planet is closest to the Sun?","opts":["Venus","Earth","Mercury","Mars"],"ans":"Mercury"},
+    {"q":"How many sides does a hexagon have?","opts":["5","6","7","8"],"ans":"6"},
+    {"q":"What is H2O?","opts":["Salt","Sugar","Water","Acid"],"ans":"Water"},
+    {"q":"Who invented the telephone?","opts":["Edison","Bell","Tesla","Marconi"],"ans":"Bell"},
+    {"q":"What is the largest ocean?","opts":["Atlantic","Indian","Arctic","Pacific"],"ans":"Pacific"},
+    {"q":"Which element has symbol Au?","opts":["Silver","Gold","Aluminium","Argon"],"ans":"Gold"},
+    {"q":"What is 12 × 12?","opts":["122","142","144","148"],"ans":"144"},
+    {"q":"How many bones in adult human body?","opts":["186","206","226","246"],"ans":"206"},
+    {"q":"What is the speed of light (approx)?","opts":["3×10⁸ m/s","3×10⁶ m/s","3×10⁴ m/s","3×10¹⁰ m/s"],"ans":"3×10⁸ m/s"},
+    {"q":"Which gas do plants absorb?","opts":["Oxygen","Nitrogen","CO2","Hydrogen"],"ans":"CO2"},
+    {"q":"Who wrote Romeo and Juliet?","opts":["Dickens","Chaucer","Shakespeare","Marlowe"],"ans":"Shakespeare"},
+]
+
+def render_quiz_blitz():
+    st.markdown('<div style="font-size:1.4rem;font-weight:900;color:#f59e0b;margin-bottom:8px;">⚡ Quiz Blitz</div><div style="color:#64748b;font-size:.85rem;margin-bottom:10px;">Answer as many questions as possible in 60 seconds!</div>', unsafe_allow_html=True)
+    if "qb_qs" not in st.session_state: st.session_state.qb_qs=None; st.session_state.qb_idx=0; st.session_state.qb_score=0; st.session_state.qb_start=None; st.session_state.qb_done=False
+    if st.session_state.qb_done or (st.session_state.qb_start and time.time()-st.session_state.qb_start>60):
+        st.session_state.qb_done=True
+        st.success(f"⏰ Time's up! You scored **{st.session_state.qb_score}** / {st.session_state.qb_idx} correct!")
+        _score_update("Quiz Blitz",st.session_state.qb_score)
+        if st.button("🔄 Play Again",type="primary",use_container_width=True,key="qb_again"): st.session_state.qb_qs=None; st.session_state.qb_idx=0; st.session_state.qb_score=0; st.session_state.qb_start=None; st.session_state.qb_done=False; st.rerun()
+        return
+    if st.session_state.qb_qs is None:
+        qs=_STATIC_QUIZ.copy(); random.shuffle(qs)
+        for q in qs: random.shuffle(q["opts"])
+        st.session_state.qb_qs=qs*3
+    if st.session_state.qb_start:
+        elapsed=time.time()-st.session_state.qb_start; remaining=max(0,60-int(elapsed))
+        st.markdown(f'<div style="font-size:1.1rem;color:#f59e0b;font-weight:700;margin-bottom:8px;">⏱️ {remaining}s remaining | Score: {st.session_state.qb_score}</div>',unsafe_allow_html=True)
+    idx=st.session_state.qb_idx; qs=st.session_state.qb_qs
+    if idx>=len(qs): st.session_state.qb_done=True; st.rerun(); return
+    q=qs[idx]
+    st.markdown(f'<div style="background:#1e1e3a;border-radius:12px;padding:16px;margin-bottom:12px;font-size:1rem;font-weight:600;color:#e2e8f0;">Q{idx+1}: {q["q"]}</div>',unsafe_allow_html=True)
+    c1,c2=st.columns(2)
+    for i,opt in enumerate(q["opts"]):
+        col=c1 if i<2 else c2
+        if col.button(opt,key=f"qb_{idx}_{i}",use_container_width=True):
+            if st.session_state.qb_start is None: st.session_state.qb_start=time.time()
+            if opt==q["ans"]: st.session_state.qb_score+=1
+            st.session_state.qb_idx+=1; st.rerun()
+    if st.session_state.qb_start is None:
+        st.info("Click any answer to start the timer!")
+
+
+# ═══════════════════════════════════════════════════════
+# 34. NUMBER CHAIN (mental math chain)
+# ═══════════════════════════════════════════════════════
+def render_number_chain():
+    st.markdown('<div style="font-size:1.4rem;font-weight:900;color:#34d399;margin-bottom:8px;">🔗 Number Chain</div><div style="color:#64748b;font-size:.85rem;margin-bottom:10px;">Mental math chain — each answer feeds the next question. Get 10 in a row!</div>', unsafe_allow_html=True)
+    if "nc_num" not in st.session_state: st.session_state.nc_num=random.randint(5,20); st.session_state.nc_op=None; st.session_state.nc_score=0; st.session_state.nc_done=False
+    OPS=[("+ {}",lambda a,b:a+b),("- {}",lambda a,b:a-b),("× {}",lambda a,b:a*b)]
+    if st.session_state.nc_op is None:
+        op_idx=random.randint(0,1) if st.session_state.nc_num>50 else random.randint(0,2)
+        if op_idx==1 and st.session_state.nc_num<5: op_idx=0
+        b=random.randint(2,9)
+        op_fmt,op_fn=OPS[op_idx]; st.session_state.nc_op=(op_fmt.format(b),op_fn(st.session_state.nc_num,b),b)
+    cur=st.session_state.nc_num; op_str,correct,b=st.session_state.nc_op
+    st.markdown(f'<div style="text-align:center;background:#1e1e3a;border-radius:14px;padding:24px;margin-bottom:14px;"><div style="font-size:2.2rem;font-weight:900;color:#34d399;">{cur} {op_str.replace(str(b),str(b))}</div><div style="color:#64748b;font-size:.8rem;margin-top:6px;">=  ?</div></div>',unsafe_allow_html=True)
+    st.markdown(f"**Chain score: {st.session_state.nc_score}**")
+    ans_str=st.text_input("Your answer:",key=f"nc_ans_{st.session_state.nc_score}",placeholder="Type and press Enter")
+    if ans_str:
+        try:
+            ans=int(ans_str.strip())
+            if ans==correct:
+                st.session_state.nc_score+=1; st.session_state.nc_num=correct; st.session_state.nc_op=None
+                _score_update("Number Chain",st.session_state.nc_score)
+                st.success(f"✅ Correct! Chain: {st.session_state.nc_score}"); st.rerun()
+            else:
+                st.error(f"❌ Wrong! Answer was {correct}. Chain broken.")
+                st.session_state.nc_num=random.randint(5,20); st.session_state.nc_op=None; st.session_state.nc_score=0; st.rerun()
+        except ValueError:
+            st.warning("Enter a number!")

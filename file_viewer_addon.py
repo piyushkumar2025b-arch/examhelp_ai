@@ -362,16 +362,12 @@ def _render_pdf(file):
 
     with tab_view:
         try:
-            port = _start_pdf_server(data)
-            pdf_url = f"http://localhost:{port}/pdf"
-            # Use PDF.js via CDN for maximum compatibility — works even when
-            # the browser blocks iframe embedding of localhost URLs.
-            pdfjs_url = (
-                "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
-            )
-            pdfjs_worker = (
-                "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
-            )
+            import base64 as _b64
+            b64data = _b64.b64encode(data).decode()
+            pdfjs_url = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+            pdfjs_worker = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
+            # Use base64 data URI — works on Streamlit Cloud, any file size
+            pdf_data_uri = f"data:application/pdf;base64,{b64data}"
 
             html_viewer = f"""
 <!DOCTYPE html>
@@ -417,7 +413,7 @@ def _render_pdf(file):
   <button onclick="changeZoom(+0.25)">🔍+</button>
   <button onclick="changeZoom(0)">Fit</button>
   &nbsp;|&nbsp;
-  <button onclick="window.open('{pdf_url}','_blank')">⬇️ Open in Tab</button>
+  <button onclick="downloadPDF()">⬇️ Download</button>
 </div>
 <div id="canvas-container">
   <div id="loading">Loading PDF…</div>
@@ -432,7 +428,7 @@ def _render_pdf(file):
 
   async function loadPDF() {{
     try {{
-      pdfDoc = await pdfjsLib.getDocument('{pdf_url}').promise;
+      pdfDoc = await pdfjsLib.getDocument({{data: atob('{b64data}')}}).promise;
       totalPages = pdfDoc.numPages;
       document.getElementById('loading').style.display = 'none';
       fitZoom();
@@ -486,6 +482,13 @@ def _render_pdf(file):
     if (e.key === 'ArrowRight' || e.key === 'PageDown') goPage(currentPage+1);
     if (e.key === 'ArrowLeft'  || e.key === 'PageUp')   goPage(currentPage-1);
   }});
+
+  function downloadPDF() {{
+    const a = document.createElement('a');
+    a.href = '{pdf_data_uri}';
+    a.download = 'document.pdf';
+    a.click();
+  }}
 
   loadPDF();
 </script>

@@ -5657,6 +5657,8 @@ with st.sidebar:
             ("🎓", "Knowledge Hub",        "arXiv · PubMed · Books · Stack Overflow",  "knowledge_hub"),
             ("🌿", "Study Wellness",       "Breaks · Affirmations · Concept of Day",   "study_wellness"),
             ("🖼️", "AI Image Generator",   "Create any image — 12 styles · batch · free", "image_generator"),
+            ("🔍", "Web Search",           "Free Google-style search — DuckDuckGo + Wikipedia", "web_search"),
+            ("📸", "Image Search",         "Browse & download free photos — Pixabay · Unsplash", "image_search_free"),
         ]
         for icon, name, desc, mode in _power_tools:
             col_icon, col_info, col_btn = st.columns([1, 4, 2])
@@ -7859,6 +7861,14 @@ elif app_mode == "caring_zone":
 elif app_mode == "image_generator":
     from image_generator_addon import render_image_generator
     render_image_generator()
+
+elif app_mode == "web_search":
+    from web_search_engine import render_web_search_page
+    render_web_search_page()
+
+elif app_mode == "image_search_free":
+    from web_search_engine import render_image_search_page
+    render_image_search_page()
 
 else:
 

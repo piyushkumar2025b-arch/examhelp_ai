@@ -228,3 +228,9 @@ def format_market_cap(mc: float) -> str:
 
 # Default watchlist for the stocks page
 DEFAULT_WATCHLIST = ["AAPL", "MSFT", "NVDA", "TSLA", "TCS.NS", "RELIANCE.NS", "BTC-USD"]
+
+
+# MOCK_STOCKS alias for backward compatibility (used by new_features.py)
+MOCK_STOCKS = {sym: {"name": meta["name"], "price": _MOCK_BASE.get(sym, 100.0),
+               "change": round(random.uniform(-3, 3), 2), "sector": meta["sector"]}
+               for sym, meta in STOCK_META.items()}

@@ -26,6 +26,7 @@ from games.ai_games import (
 from games.arcade_games import (
     render_reaction_timer, render_rps_lizard_spock, render_higher_lower,
     render_true_false_blitz, render_emoji_rebus, render_typing_speed,
+    render_color_match, render_quiz_blitz, render_number_chain,
 )
 
 # ── Per-category game registry ────────────────────────────────────────────────
@@ -69,6 +70,9 @@ ARCADE_GAMES = {
     "🔥 True/False Blitz":         render_true_false_blitz,
     "🧩 Emoji Rebus":              render_emoji_rebus,
     "⌨️ Typing Speed Test":        render_typing_speed,
+    "🎨 Color Match":              render_color_match,
+    "⚡ Quiz Blitz (60s)":         render_quiz_blitz,
+    "🔗 Number Chain":             render_number_chain,
 }
 
 ALL_COUNTS = (
