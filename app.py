@@ -5024,6 +5024,21 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
+        # ── Free Photo Browser ──────────────────────────────────────
+        st.markdown("""
+        <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(6,182,212,0.08));
+            border:1px solid rgba(99,102,241,0.4);border-radius:14px;padding:3px 4px;
+            box-shadow:0 0 20px rgba(99,102,241,0.1);">
+        """, unsafe_allow_html=True)
+        if st.button("📸 Free Photo Browser — 7 Sources · CC Licensed", use_container_width=True,
+                     key="side_free_photos", type="primary"):
+            st.session_state.app_mode = "free_pictures"; st.rerun()
+        st.markdown("""
+        <div style="font-size:0.68rem;color:rgba(99,102,241,0.8);text-align:center;letter-spacing:1px;
+            font-family:'Space Mono',monospace;padding:2px 6px 6px;">UNSPLASH · WIKIMEDIA · NASA · MET · CC</div>
+        </div>
+        """, unsafe_allow_html=True)
+
         # ── Universal File Viewer ──────────────────────────────────────
         st.markdown("""
         <div style="margin:10px 0 4px;background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(239,68,68,0.08));
@@ -7911,6 +7926,12 @@ elif app_mode == "web_search":
 elif app_mode == "image_search_free":
     from web_search_engine import render_image_search_page
     render_image_search_page()
+
+# 📸 FREE PHOTO BROWSER — 7 Sources
+# ─────────────────────────────────────────────
+elif app_mode == "free_pictures":
+    from free_pictures_addon import render_free_pictures
+    render_free_pictures()
 
 else:
 
