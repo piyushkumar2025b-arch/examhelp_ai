@@ -2,7 +2,7 @@
 base = "dark"
 
 [server]
-maxUploadSize = 10
+maxUploadSize = 2048
 fileWatcherType = "none"
 
 [logger]

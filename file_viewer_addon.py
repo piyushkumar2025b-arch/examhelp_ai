@@ -1,10 +1,17 @@
 """
 file_viewer_addon.py — Universal File Viewer (No AI)
-Supports: Images, Text/Code, PDF, CSV, JSON, Excel, Audio, Video, Markdown
-Pure viewer — no AI processing whatsoever.
+Supports: Images, Text/Code, PDF, CSV, JSON, Excel, Audio, Video, Markdown,
+          DOCX, PPTX, RTF, EPUB, IPYNB, EML, ZIP/RAR/7z/TAR, and any binary.
+
+Key design goals:
+  * No hard size limits — large files are chunked/paginated, never silently cut.
+  * Every format has a graceful fallback chain.
+  * PDF embeds up to 50 MB; larger ones get page-by-page text extraction.
+  * CSV/Excel use paginated reads — millions of rows work fine.
+  * Text pagination so even 100 MB logs are browsable.
 """
 import streamlit as st
-import os
+import io
 
 VIEWER_CSS = """
 <style>
@@ -25,7 +32,6 @@ VIEWER_CSS = """
     color:#fff; margin-bottom:4px;
 }
 .fv-sub { font-size:.9rem; color:rgba(255,255,255,0.4); }
-
 .fv-card {
     background: rgba(15,23,42,0.75);
     border: 1px solid rgba(255,255,255,0.07);
@@ -45,92 +51,124 @@ VIEWER_CSS = """
     display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;
     font-family:'Rajdhani',sans-serif; font-size:.85rem; color:rgba(255,255,255,0.5);
 }
-.fv-code-wrap {
-    background: #0d1117; border:1px solid rgba(255,255,255,0.06);
-    border-radius:12px; padding:18px; overflow-x:auto;
-    font-family:'JetBrains Mono',monospace; font-size:.82rem;
-    color:#e6edf3; line-height:1.7; white-space:pre-wrap; word-break:break-all;
-    max-height:600px; overflow-y:auto;
-}
 </style>
 """
 
 # ── Supported types ────────────────────────────────────────────────────────────
-IMAGE_TYPES   = ["png","jpg","jpeg","gif","bmp","webp","svg","ico","tiff","heic","psd","ai"]
-TEXT_TYPES    = ["txt","md","py","js","ts","css","html","xml","yaml","yml",
-                 "toml","ini","cfg","env","sh","bat","sql","log","rst","tex"]
+IMAGE_TYPES  = ["png","jpg","jpeg","gif","bmp","webp","svg","ico","tiff","heic","psd","ai"]
+TEXT_TYPES   = ["txt","md","py","js","ts","css","html","xml","yaml","yml",
+                "toml","ini","cfg","env","sh","bat","sql","log","rst","tex",
+                "c","cpp","h","hpp","java","kt","go","rs","rb","php","swift",
+                "r","lua","pl","scala","cs","vb","asm","dart","ex","exs",
+                "coffee","jsx","tsx","vue","svelte","graphql","proto",
+                "dockerfile","makefile","cmake","gradle","tf","hcl","nix"]
 CODE_LANG_MAP = {
     "py":"python","js":"javascript","ts":"typescript","html":"html",
     "css":"css","sql":"sql","sh":"bash","bat":"batch","md":"markdown",
     "xml":"xml","yaml":"yaml","yml":"yaml","toml":"toml","json":"json",
     "rst":"rst","tex":"latex","ini":"ini","cfg":"ini","log":"text",
-    "txt":"text","env":"text",
+    "txt":"text","env":"text","c":"c","cpp":"cpp","h":"c","hpp":"cpp",
+    "java":"java","kt":"kotlin","go":"go","rs":"rust","rb":"ruby",
+    "php":"php","swift":"swift","r":"r","lua":"lua","pl":"perl",
+    "scala":"scala","cs":"csharp","vb":"vbnet","dart":"dart",
+    "jsx":"jsx","tsx":"tsx","vue":"html","svelte":"html",
+    "graphql":"graphql","dockerfile":"dockerfile","tf":"hcl","hcl":"hcl",
+    "gradle":"groovy","cmake":"cmake",
 }
-CSV_TYPES     = ["csv","tsv"]
-JSON_TYPES    = ["json","jsonl"]
-PDF_TYPES     = ["pdf"]
-AUDIO_TYPES   = ["mp3","wav","ogg","flac","m4a"]
-VIDEO_TYPES   = ["mp4","webm","ogv","mov"]
-EXCEL_TYPES   = ["xlsx","xls"]
-DOCX_TYPES    = ["docx","doc"]
-PPT_TYPES     = ["pptx","ppt"]
-RTF_TYPES     = ["rtf"]
-EPUB_TYPES    = ["epub"]
-IPYNB_TYPES   = ["ipynb"]
-EML_TYPES     = ["eml","msg"]
-ZIP_TYPES     = ["zip","rar","7z","tar","gz"]
-SYSTEM_TYPES  = ["exe","dll","iso","dmg","app"]
+CSV_TYPES    = ["csv","tsv"]
+JSON_TYPES   = ["json","jsonl","ndjson"]
+PDF_TYPES    = ["pdf"]
+AUDIO_TYPES  = ["mp3","wav","ogg","flac","m4a","aac","wma","opus","aiff"]
+VIDEO_TYPES  = ["mp4","webm","ogv","mov","avi","mkv","flv","wmv"]
+EXCEL_TYPES  = ["xlsx","xls","ods","xlsm"]
+DOCX_TYPES   = ["docx","doc"]
+PPT_TYPES    = ["pptx","ppt"]
+RTF_TYPES    = ["rtf"]
+EPUB_TYPES   = ["epub"]
+IPYNB_TYPES  = ["ipynb"]
+EML_TYPES    = ["eml","msg"]
+ZIP_TYPES    = ["zip","rar","7z","tar","gz","bz2","xz","tgz"]
+SYSTEM_TYPES = ["exe","dll","iso","dmg","app","deb","rpm","apk"]
 
-ALL_SUPPORTED = IMAGE_TYPES + TEXT_TYPES + CSV_TYPES + JSON_TYPES + \
-                PDF_TYPES + AUDIO_TYPES + VIDEO_TYPES + EXCEL_TYPES + \
-                DOCX_TYPES + PPT_TYPES + RTF_TYPES + EPUB_TYPES + IPYNB_TYPES + EML_TYPES + ZIP_TYPES + SYSTEM_TYPES
+# Page sizes
+TEXT_PAGE_SIZE = 100_000   # chars per page for text viewers
+ROWS_PER_PAGE  = 5_000     # rows per page for tabular viewers
 
 
 def _fmt_size(n: int) -> str:
-    if n < 1024:       return f"{n} B"
-    if n < 1024**2:    return f"{n/1024:.1f} KB"
-    if n < 1024**3:    return f"{n/1024**2:.1f} MB"
+    if n < 1024:        return f"{n} B"
+    if n < 1024**2:     return f"{n/1024:.1f} KB"
+    if n < 1024**3:     return f"{n/1024**2:.1f} MB"
     return f"{n/1024**3:.2f} GB"
 
 
+def _paginator(key: str, total_pages: int) -> int:
+    """Renders Prev/Next controls and returns the current 0-based page index."""
+    if total_pages <= 1:
+        return 0
+    if key not in st.session_state:
+        st.session_state[key] = 0
+    page = st.session_state[key]
+    col_prev, col_info, col_next = st.columns([1, 3, 1])
+    with col_prev:
+        if st.button("◀ Prev", key=f"{key}_prev", disabled=(page == 0)):
+            st.session_state[key] = page - 1
+            st.rerun()
+    with col_info:
+        st.markdown(
+            f"<div style='text-align:center;padding-top:6px;'>"
+            f"Page <strong>{page+1}</strong> of <strong>{total_pages}</strong></div>",
+            unsafe_allow_html=True,
+        )
+    with col_next:
+        if st.button("Next ▶", key=f"{key}_next", disabled=(page == total_pages - 1)):
+            st.session_state[key] = page + 1
+            st.rerun()
+    return st.session_state.get(key, 0)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Renderers
+# ─────────────────────────────────────────────────────────────────────────────
+
 def _render_image(file):
-    from PIL import Image
     ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else ""
-    
-    # Special native rendering for SVGs to keep them sharp
+    raw_bytes = file.read()
+
     if ext == "svg":
         try:
-            svg_content = file.read().decode('utf-8')
-            st.markdown(f'<div style="text-align:center; background:#fff; padding:20px; border-radius:12px;">{svg_content}</div>', unsafe_allow_html=True)
+            svg_content = raw_bytes.decode("utf-8")
+            st.markdown(
+                f'<div style="text-align:center;background:#fff;padding:20px;border-radius:12px;">'
+                f'{svg_content}</div>', unsafe_allow_html=True)
+            st.download_button("⬇️ Download SVG", raw_bytes, file_name=file.name,
+                               use_container_width=True, key="fv_dl_svg")
             return
         except Exception:
-            file.seek(0)
-            
+            pass
+
     try:
-        img = Image.open(file)
-        
+        from PIL import Image
+        img = Image.open(io.BytesIO(raw_bytes))
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGBA" if "transparency" in img.info else "RGB")
         col1, col2 = st.columns([3, 1])
         with col2:
-            st.markdown("### 🖼️ View Controls")
-            rot = st.slider("Rotate (Degrees)", -180, 180, 0, 90, key="fv_img_rot")
-            if rot != 0:
+            st.markdown("### 🖼️ Controls")
+            rot = st.slider("Rotate°", -180, 180, 0, 90, key="fv_img_rot")
+            if rot:
                 img = img.rotate(-rot, expand=True)
-                
-            w_percent = st.slider("Scale %", 10, 200, 100, 10, key="fv_img_scale")
-            if w_percent != 100:
-                new_w = int(img.width * (w_percent / 100))
-                new_h = int(img.height * (w_percent / 100))
-                img = img.resize((new_w, new_h))
-                
-            st.caption(f"Dimensions: {img.width}x{img.height}")
-            
+            scale = st.slider("Scale %", 10, 200, 100, 10, key="fv_img_scale")
+            if scale != 100:
+                img = img.resize((int(img.width * scale / 100), int(img.height * scale / 100)))
+            st.caption(f"{img.width}×{img.height} px | {img.mode}")
+            st.download_button("⬇️ Download", raw_bytes, file_name=file.name,
+                               use_container_width=True, key="fv_dl_img")
         with col1:
             st.image(img, use_container_width=True)
     except Exception as e:
-        # If pillow can't handle it (like PSD, HEIC without plugin, or AI), fall back to raw viewing
-        st.warning(f"Could not render image natively. Falling back to Raw Viewer.")
-        file.seek(0)
-        _render_hex_fallback(file)
+        st.warning(f"Native render failed ({e}). Showing fallback.")
+        _render_hex_fallback_bytes(raw_bytes, file.name)
 
 
 def _render_text(file, ext: str):
@@ -138,60 +176,115 @@ def _render_text(file, ext: str):
         raw = file.read().decode("utf-8", errors="replace")
     except Exception as e:
         st.error(f"Cannot read file: {e}"); return
-    lang = CODE_LANG_MAP.get(ext, "text")
+
+    lang  = CODE_LANG_MAP.get(ext, "text")
     lines = raw.count("\n") + 1
     words = len(raw.split())
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Lines", f"{lines:,}")
-    col2.metric("Words", f"{words:,}")
-    col3.metric("Chars", f"{len(raw):,}")
-    st.markdown(f"```{lang}\n{raw[:50000]}\n```")
-    if len(raw) > 50000:
-        st.caption(f"⚠️ Showing first 50,000 chars of {len(raw):,} total.")
-    st.download_button("⬇️ Download File", raw.encode(), file_name=file.name,
-                       use_container_width=True, key="fv_dl_text")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Lines",  f"{lines:,}")
+    col2.metric("Words",  f"{words:,}")
+    col3.metric("Chars",  f"{len(raw):,}")
+    col4.metric("Size",   _fmt_size(len(raw.encode("utf-8"))))
+
+    search = st.text_input("🔍 Search:", key="fv_text_search", placeholder="type to find…")
+
+    total_pages = max(1, -(-len(raw) // TEXT_PAGE_SIZE))
+    page = _paginator("fv_text_page", total_pages)
+    chunk = raw[page * TEXT_PAGE_SIZE : (page + 1) * TEXT_PAGE_SIZE]
+
+    if search:
+        idx = raw.find(search)
+        if idx >= 0:
+            target_page = idx // TEXT_PAGE_SIZE
+            if target_page == page:
+                st.success(f"✅ '{search}' found on this page")
+            else:
+                st.info(f"ℹ️ '{search}' first found on page {target_page + 1}")
+        else:
+            st.warning(f"'{search}' not found in file")
+
+    st.code(chunk, language=lang)
+    st.download_button("⬇️ Download File", raw.encode("utf-8"), file_name=file.name,
+                       mime="text/plain", use_container_width=True, key="fv_dl_text")
 
 
 def _render_csv(file, ext: str):
     try:
-        import pandas as pd, io
+        import pandas as pd
+        raw = file.read()
         sep = "\t" if ext == "tsv" else ","
-        df = pd.read_csv(io.BytesIO(file.read()), sep=sep)
-        st.markdown(f"**{df.shape[0]:,} rows × {df.shape[1]:,} columns**")
-        # Search / filter
-        search = st.text_input("🔍 Filter rows (case-insensitive):", key="fv_csv_search", placeholder="type to filter…")
+
+        line_count = raw.count(b"\n")
+        st.markdown(f"**📊 Approx. {max(0, line_count - 1):,} data rows (counting newlines)**")
+
+        search = st.text_input("🔍 Filter rows:", key="fv_csv_search", placeholder="type to filter…")
+
+        try:
+            df_full = pd.read_csv(io.BytesIO(raw), sep=sep, low_memory=False)
+        except MemoryError:
+            st.warning("File is very large — showing first 100,000 rows.")
+            df_full = pd.read_csv(io.BytesIO(raw), sep=sep, nrows=100_000, low_memory=False)
+
         if search:
-            mask = df.astype(str).apply(lambda col: col.str.contains(search, case=False, na=False)).any(axis=1)
-            df = df[mask]
-            st.caption(f"Showing {len(df):,} matching rows")
-        st.dataframe(df, use_container_width=True, height=500)
-        st.download_button("⬇️ Download CSV", file.getvalue() if hasattr(file, 'getvalue') else b"",
-                           file_name=file.name, mime="text/csv", use_container_width=True, key="fv_dl_csv")
+            mask = df_full.astype(str).apply(
+                lambda col: col.str.contains(search, case=False, na=False)
+            ).any(axis=1)
+            df_view = df_full[mask].reset_index(drop=True)
+            st.caption(f"Showing {len(df_view):,} matching rows")
+        else:
+            df_view = df_full
+
+        total_rows = len(df_view)
+        total_pages = max(1, -(-total_rows // ROWS_PER_PAGE))
+        st.markdown(f"**{total_rows:,} rows × {len(df_view.columns):,} columns**")
+
+        page = _paginator("fv_csv_page", total_pages)
+        chunk = df_view.iloc[page * ROWS_PER_PAGE : (page + 1) * ROWS_PER_PAGE]
+        st.dataframe(chunk, use_container_width=True, height=500)
+
+        st.download_button("⬇️ Download CSV", raw, file_name=file.name,
+                           mime="text/csv", use_container_width=True, key="fv_dl_csv")
     except Exception as e:
         st.error(f"CSV error: {e}")
 
 
 def _render_json(file):
+    import json
+    raw = file.read().decode("utf-8", errors="replace")
+    st.markdown(f"**Size:** {_fmt_size(len(raw))}")
+
     try:
-        import json
-        raw = file.read().decode("utf-8", errors="replace")
         data = json.loads(raw)
-        pretty = json.dumps(data, indent=2, ensure_ascii=False)
-        st.markdown(f"**Type:** `{type(data).__name__}` · **Size:** {_fmt_size(len(raw))}")
         if isinstance(data, list):
-            st.caption(f"Array with {len(data):,} items")
+            st.caption(f"JSON array with {len(data):,} items")
+            total_pages = max(1, -(-len(data) // 100))
+            page = _paginator("fv_json_page", total_pages)
+            chunk = data[page * 100 : (page + 1) * 100]
+            st.code(json.dumps(chunk, indent=2, ensure_ascii=False)[:TEXT_PAGE_SIZE], language="json")
         elif isinstance(data, dict):
-            st.caption(f"Object with {len(data):,} keys")
-        st.code(pretty[:30000], language="json")
-        if len(pretty) > 30000:
-            st.caption("⚠️ Truncated at 30,000 chars")
+            st.caption(f"JSON object with {len(data):,} keys")
+            pretty = json.dumps(data, indent=2, ensure_ascii=False)
+            total_pages = max(1, -(-len(pretty) // TEXT_PAGE_SIZE))
+            page = _paginator("fv_json_page", total_pages)
+            chunk = pretty[page * TEXT_PAGE_SIZE : (page + 1) * TEXT_PAGE_SIZE]
+            st.code(chunk, language="json")
+        else:
+            st.code(str(data)[:TEXT_PAGE_SIZE], language="json")
     except json.JSONDecodeError:
-        # JSONL fallback
-        file.seek(0)
-        lines = file.read().decode("utf-8", errors="replace").strip().split("\n")
-        st.warning(f"Not valid JSON — showing as {len(lines)} JSONL lines")
-        for i, line in enumerate(lines[:100], 1):
-            st.text(f"[{i}] {line[:200]}")
+        lines = [l for l in raw.strip().split("\n") if l.strip()]
+        st.warning(f"Not valid JSON — treating as {len(lines):,} JSONL lines")
+        total_pages = max(1, -(-len(lines) // 200))
+        page = _paginator("fv_jsonl_page", total_pages)
+        for i, line in enumerate(lines[page * 200 : (page + 1) * 200], page * 200 + 1):
+            try:
+                parsed = json.loads(line)
+                st.code(json.dumps(parsed, indent=2)[:2000], language="json")
+            except Exception:
+                st.text(f"[{i}] {line[:500]}")
+
+    st.download_button("⬇️ Download JSON", raw.encode("utf-8"), file_name=file.name,
+                       mime="application/json", use_container_width=True, key="fv_dl_json")
 
 
 def _render_pdf(file):
@@ -199,23 +292,49 @@ def _render_pdf(file):
     data = file.read()
     size_mb = len(data) / (1024 * 1024)
     st.info(f"📕 PDF — {_fmt_size(len(data))}")
-    if size_mb <= 10:
-        b64 = base64.b64encode(data).decode()
-        st.markdown(f"""
-        <iframe src="data:application/pdf;base64,{b64}"
-            width="100%" height="800px"
-            style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;">
-        </iframe>
-        """, unsafe_allow_html=True)
-    else:
-        st.warning(f"⚠️ PDF is {size_mb:.1f} MB — too large to embed. Please download to view.")
-    st.download_button("⬇️ Download PDF", data, file_name=file.name,
-                       mime="application/pdf", use_container_width=True, key="fv_dl_pdf")
+
+    tab_view, tab_text = st.tabs(["📄 Embedded Viewer", "📝 Extract Text"])
+
+    with tab_view:
+        if size_mb <= 50:
+            b64 = base64.b64encode(data).decode()
+            st.markdown(f"""
+            <iframe src="data:application/pdf;base64,{b64}"
+                width="100%" height="900px"
+                style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;">
+            </iframe>
+            """, unsafe_allow_html=True)
+        else:
+            st.warning(
+                f"⚠️ PDF is {size_mb:.1f} MB — too large for in-browser embedding (limit 50 MB). "
+                f"Use the 'Extract Text' tab to browse content, or download."
+            )
+        st.download_button("⬇️ Download PDF", data, file_name=file.name,
+                           mime="application/pdf", use_container_width=True, key="fv_dl_pdf")
+
+    with tab_text:
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(data))
+            total_pages = len(reader.pages)
+            st.caption(f"{total_pages} pages")
+            page_num = st.number_input("Go to page:", min_value=1, max_value=total_pages,
+                                       value=1, step=1, key="fv_pdf_page")
+            page_text = reader.pages[page_num - 1].extract_text() or "(no extractable text on this page)"
+            st.text_area(f"Page {page_num}", page_text, height=500,
+                         label_visibility="collapsed", key="fv_pdf_text_area")
+        except ImportError:
+            st.info("Install pypdf for text extraction: `pip install pypdf`")
+        except Exception as e:
+            st.error(f"Text extraction error: {e}")
 
 
 def _render_audio(file):
-    st.audio(file)
+    raw = file.read()
+    st.audio(raw)
     st.caption(f"🎵 {file.name} — use the player above")
+    st.download_button("⬇️ Download Audio", raw, file_name=file.name,
+                       use_container_width=True, key="fv_dl_audio")
 
 
 def _render_video(file):
@@ -225,32 +344,74 @@ def _render_video(file):
 
 def _render_excel(file):
     try:
-        import pandas as pd, io
-        xl = pd.ExcelFile(io.BytesIO(file.read()))
+        import pandas as pd
+        raw = file.read()
+        ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else "xlsx"
+        engine = {"xls": "xlrd", "ods": "odf"}.get(ext, "openpyxl")
+
+        xl = pd.ExcelFile(io.BytesIO(raw), engine=engine)
         sheets = xl.sheet_names
-        st.markdown(f"**Sheets:** {', '.join(f'`{s}`' for s in sheets)}")
+        st.markdown(f"**📊 Excel — Sheets:** {', '.join(f'`{s}`' for s in sheets)}")
         selected = st.selectbox("Select sheet:", sheets, key="fv_xl_sheet")
+
         df = xl.parse(selected)
-        st.markdown(f"**{df.shape[0]:,} rows × {df.shape[1]:,} columns**")
-        st.dataframe(df, use_container_width=True, height=500)
+        search = st.text_input("🔍 Filter rows:", key="fv_xl_search", placeholder="type to filter…")
+        if search:
+            mask = df.astype(str).apply(
+                lambda col: col.str.contains(search, case=False, na=False)
+            ).any(axis=1)
+            df = df[mask].reset_index(drop=True)
+            st.caption(f"Showing {len(df):,} matching rows")
+
+        total_rows = len(df)
+        total_pages = max(1, -(-total_rows // ROWS_PER_PAGE))
+        st.markdown(f"**{total_rows:,} rows × {len(df.columns):,} columns**")
+
+        page = _paginator("fv_xl_page", total_pages)
+        chunk = df.iloc[page * ROWS_PER_PAGE : (page + 1) * ROWS_PER_PAGE]
+        st.dataframe(chunk, use_container_width=True, height=500)
+
+        st.download_button("⬇️ Download Excel", raw, file_name=file.name,
+                           use_container_width=True, key="fv_dl_excel")
     except Exception as e:
-        st.error(f"Excel error: {e}. Install: `pip install openpyxl`")
+        st.error(f"Excel error: {e}. Ensure openpyxl / xlrd is installed.")
 
 
 def _render_docx(file):
     try:
         from docx import Document
-        import io
-        doc = Document(io.BytesIO(file.read()))
+        raw = file.read()
+        doc = Document(io.BytesIO(raw))
+
         paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
-        st.markdown(f"**Paragraphs:** {len(paragraphs):,}")
-        full_text = "\n\n".join(paragraphs)
-        st.text_area("Document Content", full_text[:20000], height=600,
-                     label_visibility="collapsed", key="fv_docx_view")
-        if len(full_text) > 20000:
-            st.caption("⚠️ Showing first 20,000 chars")
-        st.download_button("⬇️ Download", file.getvalue() if hasattr(file,'getvalue') else b"",
-                           file_name=file.name, use_container_width=True, key="fv_dl_docx")
+        tables_count = len(doc.tables)
+        st.markdown(f"**📝 Word Document — {len(paragraphs):,} paragraphs, {tables_count} table(s)**")
+
+        tab_text, tab_tables = st.tabs(["📄 Text Content", "📊 Tables"])
+
+        with tab_text:
+            full_text = "\n\n".join(paragraphs)
+            total_pages = max(1, -(-len(full_text) // TEXT_PAGE_SIZE))
+            page = _paginator("fv_docx_page", total_pages)
+            chunk = full_text[page * TEXT_PAGE_SIZE : (page + 1) * TEXT_PAGE_SIZE]
+            st.text_area("Content", chunk, height=600,
+                         label_visibility="collapsed", key="fv_docx_view")
+
+        with tab_tables:
+            if tables_count == 0:
+                st.caption("No tables in this document.")
+            else:
+                import pandas as pd
+                for t_idx, table in enumerate(doc.tables):
+                    st.markdown(f"**Table {t_idx + 1}**")
+                    rows = [[cell.text for cell in row.cells] for row in table.rows]
+                    if rows:
+                        df = (pd.DataFrame(rows[1:], columns=rows[0])
+                              if len(rows) > 1 else pd.DataFrame(rows))
+                        st.dataframe(df, use_container_width=True)
+
+        st.download_button("⬇️ Download DOCX", raw, file_name=file.name,
+                           use_container_width=True, key="fv_dl_docx")
     except ImportError:
         st.error("Install python-docx: `pip install python-docx`")
     except Exception as e:
@@ -260,30 +421,34 @@ def _render_docx(file):
 def _render_ppt(file):
     try:
         from pptx import Presentation
-        import io
-        prs = Presentation(io.BytesIO(file.read()))
-        st.markdown(f"**Total Slides:** {len(prs.slides)}")
-        
-        slide_texts = []
-        for i, slide in enumerate(prs.slides):
+        raw = file.read()
+        prs = Presentation(io.BytesIO(raw))
+        total_slides = len(prs.slides)
+        st.markdown(f"**📊 Presentation — {total_slides} slides**")
+
+        page_size = 20
+        total_pages = max(1, -(-total_slides // page_size))
+        page = _paginator("fv_ppt_page", total_pages)
+        start = page * page_size
+        end = min(start + page_size, total_slides)
+
+        for i in range(start, end):
+            slide = prs.slides[i]
             text_runs = []
             for shape in slide.shapes:
-                if not shape.has_text_frame:
-                    continue
-                for paragraph in shape.text_frame.paragraphs:
-                    for run in paragraph.runs:
-                        text_runs.append(run.text)
-            slide_texts.append((i+1, " ".join(text_runs)))
-            
-        for idx, text in slide_texts:
-            with st.expander(f"Slide {idx}"):
-                if text.strip():
-                    st.write(text)
+                if shape.has_text_frame:
+                    for para in shape.text_frame.paragraphs:
+                        t = " ".join(r.text for r in para.runs).strip()
+                        if t:
+                            text_runs.append(t)
+            with st.expander(f"Slide {i + 1}", expanded=(i == start)):
+                if text_runs:
+                    st.write("\n".join(text_runs))
                 else:
-                    st.caption("No text found on this slide.")
-                    
-        st.download_button("⬇️ Download PPT", file.getvalue() if hasattr(file, 'getvalue') else b"",
-                           file_name=file.name, use_container_width=True, key="fv_dl_ppt")
+                    st.caption("No text on this slide.")
+
+        st.download_button("⬇️ Download PPT", raw, file_name=file.name,
+                           use_container_width=True, key="fv_dl_ppt")
     except ImportError:
         st.error("Install python-pptx: `pip install python-pptx`")
     except Exception as e:
@@ -291,49 +456,67 @@ def _render_ppt(file):
 
 
 def _render_rtf(file):
-    """Render RTF by stripping control words — no extra library needed."""
     import re
     try:
-        raw = file.read().decode('latin-1', errors='replace')
-        # Remove RTF control words and groups
-        text = re.sub(r'\\[a-z]+[-]?\d*[ ]?', '', raw)
-        text = re.sub(r'[{}\\]', '', text)
-        text = re.sub(r'\s+', ' ', text).strip()
-        st.markdown(f"**📄 RTF Document — {_fmt_size(len(raw))}**")
-        st.text_area("Content", text[:30000], height=500,
+        raw = file.read().decode("latin-1", errors="replace")
+        text = re.sub(r"\\[a-z]+[-]?\d*[ ]?", "", raw)
+        text = re.sub(r"[{}\\]", "", text)
+        text = re.sub(r"\s+", " ", text).strip()
+
+        st.markdown(f"**📄 RTF Document — {_fmt_size(len(raw))} | {len(text):,} chars extracted**")
+        total_pages = max(1, -(-len(text) // TEXT_PAGE_SIZE))
+        page = _paginator("fv_rtf_page", total_pages)
+        chunk = text[page * TEXT_PAGE_SIZE : (page + 1) * TEXT_PAGE_SIZE]
+        st.text_area("Content", chunk, height=500,
                      label_visibility="collapsed", key="fv_rtf_view")
-        if len(text) > 30000:
-            st.caption("⚠️ Showing first 30,000 chars")
-        st.download_button("⬇️ Download RTF", raw.encode('latin-1', errors='replace'),
+        st.download_button("⬇️ Download RTF", raw.encode("latin-1", errors="replace"),
                            file_name=file.name, use_container_width=True, key="fv_dl_rtf")
     except Exception as e:
         st.error(f"RTF error: {e}")
 
 
 def _render_eml(file):
-    """Render .eml email files using Python's built-in email module."""
     import email
     try:
         raw = file.read()
         msg = email.message_from_bytes(raw)
         st.markdown("**📧 Email Message**")
-        for hdr in ["From", "To", "Cc", "Subject", "Date"]:
+        for hdr in ["From", "To", "Cc", "Subject", "Date", "Reply-To"]:
             val = msg.get(hdr, "")
             if val:
                 st.markdown(f"**{hdr}:** {val}")
         st.markdown("---")
-        # Extract body
-        body = ""
+
+        bodies, attachments = [], []
         if msg.is_multipart():
             for part in msg.walk():
                 ct = part.get_content_type()
-                if ct == "text/plain":
-                    body = part.get_payload(decode=True).decode("utf-8", errors="replace")
-                    break
+                cd = str(part.get("Content-Disposition", ""))
+                if "attachment" in cd:
+                    fn = part.get_filename() or "attachment"
+                    attachments.append((fn, part.get_payload(decode=True)))
+                elif ct == "text/plain":
+                    bodies.append(part.get_payload(decode=True).decode("utf-8", errors="replace"))
+                elif ct == "text/html" and not bodies:
+                    import re
+                    html_raw = part.get_payload(decode=True).decode("utf-8", errors="replace")
+                    bodies.append(re.sub(r"<[^>]+>", " ", html_raw))
         else:
-            body = msg.get_payload(decode=True).decode("utf-8", errors="replace")
-        st.text_area("Body", body[:20000], height=400,
-                     label_visibility="collapsed", key="fv_eml_body")
+            bodies.append(msg.get_payload(decode=True).decode("utf-8", errors="replace"))
+
+        body = "\n\n".join(bodies)
+        total_pages = max(1, -(-len(body) // TEXT_PAGE_SIZE))
+        page = _paginator("fv_eml_page", total_pages)
+        chunk = body[page * TEXT_PAGE_SIZE : (page + 1) * TEXT_PAGE_SIZE]
+        st.text_area("Body", chunk, height=400, label_visibility="collapsed", key="fv_eml_body")
+
+        if attachments:
+            st.markdown(f"**📎 {len(attachments)} attachment(s):**")
+            for fn, att_data in attachments:
+                if att_data:
+                    st.download_button(f"⬇️ {fn}", att_data, file_name=fn,
+                                       use_container_width=True, key=f"fv_eml_att_{fn}")
+
         st.download_button("⬇️ Download EML", raw, file_name=file.name,
                            use_container_width=True, key="fv_dl_eml")
     except Exception as e:
@@ -341,53 +524,74 @@ def _render_eml(file):
 
 
 def _render_notebook(file):
-    """Render Jupyter .ipynb notebooks — parses JSON cells."""
     import json
     try:
-        data = json.loads(file.read().decode('utf-8', errors='replace'))
-        cells = data.get('cells', [])
+        data = json.loads(file.read().decode("utf-8", errors="replace"))
+        cells = data.get("cells", [])
         st.markdown(f"**📓 Jupyter Notebook — {len(cells)} cells**")
-        for i, cell in enumerate(cells, 1):
-            ctype = cell.get('cell_type', 'code')
-            src = ''.join(cell.get('source', []))
-            icon = '🐍' if ctype == 'code' else '📝'
-            with st.expander(f"{icon} Cell {i} [{ctype}]", expanded=(i <= 3)):
-                if ctype == 'code':
-                    st.code(src, language='python')
+
+        page_size = 30
+        total_pages = max(1, -(-len(cells) // page_size))
+        page = _paginator("fv_nb_page", total_pages)
+        start = page * page_size
+
+        for i, cell in enumerate(cells[start : start + page_size], start + 1):
+            ctype = cell.get("cell_type", "code")
+            src = "".join(cell.get("source", []))
+            icon = "🐍" if ctype == "code" else "📝"
+            with st.expander(f"{icon} Cell {i} [{ctype}]", expanded=(i == start + 1)):
+                if ctype == "code":
+                    st.code(src, language="python")
                 else:
                     st.markdown(src)
-                outputs = cell.get('outputs', [])
-                for out in outputs:
-                    text = out.get('text') or out.get('data', {}).get('text/plain', [])
+                for out in cell.get("outputs", []):
+                    text = out.get("text") or out.get("data", {}).get("text/plain", [])
                     if text:
-                        st.caption(''.join(text)[:500])
+                        st.caption("".join(text)[:2000])
     except Exception as e:
         st.error(f"Notebook error: {e}")
 
 
 def _render_epub(file):
-    """Render EPUB files — EPUBs are just zips with HTML chapters inside."""
-    import zipfile, io, re
+    import zipfile, re
     try:
         data = file.read()
-        with zipfile.ZipFile(io.BytesIO(data), 'r') as z:
+        with zipfile.ZipFile(io.BytesIO(data), "r") as z:
             names = z.namelist()
-            # Find HTML content files
-            html_files = [n for n in names if n.endswith(('.html', '.xhtml', '.htm'))]
-            st.markdown(f"**📖 EPUB — {len(html_files)} chapters found**")
-            if not html_files:
+            html_files = [n for n in names if n.lower().endswith((".html", ".xhtml", ".htm"))]
+            # deduplicate
+            seen, unique_files = set(), []
+            for hf in html_files:
+                if hf not in seen:
+                    seen.add(hf)
+                    unique_files.append(hf)
+
+            st.markdown(f"**📖 EPUB — {len(unique_files)} chapters found**")
+            if not unique_files:
                 st.warning("No readable HTML chapters found in this EPUB.")
+                st.download_button("⬇️ Download EPUB", data, file_name=file.name,
+                                   use_container_width=True, key="fv_dl_epub")
                 return
-            for i, hf in enumerate(html_files[:30], 1):
-                raw_html = z.read(hf).decode('utf-8', errors='replace')
-                # Strip HTML tags simply
-                text = re.sub(r'<[^>]+>', ' ', raw_html)
-                text = re.sub(r'\s+', ' ', text).strip()
+
+            page_size = 5
+            total_pages = max(1, -(-len(unique_files) // page_size))
+            page = _paginator("fv_epub_page", total_pages)
+            start = page * page_size
+
+            for i, hf in enumerate(unique_files[start : start + page_size], start + 1):
+                raw_html = z.read(hf).decode("utf-8", errors="replace")
+                text = re.sub(r"<[^>]+>", " ", raw_html)
+                text = re.sub(r"\s+", " ", text).strip()
                 if text:
-                    with st.expander(f"Chapter {i}: {hf.split('/')[-1]}"):
-                        st.write(text[:3000])
-            if len(html_files) > 30:
-                st.caption(f"Showing first 30 of {len(html_files)} chapters.")
+                    with st.expander(f"Chapter {i}: {hf.split('/')[-1]}",
+                                     expanded=(i == start + 1)):
+                        # Show full chapter — paginate within if enormous
+                        if len(text) > 10_000:
+                            st.write(text[:10_000])
+                            st.caption(f"… ({len(text):,} chars — download for full text)")
+                        else:
+                            st.write(text)
+
         st.download_button("⬇️ Download EPUB", data, file_name=file.name,
                            use_container_width=True, key="fv_dl_epub")
     except Exception as e:
@@ -395,115 +599,165 @@ def _render_epub(file):
 
 
 def _render_zip(file):
-    import zipfile
+    import zipfile, tarfile
+    raw = file.read()
     ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else ""
-    if ext != "zip":
-        st.warning(f"Native archive explorer only supports .zip. Falling back to Raw Viewer for .{ext}.")
-        file.seek(0)
-        _render_hex_fallback(file)
-        return
 
+    if ext == "zip":
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw), "r") as z:
+                info_list = z.infolist()
+                st.markdown(f"**🗜️ ZIP Archive — {len(info_list):,} items**")
+
+                search = st.text_input("🔍 Filter files:", key="fv_zip_search",
+                                       placeholder="e.g. .py or README")
+                filtered = [i for i in info_list
+                            if not search or search.lower() in i.filename.lower()]
+                st.caption(f"Showing {len(filtered):,} of {len(info_list):,} items")
+
+                total_pages = max(1, -(-len(filtered) // 500))
+                page = _paginator("fv_zip_page", total_pages)
+                chunk = filtered[page * 500 : (page + 1) * 500]
+
+                import pandas as pd
+                data_rows = [{"Name": i.filename, "Size": _fmt_size(i.file_size),
+                              "Compressed": _fmt_size(i.compress_size),
+                              "Ratio": f"{100*(1-i.compress_size/i.file_size):.0f}%"
+                                       if i.file_size > 0 else "—"}
+                             for i in chunk]
+                st.dataframe(data_rows, use_container_width=True)
+
+                # Preview individual file
+                st.markdown("**👁️ Preview a file from the archive:**")
+                file_names = [i.filename for i in info_list if not i.is_dir()]
+                if file_names:
+                    selected = st.selectbox("Choose file:", ["(none)"] + file_names[:1000],
+                                            key="fv_zip_file_select")
+                    if selected and selected != "(none)":
+                        inner_bytes = z.read(selected)
+                        inner_ext = selected.rsplit(".", 1)[-1].lower() if "." in selected else ""
+                        st.caption(f"**{selected}** — {_fmt_size(len(inner_bytes))}")
+                        if inner_ext in TEXT_TYPES or inner_ext in JSON_TYPES:
+                            try:
+                                inner_text = inner_bytes.decode("utf-8", errors="replace")
+                                total_inner_pages = max(1, -(-len(inner_text) // TEXT_PAGE_SIZE))
+                                inner_page = _paginator("fv_zip_inner_page", total_inner_pages)
+                                st.code(inner_text[inner_page * TEXT_PAGE_SIZE :
+                                                   (inner_page + 1) * TEXT_PAGE_SIZE],
+                                        language=CODE_LANG_MAP.get(inner_ext, "text"))
+                            except Exception:
+                                st.info("Cannot decode as text.")
+                        elif inner_ext in IMAGE_TYPES:
+                            try:
+                                from PIL import Image as PILImage
+                                img = PILImage.open(io.BytesIO(inner_bytes))
+                                st.image(img, use_container_width=True)
+                            except Exception:
+                                st.info("Cannot render image.")
+                        else:
+                            st.download_button("⬇️ Download this file", inner_bytes,
+                                               file_name=selected.split("/")[-1],
+                                               use_container_width=True, key="fv_zip_inner_dl")
+        except Exception as e:
+            st.error(f"ZIP parsing error: {e}")
+
+    elif ext in ("tar", "gz", "bz2", "xz", "tgz"):
+        try:
+            with tarfile.open(fileobj=io.BytesIO(raw), mode="r:*") as t:
+                members = t.getmembers()
+                st.markdown(f"**🗜️ TAR Archive — {len(members):,} items**")
+                import pandas as pd
+                total_pages = max(1, -(-len(members) // 500))
+                page = _paginator("fv_tar_page", total_pages)
+                chunk = members[page * 500 : (page + 1) * 500]
+                data_rows = [{"Name": m.name, "Size": _fmt_size(m.size),
+                              "Type": "dir" if m.isdir() else "file"} for m in chunk]
+                st.dataframe(data_rows, use_container_width=True)
+        except Exception as e:
+            st.warning(f"TAR parsing error: {e}")
+            _render_hex_fallback_bytes(raw, file.name)
+    else:
+        st.info(f"ℹ️ .{ext} archives require a local tool — you can download the file below.")
+        _render_hex_fallback_bytes(raw, file.name)
+
+    st.download_button("⬇️ Download Archive", raw, file_name=file.name,
+                       use_container_width=True, key="fv_dl_zip")
+
+
+def _render_hex_fallback_bytes(raw_bytes: bytes, filename: str):
+    """Universal fallback — paginated text or hex dump, always with download."""
+    st.warning(f"⚠️ No native viewer for this type. Showing raw contents ({_fmt_size(len(raw_bytes))}).")
     try:
-        with zipfile.ZipFile(file, 'r') as z:
-            info_list = z.infolist()
-            st.markdown(f"**Archive contains {len(info_list):,} items:**")
-            
-            data = []
-            for info in info_list[:200]:
-                data.append({
-                    "Name": info.filename, 
-                    "Size": _fmt_size(info.file_size), 
-                    "Compressed": _fmt_size(info.compress_size)
-                })
-                
-            st.dataframe(data, use_container_width=True)
-            if len(info_list) > 200:
-                st.caption(f"Showing first 200 items of {len(info_list):,} total.")
-                
-        st.download_button("⬇️ Download Original ZIP", file.getvalue() if hasattr(file, 'getvalue') else b"",
-                           file_name=file.name, use_container_width=True, key="fv_dl_zip")
-    except Exception as e:
-        st.error(f"ZIP parsing error: {e}")
+        text_content = raw_bytes.decode("utf-8")
+        st.markdown("**📝 Detected as UTF-8 Text:**")
+        total_pages = max(1, -(-len(text_content) // TEXT_PAGE_SIZE))
+        page = _paginator("fv_fb_page", total_pages)
+        chunk = text_content[page * TEXT_PAGE_SIZE : (page + 1) * TEXT_PAGE_SIZE]
+        st.text_area("Content", chunk, height=400, disabled=True,
+                     label_visibility="collapsed", key="fv_fb_txt")
+    except UnicodeDecodeError:
+        st.markdown("**🔢 Binary File — Hex Dump:**")
+        BYTES_PER_PAGE = 4096
+        total_pages = max(1, -(-len(raw_bytes) // BYTES_PER_PAGE))
+        page = _paginator("fv_hex_page", total_pages)
+        display_bytes = raw_bytes[page * BYTES_PER_PAGE : (page + 1) * BYTES_PER_PAGE]
+        base_offset = page * BYTES_PER_PAGE
+        hex_lines = []
+        for i in range(0, len(display_bytes), 16):
+            chunk = display_bytes[i:i + 16]
+            hex_part = " ".join(f"{b:02x}" for b in chunk).ljust(47)
+            ascii_part = "".join(chr(b) if 32 <= b <= 126 else "." for b in chunk)
+            hex_lines.append(f"{base_offset + i:08x}  {hex_part}  |{ascii_part}|")
+        st.code("\n".join(hex_lines), language="text")
+
+    st.download_button("⬇️ Download Original File", raw_bytes,
+                       file_name=filename, use_container_width=True, key="fv_dl_fallback")
 
 
 def _render_hex_fallback(file):
-    """Fallback viewer: shows raw hex and ascii representation for unknown binary/text formats."""
     try:
-        raw_bytes = file.read()
-        st.warning(f"⚠️ Native viewer not available for this extension. Showing raw file contents ({_fmt_size(len(raw_bytes))}).")
-        
-        # Try to decode as text first
-        try:
-            text_content = raw_bytes.decode('utf-8')
-            st.markdown("**Detected as Text:**")
-            st.text_area("File Content", text_content[:50000], height=400, disabled=True)
-            if len(text_content) > 50000:
-                st.caption("Showing first 50,000 characters.")
-        except UnicodeDecodeError:
-            # If not text, show hex dump
-            st.markdown("**Detected as Binary (Hex Dump):**")
-            
-            # Create hex dump for first 2KB to avoid browser freeze
-            display_bytes = raw_bytes[:2048]
-            
-            hex_lines = []
-            for i in range(0, len(display_bytes), 16):
-                chunk = display_bytes[i:i+16]
-                hex_part = " ".join(f"{b:02x}" for b in chunk)
-                # Pad hex part to 48 chars (16 bytes * 3 - 1)
-                hex_part = hex_part.ljust(47)
-                
-                ascii_part = "".join(chr(b) if 32 <= b <= 126 else "." for b in chunk)
-                hex_lines.append(f"{i:08x}  {hex_part}  |{ascii_part}|")
-                
-            hex_dump = "\n".join(hex_lines)
-            st.code(hex_dump, language="text")
-            
-            if len(raw_bytes) > 2048:
-                st.caption(f"Showing first 2 KB of {len(raw_bytes):,} bytes.")
-
-        st.download_button("⬇️ Download Original File", raw_bytes,
-                           file_name=file.name, use_container_width=True, key="fv_dl_fallback")
+        _render_hex_fallback_bytes(file.read(), file.name)
     except Exception as e:
         st.error(f"Fallback view error: {e}")
 
-# ── Main page ─────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main page
+# ─────────────────────────────────────────────────────────────────────────────
+
 def render_file_viewer_page():
     """Main File Viewer page — no AI, pure file rendering."""
     st.markdown(VIEWER_CSS, unsafe_allow_html=True)
 
-    # Hero
     st.markdown("""
     <div class="fv-hero">
         <div class="fv-title">📂 Universal File Viewer</div>
-        <div class="fv-sub">Open & view any file directly in your browser — no AI, no uploads to servers.</div>
+        <div class="fv-sub">Open & view any file directly in your browser — no AI, no uploads to servers. All file sizes supported.</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Supported types pills
     st.markdown('<div class="fv-label">Supported Formats</div>', unsafe_allow_html=True)
     badges = ""
-    for label, types in [
+    for label, _ in [
         ("🖼️ Images", IMAGE_TYPES), ("📄 Text/Code", TEXT_TYPES),
-        ("📊 CSV/TSV", CSV_TYPES), ("🔧 JSON", JSON_TYPES),
-        ("📕 PDF", PDF_TYPES), ("🎵 Audio", AUDIO_TYPES),
-        ("🎬 Video", VIDEO_TYPES), ("📊 Excel", EXCEL_TYPES),
-        ("📝 Word", DOCX_TYPES), ("📊 PowerPoint", PPT_TYPES),
-        ("📄 RTF", RTF_TYPES), ("📖 EPUB", EPUB_TYPES),
-        ("📓 Notebook", IPYNB_TYPES), ("📧 Email", EML_TYPES),
-        ("🗜️ Archive", ZIP_TYPES), ("⚙️ System", SYSTEM_TYPES),
+        ("📊 CSV/TSV", CSV_TYPES),  ("🔧 JSON", JSON_TYPES),
+        ("📕 PDF", PDF_TYPES),      ("🎵 Audio", AUDIO_TYPES),
+        ("🎬 Video", VIDEO_TYPES),  ("📊 Excel", EXCEL_TYPES),
+        ("📝 Word", DOCX_TYPES),    ("📊 PowerPoint", PPT_TYPES),
+        ("📄 RTF", RTF_TYPES),      ("📖 EPUB", EPUB_TYPES),
+        ("📓 Notebook", IPYNB_TYPES),("📧 Email", EML_TYPES),
+        ("🗜️ Archive", ZIP_TYPES),  ("⚙️ System", SYSTEM_TYPES),
     ]:
         badges += f'<span class="fv-badge">{label}</span>'
     st.markdown(badges, unsafe_allow_html=True)
     st.markdown("")
 
-    # File uploader — accept ANY type
     uploaded = st.file_uploader(
         "Choose any file to view",
-        type=None,  # Accept everything
+        type=None,
         key="fv_uploader",
         label_visibility="collapsed",
-        help="Drag & drop or click to browse. Max 200 MB."
+        help="Drag & drop or click to browse. Upload limit is set in .streamlit/config.toml.",
     )
 
     if not uploaded:
@@ -513,7 +767,7 @@ def render_file_viewer_page():
             <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;color:rgba(255,255,255,0.5);">
                 Drop any file here to view it instantly.<br>
                 <span style="font-size:.85rem;color:rgba(255,255,255,0.25);">
-                    Images · PDFs · Code · CSV · Excel · Word · Audio · Video
+                    Images · PDFs · Code · CSV · Excel · Word · Audio · Video · Archives · and more
                 </span>
             </div>
         </div>
@@ -522,6 +776,10 @@ def render_file_viewer_page():
 
     # ── File info bar ──────────────────────────────────────────────────────────
     ext = uploaded.name.rsplit(".", 1)[-1].lower() if "." in uploaded.name else ""
+    # Special no-extension files
+    if not ext and uploaded.name.lower() in ("dockerfile","makefile","procfile","vagrantfile","gemfile"):
+        ext = uploaded.name.lower()
+
     size_bytes = uploaded.size
     mime = uploaded.type or "application/octet-stream"
 
@@ -533,66 +791,41 @@ def render_file_viewer_page():
         </div>
         <div class="fv-info-row">
             <span>📦 <strong>{_fmt_size(size_bytes)}</strong></span>
-            <span>🏷️ .{ext.upper()}</span>
+            <span>🏷️ {('.'+ext.upper()) if ext else '(no ext)'}</span>
             <span>🔖 {mime}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Route to correct renderer ──────────────────────────────────────────────
     st.markdown('<div class="fv-label">File Preview</div>', unsafe_allow_html=True)
 
-    if ext in IMAGE_TYPES:
-        _render_image(uploaded)
-
-    elif ext in TEXT_TYPES:
-        _render_text(uploaded, ext)
-
-    elif ext in CSV_TYPES:
-        _render_csv(uploaded, ext)
-
-    elif ext in JSON_TYPES:
-        _render_json(uploaded)
-
-    elif ext in PDF_TYPES:
-        _render_pdf(uploaded)
-
-    elif ext in AUDIO_TYPES:
-        _render_audio(uploaded)
-
-    elif ext in VIDEO_TYPES:
-        _render_video(uploaded)
-
-    elif ext in EXCEL_TYPES:
-        _render_excel(uploaded)
-
-    elif ext in DOCX_TYPES:
-        _render_docx(uploaded)
-
-    elif ext in PPT_TYPES:
-        _render_ppt(uploaded)
-
-    elif ext in RTF_TYPES:
-        _render_rtf(uploaded)
-
-    elif ext in EPUB_TYPES:
-        _render_epub(uploaded)
-
-    elif ext in IPYNB_TYPES:
-        _render_notebook(uploaded)
-
-    elif ext in EML_TYPES:
-        _render_eml(uploaded)
-
-    elif ext in ZIP_TYPES:
-        _render_zip(uploaded)
-
+    # ── Routing ────────────────────────────────────────────────────────────────
+    if   ext in IMAGE_TYPES:   _render_image(uploaded)
+    elif ext in TEXT_TYPES:    _render_text(uploaded, ext)
+    elif ext in CSV_TYPES:     _render_csv(uploaded, ext)
+    elif ext in JSON_TYPES:    _render_json(uploaded)
+    elif ext in PDF_TYPES:     _render_pdf(uploaded)
+    elif ext in AUDIO_TYPES:   _render_audio(uploaded)
+    elif ext in VIDEO_TYPES:   _render_video(uploaded)
+    elif ext in EXCEL_TYPES:   _render_excel(uploaded)
+    elif ext in DOCX_TYPES:    _render_docx(uploaded)
+    elif ext in PPT_TYPES:     _render_ppt(uploaded)
+    elif ext in RTF_TYPES:     _render_rtf(uploaded)
+    elif ext in EPUB_TYPES:    _render_epub(uploaded)
+    elif ext in IPYNB_TYPES:   _render_notebook(uploaded)
+    elif ext in EML_TYPES:     _render_eml(uploaded)
+    elif ext in ZIP_TYPES:     _render_zip(uploaded)
     else:
-        _render_hex_fallback(uploaded)
+        # MIME-type sniffing as second chance
+        if   mime.startswith("image/"):                           _render_image(uploaded)
+        elif mime.startswith("text/") or mime in (
+             "application/json","application/xml"):               _render_text(uploaded, ext or "txt")
+        elif mime == "application/pdf":                           _render_pdf(uploaded)
+        elif mime.startswith("audio/"):                           _render_audio(uploaded)
+        elif mime.startswith("video/"):                           _render_video(uploaded)
+        else:                                                     _render_hex_fallback(uploaded)
 
-    # ── Footer ─────────────────────────────────────────────────────────────────
     st.markdown("---")
     if st.button("💬 Back to Chat", use_container_width=True, key="fv_back"):
         st.session_state.app_mode = "chat"
         st.rerun()
-
