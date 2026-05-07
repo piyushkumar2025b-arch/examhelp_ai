@@ -12,6 +12,12 @@ import base64
 import zlib
 import streamlit as st
 import ssl
+try:
+    from utils.google_auth import handle_google_callback, render_google_login_button, google_oauth_configured
+except Exception:
+    def handle_google_callback(): pass
+    def render_google_login_button(): pass
+    def google_oauth_configured(): return False
 from utils.api_key_ui import render_api_key_section
 
 # ── Auth + Integrations — MASKED (Supabase/Google/Stripe disabled for direct access) ──
@@ -90,7 +96,7 @@ def current_user(): return {"email": "user@examhelp.ai", "user_metadata": {"full
 def clear_session(): pass
 def try_refresh(): pass
 def render_login_page(): pass
-def handle_google_oauth_callback(): pass
+# Google OAuth handled by utils/google_auth.py
 def render_google_connect_button(): pass
 def render_gmail_panel(**kwargs): st.info("📧 Gmail integration coming soon.")
 def render_drive_panel(**kwargs): st.info("📁 Google Drive integration coming soon.")
@@ -288,6 +294,9 @@ if "streak_recorded_today" not in st.session_state:
 # PASSCODE LANDING PAGE GATE
 # ═══════════════════════════════════════════════
 _SITE_PASSCODE = "aahuti"
+
+# Handle Google OAuth redirect (must run before any page rendering)
+handle_google_callback()
 
 if "passcode_verified" not in st.session_state:
     st.session_state["passcode_verified"] = False
@@ -2659,6 +2668,9 @@ if not st.session_state["passcode_verified"]:
             else:
                 st.error("⚠️ Invalid access key. Please try again.")
 
+        # ── Google OAuth — secondary login option ──────────────────
+        render_google_login_button()
+
     st.markdown("""
     <div class="thanks-footer">
       <div class="made-by" style="font-family:'Orbitron',monospace;font-size:14px;font-weight:700;
@@ -2721,7 +2733,7 @@ if not st.session_state["passcode_verified"]:
 # ─────────────────────────────────────────────
 # GOOGLE OAUTH CALLBACK (catch ?code= redirect)
 # ─────────────────────────────────────────────
-handle_google_oauth_callback()
+# Google callback handled at top of file via handle_google_callback()
 
 # ─────────────────────────────────────────────
 # AUTH GATE — show login page if not signed in
