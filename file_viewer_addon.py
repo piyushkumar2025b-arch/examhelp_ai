@@ -287,8 +287,73 @@ def _render_json(file):
                        mime="application/json", use_container_width=True, key="fv_dl_json")
 
 
+def _start_pdf_server(pdf_bytes: bytes) -> int:
+    """
+    Spin up (or reuse) a tiny HTTP server in a background thread that serves
+    the current PDF bytes at GET /pdf.  Returns the port number.
+    We keep one server per Streamlit session stored in st.session_state so it
+    is not recreated on every widget interaction.
+    """
+    import threading
+    import socket
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    # Store server state in session so it survives Streamlit reruns
+    if "fv_pdf_server" not in st.session_state:
+        st.session_state.fv_pdf_server = None
+        st.session_state.fv_pdf_port = None
+
+    # If bytes changed (new file uploaded) tear down the old server
+    new_hash = hash(pdf_bytes)
+    if st.session_state.get("fv_pdf_hash") != new_hash:
+        if st.session_state.fv_pdf_server:
+            try:
+                st.session_state.fv_pdf_server.shutdown()
+            except Exception:
+                pass
+        st.session_state.fv_pdf_server = None
+        st.session_state.fv_pdf_port = None
+        st.session_state.fv_pdf_hash = new_hash
+
+    if st.session_state.fv_pdf_server is not None:
+        return st.session_state.fv_pdf_port
+
+    # Pick a free port
+    with socket.socket() as s:
+        s.bind(("", 0))
+        port = s.getsockname()[1]
+
+    # Capture bytes in closure
+    _bytes = pdf_bytes
+
+    class PDFHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path in ("/pdf", "/pdf.pdf"):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/pdf")
+                self.send_header("Content-Length", str(len(_bytes)))
+                self.send_header("Content-Disposition", "inline; filename=document.pdf")
+                # Allow embedding from any origin (same machine)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(_bytes)
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def log_message(self, *args):
+            pass  # silence access log
+
+    server = HTTPServer(("127.0.0.1", port), PDFHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    st.session_state.fv_pdf_server = server
+    st.session_state.fv_pdf_port = port
+    return port
+
+
 def _render_pdf(file):
-    import base64
     data = file.read()
     size_mb = len(data) / (1024 * 1024)
     st.info(f"📕 PDF — {_fmt_size(len(data))}")
@@ -296,19 +361,151 @@ def _render_pdf(file):
     tab_view, tab_text = st.tabs(["📄 Embedded Viewer", "📝 Extract Text"])
 
     with tab_view:
-        if size_mb <= 50:
-            b64 = base64.b64encode(data).decode()
-            st.markdown(f"""
-            <iframe src="data:application/pdf;base64,{b64}"
-                width="100%" height="900px"
-                style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;">
-            </iframe>
-            """, unsafe_allow_html=True)
-        else:
-            st.warning(
-                f"⚠️ PDF is {size_mb:.1f} MB — too large for in-browser embedding (limit 50 MB). "
-                f"Use the 'Extract Text' tab to browse content, or download."
+        try:
+            port = _start_pdf_server(data)
+            pdf_url = f"http://localhost:{port}/pdf"
+            # Use PDF.js via CDN for maximum compatibility — works even when
+            # the browser blocks iframe embedding of localhost URLs.
+            pdfjs_url = (
+                "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
             )
+            pdfjs_worker = (
+                "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
+            )
+
+            html_viewer = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ background:#1a1a2e; font-family: sans-serif; }}
+  #toolbar {{
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:#0f0f23; border-bottom:1px solid #333;
+    flex-wrap:wrap;
+  }}
+  #toolbar button {{
+    background:#6366f1; color:#fff; border:none; border-radius:6px;
+    padding:5px 12px; cursor:pointer; font-size:13px;
+  }}
+  #toolbar button:hover {{ background:#4f46e5; }}
+  #toolbar button:disabled {{ background:#444; cursor:default; }}
+  #page-info {{ color:#aaa; font-size:13px; min-width:100px; text-align:center; }}
+  #zoom-info {{ color:#aaa; font-size:13px; }}
+  #canvas-container {{
+    overflow:auto; height:calc(100vh - 48px);
+    display:flex; flex-direction:column; align-items:center;
+    padding:12px; gap:8px;
+  }}
+  canvas {{ box-shadow:0 2px 16px rgba(0,0,0,0.6); background:#fff; display:block; }}
+  #loading {{ color:#aaa; font-size:14px; margin-top:40px; }}
+  #error {{ color:#f87171; font-size:14px; margin-top:40px; padding:20px; text-align:center; }}
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <button id="btn-first" onclick="goPage(1)">⏮</button>
+  <button id="btn-prev" onclick="goPage(currentPage-1)">◀ Prev</button>
+  <span id="page-info">Loading…</span>
+  <button id="btn-next" onclick="goPage(currentPage+1)">Next ▶</button>
+  <button id="btn-last" onclick="goPage(totalPages)">⏭</button>
+  &nbsp;|&nbsp;
+  <button onclick="changeZoom(-0.25)">🔍−</button>
+  <span id="zoom-info">100%</span>
+  <button onclick="changeZoom(+0.25)">🔍+</button>
+  <button onclick="changeZoom(0)">Fit</button>
+  &nbsp;|&nbsp;
+  <button onclick="window.open('{pdf_url}','_blank')">⬇️ Open in Tab</button>
+</div>
+<div id="canvas-container">
+  <div id="loading">Loading PDF…</div>
+</div>
+
+<script src="{pdfjs_url}"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '{pdfjs_worker}';
+
+  let pdfDoc = null, currentPage = 1, totalPages = 0, zoom = 1.0;
+  const container = document.getElementById('canvas-container');
+
+  async function loadPDF() {{
+    try {{
+      pdfDoc = await pdfjsLib.getDocument('{pdf_url}').promise;
+      totalPages = pdfDoc.numPages;
+      document.getElementById('loading').style.display = 'none';
+      fitZoom();
+      renderPage(1);
+    }} catch(e) {{
+      document.getElementById('loading').innerHTML = '';
+      const err = document.getElementById('error') || document.createElement('div');
+      err.id = 'error';
+      err.textContent = 'Could not load PDF: ' + e.message + '. Try the Open in Tab button above.';
+      container.appendChild(err);
+    }}
+  }}
+
+  async function fitZoom() {{
+    // Render page 1 at scale 1 to measure natural width, then fit to container
+    const page = await pdfDoc.getPage(1);
+    const vp = page.getViewport({{scale:1}});
+    const avail = container.clientWidth - 32;
+    zoom = Math.min(1.5, avail / vp.width);
+    document.getElementById('zoom-info').textContent = Math.round(zoom*100)+'%';
+  }}
+
+  async function renderPage(num) {{
+    currentPage = Math.max(1, Math.min(num, totalPages));
+    container.innerHTML = '';
+    document.getElementById('page-info').textContent = `Page ${{currentPage}} / ${{totalPages}}`;
+    document.getElementById('btn-prev').disabled = currentPage === 1;
+    document.getElementById('btn-first').disabled = currentPage === 1;
+    document.getElementById('btn-next').disabled = currentPage === totalPages;
+    document.getElementById('btn-last').disabled = currentPage === totalPages;
+
+    const page = await pdfDoc.getPage(currentPage);
+    const viewport = page.getViewport({{scale: zoom}});
+    const canvas = document.createElement('canvas');
+    canvas.width  = viewport.width;
+    canvas.height = viewport.height;
+    container.appendChild(canvas);
+    await page.render({{canvasContext: canvas.getContext('2d'), viewport}}).promise;
+  }}
+
+  function goPage(n) {{ renderPage(n); }}
+
+  function changeZoom(delta) {{
+    if (delta === 0) {{ fitZoom().then(() => renderPage(currentPage)); return; }}
+    zoom = Math.max(0.25, Math.min(4.0, zoom + delta));
+    document.getElementById('zoom-info').textContent = Math.round(zoom*100)+'%';
+    renderPage(currentPage);
+  }}
+
+  document.addEventListener('keydown', e => {{
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') goPage(currentPage+1);
+    if (e.key === 'ArrowLeft'  || e.key === 'PageUp')   goPage(currentPage-1);
+  }});
+
+  loadPDF();
+</script>
+</body>
+</html>
+"""
+            st.components.v1.html(html_viewer, height=750, scrolling=False)
+
+        except Exception as e:
+            st.error(f"PDF viewer error: {e}")
+            # Hard fallback — base64 iframe
+            import base64
+            b64 = base64.b64encode(data).decode()
+            st.markdown(
+                f'<iframe src="data:application/pdf;base64,{b64}" '
+                f'width="100%" height="750px" '
+                f'style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;"></iframe>',
+                unsafe_allow_html=True,
+            )
+
         st.download_button("⬇️ Download PDF", data, file_name=file.name,
                            mime="application/pdf", use_container_width=True, key="fv_dl_pdf")
 
@@ -316,9 +513,9 @@ def _render_pdf(file):
         try:
             from pypdf import PdfReader
             reader = PdfReader(io.BytesIO(data))
-            total_pages = len(reader.pages)
-            st.caption(f"{total_pages} pages")
-            page_num = st.number_input("Go to page:", min_value=1, max_value=total_pages,
+            total_pages_count = len(reader.pages)
+            st.caption(f"{total_pages_count} pages")
+            page_num = st.number_input("Go to page:", min_value=1, max_value=total_pages_count,
                                        value=1, step=1, key="fv_pdf_page")
             page_text = reader.pages[page_num - 1].extract_text() or "(no extractable text on this page)"
             st.text_area(f"Page {page_num}", page_text, height=500,
