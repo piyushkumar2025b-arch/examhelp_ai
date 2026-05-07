@@ -214,8 +214,8 @@ def render_image_generator():
         if k not in st.session_state:
             st.session_state[k] = v
 
-    # ── Tabs: Generate | Gallery | Models ──────────────────────────────────
-    tab_gen, tab_gallery, tab_models = st.tabs(["🎨 Generate", "🖼️ Gallery", "🤖 Models"])
+    # ── Tabs: Generate | Gallery | Models | Images→PDF ─────────────────────
+    tab_gen, tab_gallery, tab_models, tab_pdf = st.tabs(["🎨 Generate", "🖼️ Gallery", "🤖 Models", "📄 Images→PDF"])
 
     # ══════════════════════════════════════════════════════════════════════
     # TAB 1 — GENERATE
@@ -449,3 +449,95 @@ def render_image_generator():
                     st.session_state.ig_model_override = model_id
                     st.toast(f"Model set to {model_id} — go to Generate tab!", icon="✅")
             st.markdown("---")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # TAB 4 — IMAGES → PDF CREATOR
+    # ══════════════════════════════════════════════════════════════════════
+    with tab_pdf:
+        st.markdown("### 📄 Images → PDF Creator")
+        st.markdown("Upload **any images** (PNG, JPG, WEBP, BMP, GIF) and convert them into a single downloadable PDF.")
+
+        uploaded_imgs = st.file_uploader(
+            "Upload Images",
+            type=["png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff"],
+            accept_multiple_files=True,
+            key="pdf_img_uploader",
+            label_visibility="collapsed",
+        )
+
+        if uploaded_imgs:
+            st.success(f"✅ {len(uploaded_imgs)} image(s) loaded")
+
+            # Settings
+            c1, c2, c3 = st.columns(3)
+            page_size = c1.selectbox("Page Size", ["A4", "A3", "Letter", "Legal"], key="pdf_page_size")
+            orientation = c2.selectbox("Orientation", ["Portrait", "Landscape"], key="pdf_orientation")
+            fit_mode = c3.selectbox("Image Fit", ["Fit to Page", "Fill Page", "Original Size"], key="pdf_fit")
+
+            # Preview thumbnails
+            st.markdown("**Preview (order = PDF page order):**")
+            cols = st.columns(min(len(uploaded_imgs), 5))
+            for i, img_file in enumerate(uploaded_imgs):
+                with cols[i % 5]:
+                    st.image(img_file, use_container_width=True, caption=f"Page {i+1}")
+
+            if st.button("⚡ Generate PDF Now", type="primary", use_container_width=True, key="pdf_generate_btn"):
+                try:
+                    from reportlab.lib.pagesizes import A4, A3, LETTER, LEGAL, landscape, portrait
+                    from reportlab.platypus import SimpleDocTemplate, Image as RLImage
+                    from reportlab.lib.utils import ImageReader
+                    import io
+                    from PIL import Image as PILImage
+
+                    # Page size mapping
+                    size_map = {"A4": A4, "A3": A3, "Letter": LETTER, "Legal": LEGAL}
+                    base_size = size_map.get(page_size, A4)
+                    final_size = landscape(base_size) if orientation == "Landscape" else portrait(base_size)
+                    pw, ph = final_size
+
+                    buf = io.BytesIO()
+                    doc = SimpleDocTemplate(buf, pagesize=final_size,
+                                            leftMargin=20, rightMargin=20,
+                                            topMargin=20, bottomMargin=20)
+                    story = []
+
+                    for img_file in uploaded_imgs:
+                        img_file.seek(0)
+                        pil_img = PILImage.open(img_file).convert("RGB")
+                        img_buf = io.BytesIO()
+                        pil_img.save(img_buf, format="PNG")
+                        img_buf.seek(0)
+
+                        iw, ih = pil_img.size
+                        avail_w = pw - 40
+                        avail_h = ph - 40
+
+                        if fit_mode == "Fit to Page":
+                            ratio = min(avail_w / iw, avail_h / ih)
+                            draw_w, draw_h = iw * ratio, ih * ratio
+                        elif fit_mode == "Fill Page":
+                            draw_w, draw_h = avail_w, avail_h
+                        else:
+                            draw_w, draw_h = min(iw, avail_w), min(ih, avail_h)
+
+                        rl_img = RLImage(img_buf, width=draw_w, height=draw_h)
+                        story.append(rl_img)
+
+                    doc.build(story)
+                    pdf_bytes = buf.getvalue()
+
+                    st.success(f"✅ PDF created — {len(uploaded_imgs)} pages, {len(pdf_bytes)//1024} KB")
+                    st.download_button(
+                        "⬇️ Download PDF",
+                        data=pdf_bytes,
+                        file_name="examhelp_images.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="pdf_download_btn",
+                    )
+                except ImportError:
+                    st.error("❌ reportlab not installed. Run: `pip install reportlab pillow`")
+                except Exception as e:
+                    st.error(f"PDF generation error: {e}")
+        else:
+            st.info("⬆️ Upload one or more images above to get started.")

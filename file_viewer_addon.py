@@ -74,11 +74,16 @@ VIDEO_TYPES   = ["mp4","webm","ogv","mov"]
 EXCEL_TYPES   = ["xlsx","xls"]
 DOCX_TYPES    = ["docx","doc"]
 PPT_TYPES     = ["pptx","ppt"]
+RTF_TYPES     = ["rtf"]
+EPUB_TYPES    = ["epub"]
+IPYNB_TYPES   = ["ipynb"]
+EML_TYPES     = ["eml","msg"]
 ZIP_TYPES     = ["zip","rar","7z","tar","gz"]
 SYSTEM_TYPES  = ["exe","dll","iso","dmg","app"]
 
 ALL_SUPPORTED = IMAGE_TYPES + TEXT_TYPES + CSV_TYPES + JSON_TYPES + \
-                PDF_TYPES + AUDIO_TYPES + VIDEO_TYPES + EXCEL_TYPES + DOCX_TYPES + PPT_TYPES + ZIP_TYPES + SYSTEM_TYPES
+                PDF_TYPES + AUDIO_TYPES + VIDEO_TYPES + EXCEL_TYPES + \
+                DOCX_TYPES + PPT_TYPES + RTF_TYPES + EPUB_TYPES + IPYNB_TYPES + EML_TYPES + ZIP_TYPES + SYSTEM_TYPES
 
 
 def _fmt_size(n: int) -> str:
@@ -192,13 +197,18 @@ def _render_json(file):
 def _render_pdf(file):
     import base64
     data = file.read()
-    b64 = base64.b64encode(data).decode()
-    st.markdown(f"""
-    <iframe src="data:application/pdf;base64,{b64}"
-        width="100%" height="800px"
-        style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;">
-    </iframe>
-    """, unsafe_allow_html=True)
+    size_mb = len(data) / (1024 * 1024)
+    st.info(f"📕 PDF — {_fmt_size(len(data))}")
+    if size_mb <= 10:
+        b64 = base64.b64encode(data).decode()
+        st.markdown(f"""
+        <iframe src="data:application/pdf;base64,{b64}"
+            width="100%" height="800px"
+            style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;">
+        </iframe>
+        """, unsafe_allow_html=True)
+    else:
+        st.warning(f"⚠️ PDF is {size_mb:.1f} MB — too large to embed. Please download to view.")
     st.download_button("⬇️ Download PDF", data, file_name=file.name,
                        mime="application/pdf", use_container_width=True, key="fv_dl_pdf")
 
@@ -278,6 +288,110 @@ def _render_ppt(file):
         st.error("Install python-pptx: `pip install python-pptx`")
     except Exception as e:
         st.error(f"PPT Error: {e}")
+
+
+def _render_rtf(file):
+    """Render RTF by stripping control words — no extra library needed."""
+    import re
+    try:
+        raw = file.read().decode('latin-1', errors='replace')
+        # Remove RTF control words and groups
+        text = re.sub(r'\\[a-z]+[-]?\d*[ ]?', '', raw)
+        text = re.sub(r'[{}\\]', '', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        st.markdown(f"**📄 RTF Document — {_fmt_size(len(raw))}**")
+        st.text_area("Content", text[:30000], height=500,
+                     label_visibility="collapsed", key="fv_rtf_view")
+        if len(text) > 30000:
+            st.caption("⚠️ Showing first 30,000 chars")
+        st.download_button("⬇️ Download RTF", raw.encode('latin-1', errors='replace'),
+                           file_name=file.name, use_container_width=True, key="fv_dl_rtf")
+    except Exception as e:
+        st.error(f"RTF error: {e}")
+
+
+def _render_eml(file):
+    """Render .eml email files using Python's built-in email module."""
+    import email
+    try:
+        raw = file.read()
+        msg = email.message_from_bytes(raw)
+        st.markdown("**📧 Email Message**")
+        for hdr in ["From", "To", "Cc", "Subject", "Date"]:
+            val = msg.get(hdr, "")
+            if val:
+                st.markdown(f"**{hdr}:** {val}")
+        st.markdown("---")
+        # Extract body
+        body = ""
+        if msg.is_multipart():
+            for part in msg.walk():
+                ct = part.get_content_type()
+                if ct == "text/plain":
+                    body = part.get_payload(decode=True).decode("utf-8", errors="replace")
+                    break
+        else:
+            body = msg.get_payload(decode=True).decode("utf-8", errors="replace")
+        st.text_area("Body", body[:20000], height=400,
+                     label_visibility="collapsed", key="fv_eml_body")
+        st.download_button("⬇️ Download EML", raw, file_name=file.name,
+                           use_container_width=True, key="fv_dl_eml")
+    except Exception as e:
+        st.error(f"EML error: {e}")
+
+
+def _render_notebook(file):
+    """Render Jupyter .ipynb notebooks — parses JSON cells."""
+    import json
+    try:
+        data = json.loads(file.read().decode('utf-8', errors='replace'))
+        cells = data.get('cells', [])
+        st.markdown(f"**📓 Jupyter Notebook — {len(cells)} cells**")
+        for i, cell in enumerate(cells, 1):
+            ctype = cell.get('cell_type', 'code')
+            src = ''.join(cell.get('source', []))
+            icon = '🐍' if ctype == 'code' else '📝'
+            with st.expander(f"{icon} Cell {i} [{ctype}]", expanded=(i <= 3)):
+                if ctype == 'code':
+                    st.code(src, language='python')
+                else:
+                    st.markdown(src)
+                outputs = cell.get('outputs', [])
+                for out in outputs:
+                    text = out.get('text') or out.get('data', {}).get('text/plain', [])
+                    if text:
+                        st.caption(''.join(text)[:500])
+    except Exception as e:
+        st.error(f"Notebook error: {e}")
+
+
+def _render_epub(file):
+    """Render EPUB files — EPUBs are just zips with HTML chapters inside."""
+    import zipfile, io, re
+    try:
+        data = file.read()
+        with zipfile.ZipFile(io.BytesIO(data), 'r') as z:
+            names = z.namelist()
+            # Find HTML content files
+            html_files = [n for n in names if n.endswith(('.html', '.xhtml', '.htm'))]
+            st.markdown(f"**📖 EPUB — {len(html_files)} chapters found**")
+            if not html_files:
+                st.warning("No readable HTML chapters found in this EPUB.")
+                return
+            for i, hf in enumerate(html_files[:30], 1):
+                raw_html = z.read(hf).decode('utf-8', errors='replace')
+                # Strip HTML tags simply
+                text = re.sub(r'<[^>]+>', ' ', raw_html)
+                text = re.sub(r'\s+', ' ', text).strip()
+                if text:
+                    with st.expander(f"Chapter {i}: {hf.split('/')[-1]}"):
+                        st.write(text[:3000])
+            if len(html_files) > 30:
+                st.caption(f"Showing first 30 of {len(html_files)} chapters.")
+        st.download_button("⬇️ Download EPUB", data, file_name=file.name,
+                           use_container_width=True, key="fv_dl_epub")
+    except Exception as e:
+        st.error(f"EPUB error: {e}")
 
 
 def _render_zip(file):
@@ -374,7 +488,9 @@ def render_file_viewer_page():
         ("📊 CSV/TSV", CSV_TYPES), ("🔧 JSON", JSON_TYPES),
         ("📕 PDF", PDF_TYPES), ("🎵 Audio", AUDIO_TYPES),
         ("🎬 Video", VIDEO_TYPES), ("📊 Excel", EXCEL_TYPES),
-        ("📝 Word", DOCX_TYPES), ("📊 Powerpoint", PPT_TYPES),
+        ("📝 Word", DOCX_TYPES), ("📊 PowerPoint", PPT_TYPES),
+        ("📄 RTF", RTF_TYPES), ("📖 EPUB", EPUB_TYPES),
+        ("📓 Notebook", IPYNB_TYPES), ("📧 Email", EML_TYPES),
         ("🗜️ Archive", ZIP_TYPES), ("⚙️ System", SYSTEM_TYPES),
     ]:
         badges += f'<span class="fv-badge">{label}</span>'
@@ -455,6 +571,18 @@ def render_file_viewer_page():
 
     elif ext in PPT_TYPES:
         _render_ppt(uploaded)
+
+    elif ext in RTF_TYPES:
+        _render_rtf(uploaded)
+
+    elif ext in EPUB_TYPES:
+        _render_epub(uploaded)
+
+    elif ext in IPYNB_TYPES:
+        _render_notebook(uploaded)
+
+    elif ext in EML_TYPES:
+        _render_eml(uploaded)
 
     elif ext in ZIP_TYPES:
         _render_zip(uploaded)
