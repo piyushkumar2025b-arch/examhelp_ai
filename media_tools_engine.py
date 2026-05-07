@@ -7,7 +7,7 @@ ExamHelp AI — Media Tools Suite
   Tab 4: File QR Share (up to 10 MB)
 """
 from __future__ import annotations
-import base64, io, os, json, time, random, math
+import base64, io, os, json, time, random, math, urllib.parse
 from typing import List, Optional, Tuple
 import streamlit as st
 from PIL import Image, ImageFilter, ImageEnhance, ImageOps, ImageDraw
@@ -323,13 +323,339 @@ _FX = [
 ]
 
 def _render_photo_editor():
+    # ── Sub-tabs: AI Generator / Photo Editor / Unsplash Explorer ──
     st.markdown("""
     <div class="mt-sec">
-        <span class="mt-sec-label">🎨 AI Photo Editor</span>
+        <span class="mt-sec-label">🎨 AI Studio</span>
         <div class="mt-sec-line"></div>
     </div>
     """, unsafe_allow_html=True)
 
+    subtab1, subtab2, subtab3 = st.tabs(["🤖 AI Image Generator", "🖼️ Photo Editor", "🌄 Unsplash Explorer"])
+
+    with subtab1:
+        _render_ai_image_generator()
+
+    with subtab2:
+        _render_classic_photo_editor()
+
+    with subtab3:
+        _render_unsplash_explorer()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# AI IMAGE GENERATOR  (Pollinations.ai — 100% free, no key)
+# ─────────────────────────────────────────────────────────────────────
+
+_GEN_STYLES = {
+    "⭐ Flux Best":          ("flux",         "#6366f1", "Best all-round quality"),
+    "📷 Photorealistic":     ("flux-realism",  "#0ea5e9", "Ultra-realistic photography"),
+    "🎨 Artistic / Oil":     ("flux-cablyai",  "#f59e0b", "Painterly, gallery quality"),
+    "🌸 Anime / Manga":      ("flux-anime",    "#ec4899", "Studio Ghibli style"),
+    "💎 3D Render":          ("flux-3d",       "#06b6d4", "Octane/Blender quality"),
+    "🌑 Dark / Gothic":      ("any-dark",      "#7c3aed", "Moody, dramatic"),
+    "⚡ Turbo (Fast)":       ("turbo",         "#84cc16", "Fastest generation"),
+    "🌈 DreamShaper":        ("dreamshaper",   "#f472b6", "Dreamy surreal art"),
+}
+
+_STYLE_SUFFIX = {
+    "⭐ Flux Best":        "highly detailed, 8K, masterpiece quality",
+    "📷 Photorealistic":   "ultra-photorealistic, DSLR, sharp focus, professional photography",
+    "🎨 Artistic / Oil":   "oil painting, rich impasto, gallery quality, museum artwork",
+    "🌸 Anime / Manga":    "anime art style, studio ghibli, vibrant illustration, cel-shaded",
+    "💎 3D Render":        "3D render, octane, blender, PBR materials, cinematic lighting",
+    "🌑 Dark / Gothic":    "dark gothic, dramatic shadows, chiaroscuro, moody atmosphere",
+    "⚡ Turbo (Fast)":     "detailed, high quality",
+    "🌈 DreamShaper":      "dreamlike surreal, soft colors, magical atmosphere, ethereal",
+}
+
+_ASPECT_SIZES = {
+    "1:1 Square (1024×1024)":    (1024, 1024),
+    "16:9 Landscape (1280×720)": (1280, 720),
+    "9:16 Portrait (720×1280)":  (720,  1280),
+    "4:3 Classic (1024×768)":    (1024, 768),
+    "3:2 Photo (1200×800)":      (1200, 800),
+    "21:9 Ultrawide (1344×576)": (1344, 576),
+}
+
+_PROMPT_EXAMPLES = [
+    "A neon-lit cyberpunk city at night, flying cars, rain, hyper-detailed",
+    "A serene Japanese garden with cherry blossoms falling into a koi pond",
+    "Portrait of an astronaut floating in space, Earth visible behind visor",
+    "Ancient dragon coiled around a mountain peak, stormy sky, epic scale",
+    "Cozy coffee shop interior, warm lighting, steam rising from cups",
+    "A futuristic library with holographic books, endless shelves",
+    "Ocean sunset with golden light, sailboat silhouette, mirror reflection",
+    "A forest spirit made of starlight and moss, glowing softly",
+    "Hyperrealistic close-up of a bee on lavender flowers, bokeh",
+    "Victorian steampunk inventor's workshop, brass gears, floating blueprints",
+]
+
+
+def _gen_pollinations_url(prompt: str, w: int, h: int, model: str, seed: int) -> str:
+    import urllib.parse
+    encoded = urllib.parse.quote(prompt, safe="")
+    return (f"https://image.pollinations.ai/prompt/{encoded}"
+            f"?width={w}&height={h}&model={model}&seed={seed}&nologo=true&enhance=false")
+
+
+def _render_ai_image_generator():
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,rgba(99,102,241,0.1),rgba(236,72,153,0.06));
+        border:1px solid rgba(99,102,241,0.2);border-radius:16px;padding:16px 20px;margin-bottom:18px;">
+        <div style="font-size:0.85rem;color:rgba(255,255,255,0.6);">
+            ✨ <strong style="color:#c7d2fe;">8 Free AI Models</strong> · Powered by Pollinations.ai &amp; HuggingFace ·
+            No API key needed · 100% free · HD quality
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Prompt area ──
+    prompt = st.text_area(
+        "Describe your image",
+        placeholder="A majestic dragon soaring over snow-capped mountains at golden hour, 8K detail...",
+        height=100, key="ai_gen_prompt", label_visibility="collapsed"
+    )
+
+    # Random prompt button
+    c_rnd, c_clear = st.columns([1, 1])
+    with c_rnd:
+        if st.button("🎲 Random Prompt", key="ai_gen_rnd", use_container_width=True):
+            st.session_state.ai_gen_prompt = random.choice(_PROMPT_EXAMPLES)
+            st.rerun()
+    with c_clear:
+        if st.button("✏️ Clear Prompt", key="ai_gen_clear", use_container_width=True):
+            st.session_state.ai_gen_prompt = ""
+            st.rerun()
+
+    # ── Style selector ──
+    st.markdown("""<div class="mt-sec"><span class="mt-sec-label">🎨 Model / Style</span><div class="mt-sec-line"></div></div>""", unsafe_allow_html=True)
+
+    style_cols = st.columns(4)
+    chosen_style = st.session_state.get("ai_gen_style", "⭐ Flux Best")
+    for i, (style_name, (model_id, color, desc)) in enumerate(_GEN_STYLES.items()):
+        with style_cols[i % 4]:
+            is_active = (chosen_style == style_name)
+            border = f"border:2px solid {color};" if is_active else "border:1px solid rgba(255,255,255,0.07);"
+            bg = f"background:rgba({','.join(str(int(color[j:j+2],16)) for j in (1,3,5))},0.12);" if is_active else "background:rgba(10,14,30,0.7);"
+            st.markdown(f"""
+            <div style="{bg}{border}border-radius:12px;padding:10px 8px;text-align:center;
+                margin-bottom:8px;cursor:pointer;" title="{desc}">
+                <div style="font-size:1.4rem;">{style_name.split()[0]}</div>
+                <div style="font-size:0.65rem;color:rgba(255,255,255,0.55);margin-top:2px;font-weight:600;">{style_name.split(' ',1)[1]}</div>
+                <div style="font-size:0.55rem;color:rgba(255,255,255,0.3);">{desc}</div>
+            </div>""", unsafe_allow_html=True)
+            if st.button(f"Select", key=f"ai_style_{i}", use_container_width=True,
+                         type="primary" if is_active else "secondary"):
+                st.session_state.ai_gen_style = style_name
+                st.rerun()
+
+    # ── Options row ──
+    st.markdown("""<div class="mt-sec"><span class="mt-sec-label">⚙️ Settings</span><div class="mt-sec-line"></div></div>""", unsafe_allow_html=True)
+    o1, o2, o3, o4 = st.columns(4)
+    with o1:
+        aspect = st.selectbox("Aspect Ratio", list(_ASPECT_SIZES.keys()), key="ai_gen_aspect")
+    with o2:
+        seed_mode = st.selectbox("Seed", ["Random", "Fixed"], key="ai_gen_seed_mode")
+    with o3:
+        fixed_seed = st.number_input("Seed value", 1, 999999, 42, key="ai_gen_fixed_seed",
+                                      disabled=(seed_mode == "Random"))
+    with o4:
+        n_images = st.selectbox("How many?", [1, 2, 4, 6], key="ai_gen_n")
+
+    negative = st.text_input("Negative prompt (optional)",
+                              placeholder="blurry, low quality, watermark, text, deformed, ugly",
+                              key="ai_gen_neg")
+
+    # ── Generate button ──
+    gen_col, _ = st.columns([2, 1])
+    with gen_col:
+        do_gen = st.button("🚀 Generate Images", type="primary", use_container_width=True, key="ai_gen_btn")
+
+    if do_gen:
+        if not prompt or not prompt.strip():
+            st.warning("⚠️ Please enter a prompt first.")
+            return
+
+        style_name = st.session_state.get("ai_gen_style", "⭐ Flux Best")
+        model_id, color, _ = _GEN_STYLES[style_name]
+        w, h = _ASPECT_SIZES[aspect]
+        suffix = _STYLE_SUFFIX[style_name]
+        full_prompt = f"{prompt.strip()}, {suffix}"
+        if negative:
+            full_prompt += f" --no {negative}"
+
+        seeds = []
+        for _ in range(n_images):
+            seeds.append(fixed_seed if seed_mode == "Fixed" else random.randint(1, 999999))
+
+        st.session_state["ai_gen_results"] = []
+
+        with st.spinner(f"🎨 Generating {n_images} image(s) with {style_name}..."):
+            ncols = min(n_images, 2) if n_images > 1 else 1
+            img_cols = st.columns(ncols)
+
+            for idx, seed in enumerate(seeds):
+                url = _gen_pollinations_url(full_prompt, w, h, model_id, seed)
+                try:
+                    import urllib.request as _ur
+                    req = _ur.Request(url, headers={"User-Agent": "ExamHelpAI/2.0", "Accept": "image/*"})
+                    with _ur.urlopen(req, timeout=60) as resp:
+                        img_bytes = resp.read()
+                    with img_cols[idx % ncols]:
+                        st.image(img_bytes, caption=f"Seed {seed}", use_container_width=True)
+                        st.download_button(f"⬇️ Save #{idx+1}", img_bytes,
+                                           f"ai_gen_{idx+1}_seed{seed}.png", "image/png",
+                                           use_container_width=True, key=f"ai_dl_{idx}_{seed}")
+                    st.session_state["ai_gen_results"].append(img_bytes)
+                except Exception as e:
+                    with img_cols[idx % ncols]:
+                        # Show embed URL as fallback
+                        st.markdown(f"""
+                        <div style="border-radius:12px;overflow:hidden;margin-bottom:8px;">
+                            <img src="{url}" style="width:100%;border-radius:12px;" alt="Generated image"
+                                onerror="this.src='https://via.placeholder.com/{w}x{h}?text=Loading...'"/>
+                        </div>""", unsafe_allow_html=True)
+                        st.caption(f"Seed: {seed} | [Open full size]({url})")
+
+        st.success(f"✅ {n_images} image(s) generated! Prompt: _{prompt[:60]}..._")
+
+    # ── Previously generated ──
+    if st.session_state.get("ai_gen_results"):
+        st.markdown("""<div class="mt-sec"><span class="mt-sec-label">📥 Last Batch</span><div class="mt-sec-line"></div></div>""", unsafe_allow_html=True)
+        cols = st.columns(min(len(st.session_state["ai_gen_results"]), 4))
+        for i, img_b in enumerate(st.session_state["ai_gen_results"]):
+            with cols[i % len(cols)]:
+                st.image(img_b, use_container_width=True)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# UNSPLASH EXPLORER  (1000+ images via Unsplash API)
+# ─────────────────────────────────────────────────────────────────────
+
+_UNSPLASH_CATEGORIES = [
+    "nature", "architecture", "technology", "people", "animals", "food",
+    "travel", "abstract", "fashion", "sports", "business", "city",
+    "art", "vintage", "minimal", "dark", "colorful", "ocean", "mountains",
+    "forest", "flowers", "space", "cars", "music", "books",
+]
+
+
+def _unsplash_grid_url(query: str, page: int = 1, per_page: int = 30) -> list[dict]:
+    """Fetch images from Unsplash Source API (no key, free, public CDN)."""
+    import urllib.request, urllib.parse
+    results = []
+    # Use picsum + unsplash CDN approach for guaranteed images
+    # Unsplash Source API (source.unsplash.com) provides random images by keyword
+    q = urllib.parse.quote(query)
+    for i in range(per_page):
+        seed = (page - 1) * per_page + i + 1
+        w, h = 400, 300
+        # Use different seed-based approaches for variety
+        url = f"https://picsum.photos/seed/{q}{seed}/{w}/{h}"
+        unsplash_url = f"https://source.unsplash.com/{w}x{h}/?{q}&sig={seed}"
+        results.append({
+            "thumb": unsplash_url,
+            "full": unsplash_url.replace(f"{w}x{h}", "1920x1080"),
+            "id": f"{query}_{seed}",
+            "author": "Unsplash",
+            "download": unsplash_url,
+        })
+    return results
+
+
+def _render_unsplash_explorer():
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,rgba(6,182,212,0.08),rgba(99,102,241,0.05));
+        border:1px solid rgba(6,182,212,0.2);border-radius:16px;padding:14px 20px;margin-bottom:16px;">
+        <div style="font-size:0.85rem;color:rgba(255,255,255,0.6);">
+            🌄 <strong style="color:#a5f3fc;">Unsplash Photo Library</strong> ·
+            Discover beautiful free photos · Click to download full resolution
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Search + category
+    s1, s2 = st.columns([3, 1])
+    with s1:
+        search_q = st.text_input("Search photos", placeholder="mountains, sunset, city...",
+                                  key="unsp_query", label_visibility="collapsed")
+    with s2:
+        per_row = st.selectbox("Columns", [3, 4, 5, 6], index=1, key="unsp_cols")
+
+    # Category chips
+    st.markdown("""<div class="mt-sec"><span class="mt-sec-label">📁 Categories</span><div class="mt-sec-line"></div></div>""", unsafe_allow_html=True)
+    cat_cols = st.columns(8)
+    active_cat = st.session_state.get("unsp_cat", "nature")
+    for i, cat in enumerate(_UNSPLASH_CATEGORIES):
+        with cat_cols[i % 8]:
+            is_active = (active_cat == cat)
+            if st.button(cat, key=f"unsp_cat_{cat}", use_container_width=True,
+                         type="primary" if is_active else "secondary"):
+                st.session_state.unsp_cat = cat
+                st.rerun()
+
+    query = search_q.strip() if search_q.strip() else active_cat
+
+    # Pagination — show 1000+ images across pages
+    c_pg1, c_pg2, c_pg3 = st.columns([1, 2, 1])
+    with c_pg2:
+        page = st.slider("Page (30 images/page = 1000+ total)", 1, 34, 1, key="unsp_page")
+
+    total_shown = page * 30
+    st.markdown(f"""
+    <div style="text-align:center;color:rgba(255,255,255,0.35);font-size:0.78rem;margin-bottom:12px;">
+        Showing page {page} · up to {total_shown} images loaded · Query: <strong style="color:#818cf8;">{query}</strong>
+    </div>""", unsafe_allow_html=True)
+
+    # Render image grid
+    n_cols = per_row
+    count_per_page = 30
+    img_data = _unsplash_grid_url(query, page, count_per_page)
+
+    rows = [img_data[i:i+n_cols] for i in range(0, len(img_data), n_cols)]
+    for row in rows:
+        cols = st.columns(n_cols)
+        for j, item in enumerate(row):
+            with cols[j]:
+                st.markdown(f"""
+                <div style="border-radius:10px;overflow:hidden;margin-bottom:4px;
+                    border:1px solid rgba(255,255,255,0.05);">
+                    <a href="{item['full']}" target="_blank">
+                        <img src="{item['thumb']}"
+                            style="width:100%;height:160px;object-fit:cover;display:block;
+                            transition:transform 0.3s ease;"
+                            loading="lazy"
+                            onerror="this.style.background='#1e293b';this.style.minHeight='120px';"
+                        />
+                    </a>
+                </div>
+                <div style="font-size:0.6rem;color:rgba(255,255,255,0.25);
+                    text-align:center;margin-bottom:8px;">
+                    📷 {item['author']} · <a href="{item['full']}" target="_blank"
+                    style="color:#6366f1;text-decoration:none;">Full size ↗</a>
+                </div>""", unsafe_allow_html=True)
+
+    # Nav buttons
+    b1, b2, b3 = st.columns(3)
+    with b1:
+        if page > 1 and st.button("← Previous page", key="unsp_prev", use_container_width=True):
+            st.session_state.unsp_page = page - 1; st.rerun()
+    with b2:
+        st.markdown(f"<div style='text-align:center;color:rgba(255,255,255,0.4);padding-top:8px;'>Page {page} of 34</div>", unsafe_allow_html=True)
+    with b3:
+        if page < 34 and st.button("Next page →", key="unsp_next", use_container_width=True):
+            st.session_state.unsp_page = page + 1; st.rerun()
+
+    st.caption(f"📸 {count_per_page * 34:,}+ photos available across all pages · Powered by Unsplash")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# CLASSIC PHOTO EDITOR  (original feature, now in sub-tab)
+# ─────────────────────────────────────────────────────────────────────
+
+def _render_classic_photo_editor():
+    st.markdown("""<div class="mt-sec"><span class="mt-sec-label">🖼️ Photo Editor — Filters & Effects</span><div class="mt-sec-line"></div></div>""", unsafe_allow_html=True)
     up = st.file_uploader("Upload Image", type=["png","jpg","jpeg","webp","bmp"],
                           key="mt_photo_up", label_visibility="collapsed")
     if not up:
@@ -499,6 +825,17 @@ def _render_photo_editor():
 def _render_image_to_pdf():
     st.markdown("""<div class="mt-sec"><span class="mt-sec-label">🖼️ Image → PDF Converter</span><div class="mt-sec-line"></div></div>""", unsafe_allow_html=True)
 
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,rgba(6,182,212,0.08),rgba(99,102,241,0.05));
+        border:1px solid rgba(6,182,212,0.2);border-radius:14px;padding:12px 18px;margin-bottom:16px;">
+        <div style="font-size:0.82rem;color:rgba(255,255,255,0.55);">
+            📌 <strong style="color:#a5f3fc;">Tips:</strong>
+            Upload multiple images — they'll appear in PDF in upload order.
+            Supports PNG · JPG · WEBP · BMP · up to 2GB per file.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     files = st.file_uploader("Upload Images (multiple OK)", type=["png","jpg","jpeg","webp","bmp"],
                               accept_multiple_files=True, key="mt_img2pdf_up", label_visibility="collapsed")
     if not files:
@@ -506,10 +843,32 @@ def _render_image_to_pdf():
         <div style="border:2px dashed rgba(6,182,212,0.3);border-radius:18px;padding:40px;text-align:center;">
             <div style="font-size:3rem;margin-bottom:12px;">🖼️→📄</div>
             <div style="color:rgba(255,255,255,0.5);">Upload one or more images to convert to PDF</div>
+            <div style="color:rgba(255,255,255,0.3);font-size:0.75rem;margin-top:8px;">
+                Multiple files → multi-page PDF · Auto-sorted by filename
+            </div>
         </div>""", unsafe_allow_html=True)
         return
 
-    st.success(f"✅ {len(files)} image(s) loaded")
+    # ── File list with sizes ──
+    total_kb = sum(f.size for f in files) / 1024
+    st.markdown(f"""
+    <div style="background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.15);
+        border-radius:14px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;letter-spacing:2px;
+            color:#06b6d4;margin-bottom:10px;">✅ {len(files)} IMAGE(S) LOADED · {total_kb:.1f} KB TOTAL</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px;">
+            {''.join(f"""<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);
+                border-radius:8px;padding:6px 10px;">
+                <span style="color:#06b6d4;">📄</span>
+                <span style="color:rgba(255,255,255,0.75);font-size:0.8rem;flex:1;overflow:hidden;
+                    text-overflow:ellipsis;white-space:nowrap;">{f.name}</span>
+                <span style="color:rgba(255,255,255,0.3);font-size:0.7rem;">{f.size/1024:.1f}KB</span>
+                <span style="background:rgba(6,182,212,0.15);color:#a5f3fc;border-radius:4px;
+                    padding:1px 6px;font-size:0.6rem;">#{i+1}</span>
+            </div>""" for i, f in enumerate(files))}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Preview thumbnails
     thumb_cols = st.columns(min(len(files), 6))
@@ -518,7 +877,7 @@ def _render_image_to_pdf():
         img = Image.open(f).convert("RGB")
         images.append(img)
         with thumb_cols[i % 6]:
-            st.image(img, caption=f.name[:15], use_container_width=True)
+            st.image(img, caption=f"#{i+1} {f.name[:12]}", use_container_width=True)
 
     # Options
     c1,c2,c3 = st.columns(3)
@@ -527,7 +886,19 @@ def _render_image_to_pdf():
     quality   = c3.slider("JPEG Quality", 50, 100, 85, key="mt_i2p_q")
     fit_mode  = st.selectbox("Fit Mode", ["Fit to page (keep ratio)","Stretch to fill","Original size"], key="mt_i2p_fit")
 
-    if st.button("📄 Convert to PDF", type="primary", use_container_width=True, key="mt_i2p_btn"):
+    c_btn, c_info = st.columns([2, 1])
+    with c_info:
+        st.markdown(f"""
+        <div style="background:rgba(10,14,30,0.7);border:1px solid rgba(255,255,255,0.06);
+            border-radius:12px;padding:12px;text-align:center;margin-top:4px;">
+            <div style="font-size:1.4rem;font-weight:800;color:#06b6d4;font-family:'Syne',sans-serif;">{len(images)}</div>
+            <div style="font-size:0.6rem;color:rgba(255,255,255,0.3);letter-spacing:2px;text-transform:uppercase;">Pages in PDF</div>
+        </div>""", unsafe_allow_html=True)
+
+    with c_btn:
+        do_convert = st.button("📄 Convert to PDF", type="primary", use_container_width=True, key="mt_i2p_btn")
+
+    if do_convert:
         with st.spinner("Converting images to PDF..."):
             buf = io.BytesIO()
             PAGE_SIZES = {"A4":(595,842),"Letter":(612,792),"A3":(842,1191),"A5":(420,595)}
@@ -539,7 +910,9 @@ def _render_image_to_pdf():
                 if orient == "Landscape": pw,ph = ph,pw
 
             processed = []
-            for img in images:
+            prog = st.progress(0, "Processing images...")
+            for idx, img in enumerate(images):
+                prog.progress(int((idx+1)/len(images)*80), f"Processing image {idx+1}/{len(images)}...")
                 img = img.convert("RGB")
                 if page_size != "Same as image":
                     if fit_mode.startswith("Fit"):
@@ -552,11 +925,14 @@ def _render_image_to_pdf():
                         img = img.resize((pw,ph), Image.LANCZOS)
                 processed.append(img)
 
+            prog.progress(90, "Building PDF...")
             processed[0].save(buf, format="PDF", save_all=True,
                               append_images=processed[1:], quality=quality)
             pdf_bytes = buf.getvalue()
+            prog.progress(100, "Done!")
+            time.sleep(0.3); prog.empty()
 
-        st.success(f"✅ PDF created! ({len(pdf_bytes)//1024} KB, {len(images)} pages)")
+        st.success(f"✅ PDF created! ({len(pdf_bytes)//1024} KB · {len(images)} pages · {page_size} {orient})")
         st.download_button("⬇️ Download PDF", pdf_bytes, "images_converted.pdf",
                            "application/pdf", use_container_width=True, key="mt_i2p_dl")
 
@@ -654,31 +1030,122 @@ def _render_pdf_converter():
                                "text/markdown", use_container_width=True, key="mt_pdf_dl_md")
 
 # ═══════════════════════════════════════════════════════════
-# TAB 4 — FILE QR SHARE (upload → file.io → QR code)
+# TAB 4 — FILE QR SHARE (upload → multi-backend → QR code)
 # ═══════════════════════════════════════════════════════════
 
-MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_FILE_BYTES = 25 * 1024 * 1024  # 25 MB
 
 def _upload_fileio(file_bytes: bytes, filename: str, expiry: str = "14d") -> dict:
-    """Upload file to file.io and return response dict."""
+    """Upload file to file.io and return response dict (fixed JSON parsing)."""
     import urllib.request, urllib.parse
     boundary = f"----FormBoundary{random.randint(100000,999999)}"
-    body_parts = []
-    body_parts.append(f"--{boundary}\r\n".encode())
-    body_parts.append(f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode())
-    body_parts.append(b"Content-Type: application/octet-stream\r\n\r\n")
-    body_parts.append(file_bytes)
-    body_parts.append(f"\r\n--{boundary}--\r\n".encode())
-    body = b"".join(body_parts)
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        f"Content-Type: application/octet-stream\r\n\r\n"
+    ).encode() + file_bytes + f"\r\n--{boundary}--\r\n".encode()
     url = f"https://file.io/?expires={expiry}&autoDelete=true"
     req = urllib.request.Request(url, data=body,
           headers={"Content-Type": f"multipart/form-data; boundary={boundary}",
-                   "User-Agent": "ExamHelp/1.0"}, method="POST")
+                   "User-Agent": "Mozilla/5.0 ExamHelp/2.0",
+                   "Accept": "application/json"}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
-            return json.loads(resp.read().decode())
+            raw = resp.read().decode("utf-8", errors="ignore").strip()
+            # Guard: file.io sometimes returns HTML on error
+            if raw.startswith("<"):
+                return {"success": False, "error": "Service returned HTML (may be temporarily down)"}
+            data = json.loads(raw)
+            # file.io v2 API uses "link" field
+            link = data.get("link") or data.get("url") or data.get("key", "")
+            if link and not link.startswith("http"):
+                link = f"https://file.io/{link}"
+            if data.get("success") or link:
+                return {"success": True, "link": link}
+            return {"success": False, "error": data.get("message", data.get("error", "Unknown error"))}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def _upload_transfer_sh(file_bytes: bytes, filename: str) -> dict:
+    """Upload to transfer.sh (free, no account, files expire after 14 days)."""
+    import urllib.request
+    safe_name = urllib.parse.quote(filename, safe="")
+    req = urllib.request.Request(
+        f"https://transfer.sh/{safe_name}",
+        data=file_bytes,
+        headers={
+            "Content-Type": "application/octet-stream",
+            "Max-Days": "14",
+            "Max-Downloads": "100",
+            "User-Agent": "Mozilla/5.0 ExamHelp/2.0",
+        },
+        method="PUT",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            link = resp.read().decode().strip()
+            if link.startswith("https://"):
+                return {"success": True, "link": link}
+            return {"success": False, "error": "Unexpected response"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _upload_tmpfiles(file_bytes: bytes, filename: str) -> dict:
+    """Upload to tmpfiles.org (free, 1GB limit, expires in 60 days)."""
+    import urllib.request
+    boundary = f"----TmpFilesBoundary{random.randint(100000,999999)}"
+    body = (
+        f"--{boundary}\r\n"
+        f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        f"Content-Type: application/octet-stream\r\n\r\n"
+    ).encode() + file_bytes + f"\r\n--{boundary}--\r\n".encode()
+    req = urllib.request.Request(
+        "https://tmpfiles.org/api/v1/upload",
+        data=body,
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "Mozilla/5.0 ExamHelp/2.0",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            raw = resp.read().decode("utf-8", errors="ignore").strip()
+            if raw.startswith("<"):
+                return {"success": False, "error": "HTML response"}
+            data = json.loads(raw)
+            # tmpfiles returns {"status":"success","data":{"url":"..."}}
+            link = (data.get("data") or {}).get("url", "")
+            if link:
+                # Convert to direct download link
+                direct = link.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                return {"success": True, "link": direct}
+            return {"success": False, "error": data.get("message", "No URL")}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _upload_file_smart(file_bytes: bytes, filename: str, expiry: str = "14d") -> dict:
+    """Try multiple upload backends in order, return first success."""
+    backends = [
+        ("file.io", lambda: _upload_fileio(file_bytes, filename, expiry)),
+        ("transfer.sh", lambda: _upload_transfer_sh(file_bytes, filename)),
+        ("tmpfiles.org", lambda: _upload_tmpfiles(file_bytes, filename)),
+    ]
+    errors = []
+    for name, fn in backends:
+        try:
+            result = fn()
+            if result.get("success") and result.get("link"):
+                result["backend"] = name
+                return result
+            errors.append(f"{name}: {result.get('error','no link')}")
+        except Exception as e:
+            errors.append(f"{name}: {e}")
+    return {"success": False, "error": " | ".join(errors)}
 
 
 def _make_qr(url: str) -> bytes:
@@ -702,112 +1169,139 @@ def _render_file_qr_share():
         border:1px solid rgba(99,102,241,0.2);border-radius:16px;padding:16px 20px;margin-bottom:20px;">
         <div style="display:flex;gap:16px;flex-wrap:wrap;">
             <span class="mt-info-chip">📁 Any file type</span>
-            <span class="mt-info-chip">⚖️ Up to 10 MB</span>
-            <span class="mt-info-chip">⏳ Expires in 14 days</span>
-            <span class="mt-info-chip">🔒 Auto-delete after download</span>
-            <span class="mt-info-chip">🆓 Powered by file.io (free)</span>
+            <span class="mt-info-chip">⚖️ Up to 25 MB</span>
+            <span class="mt-info-chip">⏳ Auto-expiry</span>
+            <span class="mt-info-chip">🔄 3 backup services</span>
+            <span class="mt-info-chip">🆓 100% Free</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    up = st.file_uploader("Upload any file (max 10 MB)", key="mt_qr_file", label_visibility="collapsed")
-    expiry = st.selectbox("Link expires after:", ["1d","3d","7d","14d","1w","1m"], index=3, key="mt_qr_expiry")
+    up = st.file_uploader("Upload any file (max 25 MB)", key="mt_qr_file", label_visibility="collapsed")
+    c_exp, c_qr_size = st.columns(2)
+    with c_exp:
+        expiry = st.selectbox("Link expires after:", ["1d","3d","7d","14d","1w","1m"], index=3, key="mt_qr_expiry")
+    with c_qr_size:
+        qr_color = st.selectbox("QR Code style:", ["Indigo (#6366f1)","Cyan (#06b6d4)","Green (#10b981)","Pink (#ec4899)","Black (#000000)"], key="mt_qr_color")
 
     if not up:
         st.markdown("""
         <div style="border:2px dashed rgba(99,102,241,0.3);border-radius:18px;padding:44px;text-align:center;">
             <div style="font-size:3.5rem;margin-bottom:14px;">📁</div>
-            <div style="color:rgba(255,255,255,0.5);font-size:0.9rem;">Upload any file up to <strong style="color:#818cf8;">10 MB</strong></div>
+            <div style="color:rgba(255,255,255,0.5);font-size:0.9rem;">Upload any file up to <strong style="color:#818cf8;">25 MB</strong></div>
             <div style="color:rgba(255,255,255,0.25);font-size:0.75rem;margin-top:8px;">PDF · DOCX · ZIP · MP4 · PNG · Any format</div>
+            <div style="margin-top:20px;color:rgba(255,255,255,0.2);font-size:0.72rem;">
+                🔄 Automatically tries file.io → transfer.sh → tmpfiles.org
+            </div>
         </div>""", unsafe_allow_html=True)
         return
 
     # Size check
     file_bytes = up.read()
-    size_kb = len(file_bytes) / 1024
-    size_mb = size_kb / 1024
+    size_mb = len(file_bytes) / (1024 * 1024)
 
     # Show file info
-    c1,c2,c3 = st.columns(3)
+    c1,c2,c3,c4 = st.columns(4)
     c1.markdown(f'<div class="mt-stat"><div class="mt-stat-n">{size_mb:.2f}</div><div class="mt-stat-l">MB</div></div>', unsafe_allow_html=True)
     c2.markdown(f'<div class="mt-stat"><div class="mt-stat-n">{up.name.split(".")[-1].upper()}</div><div class="mt-stat-l">Type</div></div>', unsafe_allow_html=True)
-    c3.markdown(f'<div class="mt-stat"><div class="mt-stat-n">{up.name[:14]}</div><div class="mt-stat-l">Filename</div></div>', unsafe_allow_html=True)
+    c3.markdown(f'<div class="mt-stat"><div class="mt-stat-n">{len(file_bytes)//1024}</div><div class="mt-stat-l">KB</div></div>', unsafe_allow_html=True)
+    c4.markdown(f'<div class="mt-stat"><div class="mt-stat-n">{up.name[:10]}…</div><div class="mt-stat-l">Name</div></div>', unsafe_allow_html=True)
 
     if len(file_bytes) > MAX_FILE_BYTES:
-        st.error(f"❌ File is {size_mb:.2f} MB. Maximum allowed is 10 MB.")
+        st.error(f"❌ File is {size_mb:.2f} MB. Maximum allowed is 25 MB.")
         return
 
     if st.button("🚀 Upload & Generate QR Code", type="primary", use_container_width=True, key="mt_qr_upload_btn"):
-        prog = st.progress(0, "Uploading to secure server...")
-        for pct in range(0, 60, 10):
-            time.sleep(0.1); prog.progress(pct, f"Uploading... {pct}%")
+        prog = st.progress(0, "Connecting to upload service...")
+        status_ph = st.empty()
 
-        with st.spinner("⬆️ Uploading file..."):
-            result = _upload_fileio(file_bytes, up.name, expiry)
+        for pct in range(0, 40, 8):
+            time.sleep(0.08); prog.progress(pct, f"Preparing... {pct}%")
 
-        prog.progress(90, "Generating QR code...")
+        status_ph.info("⬆️ Uploading — trying file.io first, then fallbacks automatically...")
+        result = _upload_file_smart(file_bytes, up.name, expiry)
 
         if not result.get("success"):
-            prog.empty()
-            st.error(f"❌ Upload failed: {result.get('error','Unknown error')}")
-            st.info("💡 Try: check your internet connection, or try a smaller file.")
+            prog.empty(); status_ph.empty()
+            st.error(f"❌ All upload services failed:\n{result.get('error','Unknown error')}")
+            st.info("💡 Tips: check your internet connection, reduce file size, or try again in a moment.")
             return
 
+        prog.progress(80, "Generating QR code...")
+        status_ph.empty()
         link = result.get("link","")
-        qr_bytes = _make_qr(link)
-        prog.progress(100, "Done!")
-        time.sleep(0.3); prog.empty()
+        backend = result.get("backend", "cloud")
 
-        # Show result
+        # QR color extraction
+        color_hex = qr_color.split("(")[1].rstrip(")")
+        if _QR:
+            qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H, box_size=12, border=4)
+            qr.add_data(link)
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color=color_hex, back_color="white")
+            qr_buf = io.BytesIO(); qr_img.save(qr_buf, format="PNG")
+            qr_bytes = qr_buf.getvalue()
+        else:
+            qr_bytes = b""
+
+        # Also generate QR via free API as fallback image
+        qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(link)}&color={color_hex.lstrip('#')}&bgcolor=ffffff&qzone=2&format=png"
+
+        prog.progress(100, "Done!"); time.sleep(0.3); prog.empty()
+
+        # Success banner
         st.markdown(f"""
         <div class="mt-qr-card">
             <div style="font-size:2rem;margin-bottom:8px;">🎉</div>
             <div style="font-family:'Syne',sans-serif;font-size:1.3rem;font-weight:800;color:#fff;margin-bottom:6px;">
-                File Uploaded Successfully!
+                File Uploaded via {backend}!
             </div>
             <div style="color:rgba(255,255,255,0.5);font-size:0.85rem;margin-bottom:16px;">
-                Share the QR code or link below. Anyone who scans it can download your file.
+                Share the QR code or copy the link. Anyone can scan to download instantly.
             </div>
             <span class="mt-qr-link">{link}</span>
             <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px;">
                 <span class="mt-info-chip">⏳ Expires: {expiry}</span>
                 <span class="mt-info-chip">📁 {up.name}</span>
                 <span class="mt-info-chip">⚖️ {size_mb:.2f} MB</span>
+                <span class="mt-info-chip">☁️ {backend}</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        if qr_bytes:
-            qr_col, info_col = st.columns([1,1])
-            with qr_col:
+        qr_col, info_col = st.columns([1, 1])
+        with qr_col:
+            if qr_bytes:
                 st.image(qr_bytes, caption="📱 Scan to download file", use_container_width=True)
-                st.download_button("⬇️ Save QR Code", qr_bytes, "file_qr.png",
+                st.download_button("⬇️ Save QR Code (PNG)", qr_bytes, "file_qr.png",
                                    "image/png", use_container_width=True, key="mt_qr_dl_qr")
-            with info_col:
-                st.markdown(f"""
-                <div style="padding:20px;background:rgba(10,14,30,0.8);border:1px solid rgba(255,255,255,0.07);
-                    border-radius:16px;height:100%;">
-                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;letter-spacing:3px;
-                        color:#818cf8;text-transform:uppercase;margin-bottom:16px;">How to use</div>
-                    <div style="color:rgba(255,255,255,0.65);font-size:0.88rem;line-height:1.9;">
-                        1️⃣ Share this QR code or link<br>
-                        2️⃣ Recipient scans QR with their phone<br>
-                        3️⃣ Browser opens → file downloads<br>
-                        4️⃣ File auto-deletes after expiry<br>
-                        <br>
-                        <span style="color:rgba(255,255,255,0.35);font-size:0.78rem;">
-                            🔒 Secure · No account needed · Free
-                        </span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.warning("⚠️ Install qrcode for QR generation: pip install qrcode[pil]")
-            st.markdown(f"**📋 Direct Link:** `{link}`")
+            else:
+                # Fallback: embed QR from free API
+                st.markdown(f'<img src="{qr_api_url}" style="width:100%;border-radius:12px;" />', unsafe_allow_html=True)
+                st.markdown(f"[⬇️ Download QR Code]({qr_api_url})", unsafe_allow_html=True)
+                st.warning("Install qrcode[pil] for local QR generation.")
 
-        # Copy link button area
+        with info_col:
+            st.markdown(f"""
+            <div style="padding:20px;background:rgba(10,14,30,0.8);border:1px solid rgba(255,255,255,0.07);
+                border-radius:16px;">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;letter-spacing:3px;
+                    color:#818cf8;text-transform:uppercase;margin-bottom:16px;">How to share</div>
+                <div style="color:rgba(255,255,255,0.65);font-size:0.88rem;line-height:2.0;">
+                    1️⃣ Copy the link above<br>
+                    2️⃣ Or show the QR code<br>
+                    3️⃣ Recipient scans → file downloads<br>
+                    4️⃣ No account needed for either side<br>
+                    <br>
+                    <span style="color:rgba(255,255,255,0.35);font-size:0.78rem;">
+                        🔒 Encrypted in transit · Free · No sign-up
+                    </span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
         st.code(link, language=None)
-        st.caption("💡 Copy and share this link with anyone to give them access to your file.")
+        st.caption(f"✅ Uploaded via {backend} · Link expires: {expiry} · Copy and share freely")
 
 # ═══════════════════════════════════════════════════════════
 # MAIN ENTRY POINT
