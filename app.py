@@ -2477,265 +2477,510 @@ if not st.session_state["passcode_verified"]:
     """, unsafe_allow_html=True)
 
 
-    # ── Boat canvas via components.html (scripts work here) ──────
+    # ── 3D Boat Scene via Three.js ─────────────────────────────
     import streamlit.components.v1 as _comp_river
-    _comp_river.html("""
+    _comp_river.html("""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
 <style>
-  body,html{margin:0;padding:0;background:transparent;overflow:hidden;}
-  canvas{display:block;width:100%;height:480px;}
-  #riverWrap{
-    width:100%;height:480px;border-radius:28px;overflow:hidden;
-    background:linear-gradient(180deg,#020008 0%,#030015 15%,#001a0a 55%,#002a10 70%,#000e05 100%);
-    border:1px solid rgba(0,255,180,0.12);
-    box-shadow:0 0 80px rgba(0,255,180,0.06);
-    margin-top:-560px;
-    position:relative;z-index:20;
-  }
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#020008;}
+#c{display:block;width:100%;height:100%;}
 </style>
-<div id="riverWrap"><canvas id="rc"></canvas></div>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
-  var canvas=document.getElementById('rc');
-  var wrap=document.getElementById('riverWrap');
-  canvas.width=wrap.offsetWidth||900;
-  canvas.height=480;
-  window.addEventListener('resize',function(){canvas.width=wrap.offsetWidth||900;});
-  var ctx=canvas.getContext('2d');
-  var t=0;
-  var stars=[];
-  for(var i=0;i<90;i++) stars.push({x:Math.random(),y:Math.random()*0.48,r:0.5+Math.random()*1.2,tw:Math.random()*6.28,sp:0.3+Math.random()*0.7});
-  var waves=[];
-  for(var i=0;i<8;i++) waves.push({amp:7+Math.random()*10,freq:0.007+Math.random()*0.005,speed:0.25+Math.random()*0.35,off:Math.random()*6.28,y:250+i*20,al:0.09-i*0.007});
-  var bubbles=[];
-  for(var b=0;b<22;b++) bubbles.push({x:Math.random(),y:0.54+Math.random()*0.42,r:1+Math.random()*3,spd:0.0003+Math.random()*0.0004,al:Math.random()});
 
-  function draw(){
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    var W=canvas.width,H=canvas.height;
+var W = window.innerWidth, H = window.innerHeight;
+var renderer = new THREE.WebGLRenderer({canvas: document.getElementById('c'), antialias:true, alpha:false});
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.9;
 
-    // Sky
-    var sky=ctx.createLinearGradient(0,0,0,H*0.56);
-    sky.addColorStop(0,'#020008'); sky.addColorStop(0.4,'#040018'); sky.addColorStop(1,'#001508');
-    ctx.fillStyle=sky; ctx.fillRect(0,0,W,H*0.58);
+var scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x000a04, 0.025);
 
-    // Tree silhouette
-    ctx.save();
-    ctx.fillStyle='rgba(0,8,4,0.97)';
-    ctx.beginPath(); ctx.moveTo(0,H*0.52);
-    for(var tx=0;tx<=W;tx+=3) ctx.lineTo(tx,H*0.46+12*Math.sin(tx*0.011+0.4)+7*Math.sin(tx*0.027+1)+4*Math.sin(tx*0.05+2));
-    ctx.lineTo(W,H*0.54); ctx.lineTo(0,H*0.54); ctx.closePath(); ctx.fill();
-    ctx.restore();
+var camera = new THREE.PerspectiveCamera(55, W/H, 0.1, 200);
+camera.position.set(0, 4.5, 14);
+camera.lookAt(0, 0.5, 0);
 
-    // Stars
-    stars.forEach(function(s){
-      var a=0.3+0.6*Math.sin(s.tw+t*s.sp*0.04);
-      ctx.save(); ctx.globalAlpha=a; ctx.fillStyle='#fff';
-      ctx.beginPath(); ctx.arc(s.x*W,s.y*H,s.r,0,6.28); ctx.fill(); ctx.restore();
-    });
+window.addEventListener('resize', function(){
+  W = window.innerWidth; H = window.innerHeight;
+  renderer.setSize(W,H); camera.aspect=W/H; camera.updateProjectionMatrix();
+});
 
-    // Moon
-    var mx=W*0.79,my=H*0.13;
-    var mg=ctx.createRadialGradient(mx,my,0,mx,my,55);
-    mg.addColorStop(0,'rgba(180,255,220,0.22)'); mg.addColorStop(1,'transparent');
-    ctx.fillStyle=mg; ctx.beginPath(); ctx.arc(mx,my,55,0,6.28); ctx.fill();
-    var md=ctx.createRadialGradient(mx-3,my-3,2,mx,my,20);
-    md.addColorStop(0,'rgba(255,255,245,0.97)'); md.addColorStop(1,'rgba(200,240,210,0.88)');
-    ctx.fillStyle=md; ctx.beginPath(); ctx.arc(mx,my,20,0,6.28); ctx.fill();
+// ── SKY ──────────────────────────────────────────────────────
+var skyGeo = new THREE.SphereGeometry(80,16,8);
+var skyMat = new THREE.MeshBasicMaterial({
+  side: THREE.BackSide,
+  vertexColors: true
+});
+var skyColors = [];
+var skyPos = skyGeo.attributes.position;
+for(var i=0;i<skyPos.count;i++){
+  var y = skyPos.getY(i);
+  var t = Math.max(0, Math.min(1, (y+80)/160));
+  // deep violet top → dark teal bottom
+  skyColors.push(
+    0.01 + t*0.02,
+    0.0  + t*0.04,
+    0.04 + t*0.06
+  );
+}
+skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(skyColors,3));
+scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-    // Water
-    var wTop=H*0.52;
-    var wg=ctx.createLinearGradient(0,wTop,0,H);
-    wg.addColorStop(0,'rgba(0,28,16,0.97)'); wg.addColorStop(1,'rgba(0,8,4,1)');
-    ctx.fillStyle=wg; ctx.fillRect(0,wTop,W,H);
+// ── STARS ────────────────────────────────────────────────────
+var starGeo = new THREE.BufferGeometry();
+var starPos = [];
+for(var i=0;i<800;i++){
+  var theta = Math.random()*Math.PI*2;
+  var phi   = Math.acos(Math.random()*0.8);  // upper hemisphere
+  var r     = 60 + Math.random()*15;
+  starPos.push(
+    r*Math.sin(phi)*Math.cos(theta),
+    r*Math.cos(phi),
+    r*Math.sin(phi)*Math.sin(theta)
+  );
+}
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos,3));
+var starMat = new THREE.PointsMaterial({color:0xffffff, size:0.25, sizeAttenuation:true});
+scene.add(new THREE.Points(starGeo, starMat));
 
-    // Wave layers
-    waves.forEach(function(wv,wi){
-      ctx.save(); ctx.beginPath(); ctx.moveTo(0,wv.y/480*H);
-      for(var x=0;x<=W;x+=4) ctx.lineTo(x,wv.y/480*H+wv.amp*Math.sin(wv.freq*x+t*wv.speed+wv.off));
-      ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath();
-      var wgr=ctx.createLinearGradient(0,wv.y/480*H,0,H);
-      wgr.addColorStop(0,'rgba(0,'+(70+wi*8)+','+(35+wi*4)+','+wv.al+')'); wgr.addColorStop(1,'rgba(0,20,10,0.5)');
-      ctx.fillStyle=wgr; ctx.fill(); ctx.restore();
-    });
+// ── MOON ────────────────────────────────────────────────────
+var moonMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(2.2,32,32),
+  new THREE.MeshStandardMaterial({
+    color:0xe8f8ee,
+    emissive:0xd0eedc,
+    emissiveIntensity:0.6,
+    roughness:0.9,
+    metalness:0.0
+  })
+);
+moonMesh.position.set(18, 22, -30);
+scene.add(moonMesh);
+// Moon glow sprite
+var moonGlowGeo = new THREE.SphereGeometry(5,16,16);
+var moonGlowMat = new THREE.MeshBasicMaterial({
+  color:0x80ffb0, transparent:true, opacity:0.06, side:THREE.FrontSide
+});
+moonMesh.add(new THREE.Mesh(moonGlowGeo, moonGlowMat));
 
-    // Shimmer
-    ctx.save();
-    for(var sh=0;sh<14;sh++){
-      var sx=((sh*0.072+t*0.0018)%1)*W, sy=wTop+16+sh*13+4*Math.sin(t*0.08+sh);
-      var sa=0.07+0.07*Math.sin(t*0.09+sh), slen=16+sh*2.5;
-      var sg=ctx.createLinearGradient(sx,sy,sx+slen,sy);
-      sg.addColorStop(0,'transparent'); sg.addColorStop(0.5,'rgba(0,255,180,'+sa+')'); sg.addColorStop(1,'transparent');
-      ctx.strokeStyle=sg; ctx.lineWidth=0.9;
-      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+slen,sy); ctx.stroke();
-    }
-    ctx.restore();
+// Moon light
+var moonLight = new THREE.PointLight(0x80ffcc, 1.8, 120);
+moonLight.position.copy(moonMesh.position);
+scene.add(moonLight);
 
-    // Moon reflection
-    ctx.save();
-    var rg=ctx.createLinearGradient(mx,wTop,mx,H);
-    rg.addColorStop(0,'rgba(180,255,210,0.14)'); rg.addColorStop(1,'transparent');
-    ctx.fillStyle=rg;
-    ctx.beginPath(); ctx.moveTo(mx-14,wTop);
-    for(var ry=wTop;ry<=H;ry+=4) ctx.lineTo(mx+9*Math.sin(t*0.05+ry*0.04),ry);
-    for(var ry=H;ry>=wTop;ry-=4) ctx.lineTo(mx-5+9*Math.sin(t*0.05+ry*0.04),ry);
-    ctx.closePath(); ctx.fill(); ctx.restore();
+// Ambient
+scene.add(new THREE.AmbientLight(0x001a0a, 0.8));
 
-    // Bubbles
-    bubbles.forEach(function(bb){
-      bb.x=(bb.x+bb.spd)%1;
-      var bx=bb.x*W, by=bb.y*H+5*Math.sin(t*0.06+bb.x*8);
-      ctx.save(); ctx.globalAlpha=0.25+0.25*Math.sin(t*0.07+bb.x*5);
-      ctx.strokeStyle='rgba(0,255,180,0.55)'; ctx.lineWidth=0.8;
-      ctx.beginPath(); ctx.arc(bx,by,bb.r,0,6.28); ctx.stroke(); ctx.restore();
-    });
+// Directional (cool moonlight from above-right)
+var dirLight = new THREE.DirectionalLight(0xaaffcc, 0.7);
+dirLight.position.set(15, 20, 5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 1024;
+dirLight.shadow.mapSize.height = 1024;
+scene.add(dirLight);
 
-    // ── BOAT ─────────────────────────────────────────────────
-    var bx=W*(0.36+0.05*Math.sin(t*0.014));
-    var by=wTop+30+7*Math.sin(t*0.04);
-    var tilt=0.03*Math.sin(t*0.026);
+// Lantern point light (warm orange — placed near boat)
+var lanternLight = new THREE.PointLight(0xff9933, 2.5, 12);
+lanternLight.position.set(0, 3, 0);
+scene.add(lanternLight);
 
-    ctx.save(); ctx.translate(bx,by); ctx.rotate(tilt);
+// ── WATER ────────────────────────────────────────────────────
+var waterGeo = new THREE.PlaneGeometry(100, 100, 80, 80);
+var waterMat = new THREE.MeshStandardMaterial({
+  color: 0x002a12,
+  emissive: 0x001a0a,
+  emissiveIntensity: 0.3,
+  roughness: 0.1,
+  metalness: 0.8,
+  transparent: true,
+  opacity: 0.92
+});
+var water = new THREE.Mesh(waterGeo, waterMat);
+water.rotation.x = -Math.PI/2;
+water.receiveShadow = true;
+scene.add(water);
 
-    // Wake shadow
-    ctx.save(); ctx.globalAlpha=0.15;
-    var ws=ctx.createRadialGradient(-15,20,4,-15,20,65);
-    ws.addColorStop(0,'rgba(0,0,0,0.5)'); ws.addColorStop(1,'transparent');
-    ctx.fillStyle=ws; ctx.beginPath(); ctx.ellipse(-8,22,60,11,0,0,6.28); ctx.fill(); ctx.restore();
+// Water displacement via vertex animation
+var wPosOrig = [];
+var wPos = waterGeo.attributes.position;
+for(var i=0;i<wPos.count;i++) wPosOrig.push(wPos.getX(i), wPos.getY(i));
 
-    // Hull
-    var hg=ctx.createLinearGradient(-55,-5,55,-5);
-    hg.addColorStop(0,'#180902'); hg.addColorStop(0.15,'#3a1a05'); hg.addColorStop(0.5,'#582b09');
-    hg.addColorStop(0.85,'#3a1a05'); hg.addColorStop(1,'#180902');
-    ctx.fillStyle=hg;
-    ctx.beginPath();
-    ctx.moveTo(-56,2); ctx.bezierCurveTo(-53,-11,-28,-16,0,-16);
-    ctx.bezierCurveTo(28,-16,53,-11,56,2);
-    ctx.bezierCurveTo(50,23,28,29,0,29); ctx.bezierCurveTo(-28,29,-50,23,-56,2);
-    ctx.fill();
-    ctx.strokeStyle='rgba(160,90,25,0.4)'; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(-54,2); ctx.bezierCurveTo(-50,-9,-26,-15,0,-15);
-    ctx.bezierCurveTo(26,-15,50,-9,54,2); ctx.stroke();
-
-    // Hull inner cavity
-    var ig=ctx.createRadialGradient(0,-4,2,0,-4,38);
-    ig.addColorStop(0,'rgba(75,32,7,0.9)'); ig.addColorStop(1,'rgba(18,7,2,0.95)');
-    ctx.fillStyle=ig;
-    ctx.beginPath(); ctx.moveTo(-43,0); ctx.bezierCurveTo(-39,-9,-21,-13,0,-13);
-    ctx.bezierCurveTo(21,-13,39,-9,43,0); ctx.bezierCurveTo(37,17,21,21,0,21);
-    ctx.bezierCurveTo(-21,21,-37,17,-43,0); ctx.fill();
-
-    // Plank lines
-    ctx.save(); ctx.globalAlpha=0.2; ctx.strokeStyle='rgba(110,55,14,0.8)'; ctx.lineWidth=0.7;
-    for(var p=-3;p<=3;p++){
-      ctx.beginPath(); ctx.moveTo(-38+Math.abs(p)*2,p*3.5);
-      ctx.bezierCurveTo(-18+Math.abs(p),p*3.8,18-Math.abs(p),p*3.8,38-Math.abs(p)*2,p*3.5); ctx.stroke();
-    }
-    ctx.restore();
-
-    // Bow ornament
-    ctx.fillStyle='rgba(190,115,28,0.8)';
-    ctx.beginPath(); ctx.arc(-53,3,5,0,6.28); ctx.fill();
-    ctx.fillStyle='rgba(255,175,55,0.6)';
-    ctx.beginPath(); ctx.arc(-53,3,2.5,0,6.28); ctx.fill();
-
-    // ── Lantern ───────────────────────────────────────────────
-    var lf=0.7+0.3*Math.sin(t*0.3+1.2)+0.1*Math.sin(t*0.7);
-    // Pole
-    ctx.strokeStyle='rgba(75,38,9,0.9)'; ctx.lineWidth=2.5;
-    ctx.beginPath(); ctx.moveTo(12,-14); ctx.lineTo(12,-54); ctx.stroke();
-    // Glow
-    ctx.save(); ctx.translate(12,-56);
-    var lg=ctx.createRadialGradient(0,0,0,0,0,38);
-    lg.addColorStop(0,'rgba(255,195,75,'+lf*0.35+')'); lg.addColorStop(1,'transparent');
-    ctx.fillStyle=lg; ctx.beginPath(); ctx.arc(0,0,38,0,6.28); ctx.fill();
-    // Cage
-    ctx.strokeStyle='rgba(175,115,28,0.9)'; ctx.lineWidth=1.2;
-    ctx.fillStyle='rgba(255,165,38,'+lf*0.85+')';
-    ctx.beginPath();
-    ctx.moveTo(-7,-10); ctx.lineTo(-9,0); ctx.lineTo(-7,10); ctx.lineTo(0,13);
-    ctx.lineTo(7,10); ctx.lineTo(9,0); ctx.lineTo(7,-10); ctx.lineTo(0,-13); ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle='rgba(255,235,175,'+lf+')';
-    ctx.beginPath(); ctx.ellipse(0,0,3.5,4.5,0,0,6.28); ctx.fill();
-    ctx.restore();
-
-    // ── Oar ──────────────────────────────────────────────────
-    var oa=-0.5+0.2*Math.sin(t*0.032);
-    ctx.save(); ctx.translate(-22,8); ctx.rotate(oa);
-    ctx.strokeStyle='#562607'; ctx.lineWidth=5; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,68); ctx.stroke();
-    ctx.fillStyle='#662f0e'; ctx.strokeStyle='rgba(170,85,28,0.5)'; ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(0,65); ctx.bezierCurveTo(-11,70,-13,82,-8,85);
-    ctx.bezierCurveTo(-2,88,10,85,11,78); ctx.bezierCurveTo(13,71,10,65,0,65);
-    ctx.fill(); ctx.stroke();
-    ctx.restore();
-
-    // ── Boatman ───────────────────────────────────────────────
-    ctx.save(); ctx.translate(18,-14);
-    // Shadow
-    ctx.fillStyle='rgba(0,0,0,0.3)';
-    ctx.beginPath(); ctx.ellipse(0,26,13,4,0,0,6.28); ctx.fill();
-    // Legs
-    ctx.fillStyle='rgba(28,13,5,0.95)';
-    ctx.beginPath(); ctx.ellipse(0,20,11,6,0,0,6.28); ctx.fill();
-    // Robe
-    var rg2=ctx.createLinearGradient(-9,0,9,22);
-    rg2.addColorStop(0,'rgba(14,32,18,0.95)'); rg2.addColorStop(1,'rgba(7,18,11,0.9)');
-    ctx.fillStyle=rg2;
-    ctx.beginPath(); ctx.moveTo(-10,22); ctx.bezierCurveTo(-11,10,-8,-2,0,-8);
-    ctx.bezierCurveTo(8,-2,11,10,10,22); ctx.closePath(); ctx.fill();
-    // Head
-    var hd=ctx.createRadialGradient(-2,-18,2,-2,-18,9);
-    hd.addColorStop(0,'rgba(195,148,98,0.95)'); hd.addColorStop(1,'rgba(155,108,68,0.9)');
-    ctx.fillStyle=hd; ctx.beginPath(); ctx.arc(0,-18,9,0,6.28); ctx.fill();
-    // Hat
-    ctx.fillStyle='rgba(18,9,3,0.95)';
-    ctx.beginPath(); ctx.moveTo(-13,-22); ctx.lineTo(13,-22);
-    ctx.bezierCurveTo(10,-32,5,-36,0,-38); ctx.bezierCurveTo(-5,-36,-10,-32,-13,-22); ctx.fill();
-    ctx.strokeStyle='rgba(95,58,18,0.4)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(-13,-22); ctx.lineTo(13,-22); ctx.stroke();
-    // Eyes glow
-    ctx.fillStyle='rgba(190,255,215,0.7)';
-    ctx.beginPath(); ctx.arc(-3,-19,1.5,0,6.28); ctx.fill();
-    ctx.beginPath(); ctx.arc(4,-19,1.5,0,6.28); ctx.fill();
-    ctx.restore();
-
-    ctx.restore(); // end boat transform
-
-    // ── Wake V ────────────────────────────────────────────────
-    ctx.save();
-    var wa=0.1+0.04*Math.sin(t*0.04);
-    ctx.strokeStyle='rgba(160,255,210,'+wa+')'; ctx.lineWidth=1;
-    for(var arm=-1;arm<=1;arm+=2){
-      ctx.beginPath(); ctx.moveTo(bx-56,by+14);
-      for(var wk=0;wk<85;wk+=3){
-        ctx.lineTo(bx-56-wk*1.1, by+14+(wk/85)*20*arm*0.6+3*Math.sin(t*0.05+wk*0.15));
-      }
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    // ── Ripple rings ──────────────────────────────────────────
-    if(!draw.ripples) draw.ripples=[];
-    if(!draw.rTimer) draw.rTimer=0;
-    draw.rTimer++;
-    if(draw.rTimer%55===0) draw.ripples.push({x:bx,y:by+20,r:0,a:0.5});
-    draw.ripples=draw.ripples.filter(function(r){return r.a>0.02;});
-    draw.ripples.forEach(function(rp){
-      rp.r+=0.7; rp.a*=0.97;
-      ctx.save(); ctx.globalAlpha=rp.a*0.55;
-      ctx.strokeStyle='rgba(100,210,170,1)'; ctx.lineWidth=0.8;
-      ctx.beginPath(); ctx.ellipse(rp.x,rp.y,rp.r,rp.r*0.27,0,0,6.28); ctx.stroke(); ctx.restore();
-    });
-
-    t+=0.55;
-    requestAnimationFrame(draw);
+// ── TREELINE SILHOUETTE ──────────────────────────────────────
+function makeTree(x, z, h, spread){
+  var g = new THREE.Group();
+  // Trunk
+  var trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1, 0.2, h*0.35, 5),
+    new THREE.MeshStandardMaterial({color:0x050a06})
+  );
+  trunk.position.y = h*0.175;
+  g.add(trunk);
+  // Canopy layers
+  for(var i=0;i<3;i++){
+    var cone = new THREE.Mesh(
+      new THREE.ConeGeometry(spread*(1-i*0.2), h*0.45, 7),
+      new THREE.MeshStandardMaterial({color:0x020a04, roughness:1})
+    );
+    cone.position.y = h*0.35 + i*h*0.22;
+    g.add(cone);
   }
-  draw();
+  g.position.set(x, 0, z);
+  return g;
+}
+
+for(var i=0;i<28;i++){
+  var tx = -40 + i*3 + (Math.random()-0.5)*2;
+  var tz = -20 - Math.random()*12;
+  var th = 4 + Math.random()*5;
+  var ts = 1.2 + Math.random()*1.4;
+  scene.add(makeTree(tx, tz, th, ts));
+}
+// Second farther ridge
+for(var i=0;i<20;i++){
+  var tx2 = -30 + i*4 + (Math.random()-0.5)*2;
+  var tz2 = -35 - Math.random()*8;
+  var th2 = 3 + Math.random()*4;
+  scene.add(makeTree(tx2, tz2, th2, 0.9+Math.random()*1.2));
+}
+
+// ── BOAT GEOMETRY ────────────────────────────────────────────
+var boat = new THREE.Group();
+
+// Hull — built from a lathed profile
+var hullCurve = [];
+for(var i=0;i<=20;i++){
+  var u = i/20;
+  var bx = (u-0.5)*7;   // -3.5 to 3.5
+  // Profile: wider in the middle, tapered at ends, high prow
+  var sharpness = Math.pow(Math.sin(u*Math.PI), 0.6);
+  var bz = sharpness * 0.9;
+  hullCurve.push(new THREE.Vector2(bz, bx));
+}
+// Build hull with ExtrudeGeometry approach — use custom shape
+var hullShape = new THREE.Shape();
+hullShape.moveTo(0, -3.5);
+hullShape.bezierCurveTo(1.1, -3.5, 1.3, -1.5, 1.0, 0);
+hullShape.bezierCurveTo(1.3,  1.5, 1.1,  3.5, 0,   3.5);
+hullShape.bezierCurveTo(-0.3, 3.5, -0.3, 1.5, -0.3, 0);
+hullShape.bezierCurveTo(-0.3,-1.5, -0.3,-3.5, 0,   -3.5);
+
+var extrudeSettings = {
+  steps: 2, depth: 0.7, bevelEnabled: true,
+  bevelThickness: 0.15, bevelSize: 0.1, bevelSegments: 4
+};
+var hullGeo = new THREE.ExtrudeGeometry(hullShape, extrudeSettings);
+hullGeo.rotateX(Math.PI/2);
+hullGeo.rotateZ(Math.PI/2);
+hullGeo.translate(0, 0, -0.35);
+
+var hullMat = new THREE.MeshStandardMaterial({
+  color: 0x3a1a06,
+  roughness: 0.75,
+  metalness: 0.05,
+  envMapIntensity: 0.5
+});
+var hullMesh = new THREE.Mesh(hullGeo, hullMat);
+hullMesh.castShadow = true;
+hullMesh.receiveShadow = true;
+boat.add(hullMesh);
+
+// Hull rim strip (bright wood)
+var rimGeo = new THREE.TorusGeometry(0.0, 0.0, 2, 2); // placeholder
+// Build rim as a tube along the hull edge
+var rimCurvePoints = [];
+for(var i=0;i<=40;i++){
+  var u = i/40 * Math.PI;
+  var bx2 = Math.cos(u - Math.PI/2) * 3.5;
+  var bz2 = Math.sin(u - Math.PI/2) * 0.8 + 0.8;
+  rimCurvePoints.push(new THREE.Vector3(bx2, 0.38, bz2));
+}
+var rimCurve = new THREE.CatmullRomCurve3(rimCurvePoints);
+var rimTube = new THREE.Mesh(
+  new THREE.TubeGeometry(rimCurve, 40, 0.06, 6, false),
+  new THREE.MeshStandardMaterial({color:0xc86420, roughness:0.4, metalness:0.1})
+);
+boat.add(rimTube);
+
+// Inner floor
+var floorMesh = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.0, 0.0, 0.0, 3), // placeholder
+  hullMat
+);
+// Use a simple plane for inner deck
+var deckGeo = new THREE.PlaneGeometry(1.5, 6);
+var deckMat = new THREE.MeshStandardMaterial({color:0x2a1004, roughness:0.9});
+var deck = new THREE.Mesh(deckGeo, deckMat);
+deck.rotation.x = -Math.PI/2;
+deck.position.y = 0.3;
+boat.add(deck);
+
+// Plank lines on deck
+for(var p=-2;p<=2;p++){
+  var plankGeo = new THREE.PlaneGeometry(0.04, 5.5);
+  var plank = new THREE.Mesh(plankGeo,
+    new THREE.MeshStandardMaterial({color:0x3d1808, roughness:0.95})
+  );
+  plank.rotation.x = -Math.PI/2;
+  plank.position.set(p*0.35, 0.31, 0);
+  boat.add(plank);
+}
+
+// ── MAST + LANTERN ────────────────────────────────────────────
+// Mast pole
+var mast = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.06, 0.09, 4.5, 7),
+  new THREE.MeshStandardMaterial({color:0x2a1004, roughness:0.8})
+);
+mast.position.set(0.3, 2.6, 0);
+mast.castShadow = true;
+boat.add(mast);
+
+// Lantern cage (octagonal box)
+var lanternGroup = new THREE.Group();
+// Cage frame
+var cageGeo = new THREE.OctahedronGeometry(0.35, 0);
+var cageMat = new THREE.MeshStandardMaterial({
+  color:0xcc8822, roughness:0.3, metalness:0.7,
+  wireframe: false
+});
+var cage = new THREE.Mesh(cageGeo, cageMat);
+lanternGroup.add(cage);
+// Wire edges
+var cageWire = new THREE.Mesh(cageGeo, new THREE.MeshBasicMaterial({
+  color:0xffaa44, wireframe:true
+}));
+lanternGroup.add(cageWire);
+// Inner flame glow sphere
+var flameMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.18, 8, 8),
+  new THREE.MeshBasicMaterial({color:0xffdd66})
+);
+lanternGroup.add(flameMesh);
+
+lanternGroup.position.set(0.3, 4.9, 0);
+boat.add(lanternGroup);
+
+// Move lanternLight to follow lantern
+lanternLight.position.set(0.3, 4.9, 0);
+boat.add(lanternLight);
+
+// ── OAR ───────────────────────────────────────────────────────
+var oarGroup = new THREE.Group();
+// Shaft
+var oarShaft = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.05, 0.05, 5, 6),
+  new THREE.MeshStandardMaterial({color:0x4a2008, roughness:0.7})
+);
+oarShaft.position.y = -2.5;
+oarGroup.add(oarShaft);
+// Blade
+var bladeMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(0.12, 1.2, 0.04),
+  new THREE.MeshStandardMaterial({color:0x5c2c0e, roughness:0.8})
+);
+bladeMesh.position.y = -5.2;
+oarGroup.add(bladeMesh);
+oarGroup.position.set(-1.2, 0.5, 1.8);
+oarGroup.rotation.z = -0.3;
+oarGroup.rotation.x = 0.4;
+oarGroup.castShadow = true;
+boat.add(oarGroup);
+
+// ── BOATMAN FIGURE ────────────────────────────────────────────
+var figGroup = new THREE.Group();
+
+// Robe / body
+var bodyMesh = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.22, 0.35, 1.1, 8),
+  new THREE.MeshStandardMaterial({color:0x0a1a0e, roughness:0.9})
+);
+bodyMesh.position.y = 0.55;
+figGroup.add(bodyMesh);
+
+// Head
+var headMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.28, 12, 12),
+  new THREE.MeshStandardMaterial({color:0xc89060, roughness:0.7})
+);
+headMesh.position.y = 1.35;
+figGroup.add(headMesh);
+
+// Turban
+var turbanMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.32, 8, 6, 0, Math.PI*2, 0, Math.PI/2),
+  new THREE.MeshStandardMaterial({color:0x1a2a1e, roughness:0.85})
+);
+turbanMesh.position.y = 1.4;
+figGroup.add(turbanMesh);
+
+// Arms
+var armGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.8, 6);
+var armMat = new THREE.MeshStandardMaterial({color:0x0a1a0e, roughness:0.9});
+var leftArm = new THREE.Mesh(armGeo, armMat);
+leftArm.position.set(-0.45, 0.9, 0);
+leftArm.rotation.z = 0.6;
+figGroup.add(leftArm);
+var rightArm = new THREE.Mesh(armGeo, armMat);
+rightArm.position.set(0.45, 0.9, 0.3);
+rightArm.rotation.z = -0.4;
+rightArm.rotation.x = 0.5;
+figGroup.add(rightArm);
+
+// Eyes glow
+var eyeGeo = new THREE.SphereGeometry(0.04, 6, 6);
+var eyeMat = new THREE.MeshBasicMaterial({color:0x88ffcc});
+var leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+leftEye.position.set(-0.1, 1.38, 0.24);
+figGroup.add(leftEye);
+var rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+rightEye.position.set(0.1, 1.38, 0.24);
+figGroup.add(rightEye);
+
+figGroup.position.set(0.4, 0.3, -0.5);
+figGroup.castShadow = true;
+boat.add(figGroup);
+
+// ── PLACE BOAT ────────────────────────────────────────────────
+boat.position.set(0, 0.1, 0);
+boat.castShadow = true;
+scene.add(boat);
+
+// ── MOON REFLECTION (plane on water) ─────────────────────────
+var reflGeo = new THREE.PlaneGeometry(0.8, 12);
+var reflMat = new THREE.MeshBasicMaterial({
+  color:0x88ffcc, transparent:true, opacity:0.12
+});
+var reflMesh = new THREE.Mesh(reflGeo, reflMat);
+reflMesh.rotation.x = -Math.PI/2;
+reflMesh.position.set(18, 0.02, -5);
+scene.add(reflMesh);
+
+// ── FIREFLIES (point sprites) ─────────────────────────────────
+var ffGeo = new THREE.BufferGeometry();
+var ffPos = [];
+for(var i=0;i<30;i++){
+  ffPos.push(
+    (Math.random()-0.5)*30,
+    0.5+Math.random()*3,
+    -5-Math.random()*15
+  );
+}
+ffGeo.setAttribute('position', new THREE.Float32BufferAttribute(ffPos,3));
+var ffMat = new THREE.PointsMaterial({
+  color:0x88ffaa, size:0.2, sizeAttenuation:true,
+  transparent:true, opacity:0.8
+});
+scene.add(new THREE.Points(ffGeo, ffMat));
+
+// ── WAKE PARTICLES ────────────────────────────────────────────
+var wakeGeo = new THREE.BufferGeometry();
+var wakePos = [];
+for(var i=0;i<60;i++){
+  wakePos.push(
+    (Math.random()-0.5)*6 - 2,
+    0.05,
+    1+Math.random()*5
+  );
+}
+wakeGeo.setAttribute('position', new THREE.Float32BufferAttribute(wakePos,3));
+var wakeMat = new THREE.PointsMaterial({
+  color:0x44ffaa, size:0.08, transparent:true, opacity:0.5
+});
+scene.add(new THREE.Points(wakeGeo, wakeMat));
+
+// ── ANIMATE ───────────────────────────────────────────────────
+var clock = new THREE.Clock();
+var wakeOrigPos = wakeGeo.attributes.position.array.slice();
+var ffOrigPos   = ffGeo.attributes.position.array.slice();
+var starOrigPos = starGeo.attributes.position.array.slice();
+
+function animate(){
+  requestAnimationFrame(animate);
+  var t = clock.getElapsedTime();
+
+  // Gentle camera drift
+  camera.position.x = Math.sin(t*0.08)*0.8;
+  camera.position.y = 4.5 + Math.sin(t*0.12)*0.2;
+  camera.lookAt(0, 0.5, 0);
+
+  // Boat bob + rock
+  boat.position.y = 0.1 + Math.sin(t*0.9)*0.08;
+  boat.rotation.z = Math.sin(t*0.7)*0.025;
+  boat.rotation.x = Math.sin(t*0.5)*0.015;
+
+  // Lantern glow flicker
+  var flicker = 0.7 + 0.3*Math.sin(t*8.3)+0.15*Math.sin(t*13.7);
+  lanternLight.intensity = 2.2*flicker;
+  flameMesh.material.color.setRGB(1, 0.82+Math.sin(t*11)*0.1, 0.3+Math.sin(t*7)*0.1);
+  lanternGroup.rotation.y = t*0.4;
+
+  // Oar rowing motion
+  oarGroup.rotation.x = 0.4 + Math.sin(t*1.2)*0.4;
+  oarGroup.rotation.z = -0.3 + Math.sin(t*1.2+1)*0.15;
+
+  // Right arm rowing
+  rightArm.rotation.x = 0.5+Math.sin(t*1.2)*0.5;
+  rightArm.rotation.z = -0.4+Math.sin(t*1.2+0.5)*0.2;
+
+  // Stars twinkle (opacity pulse via scale)
+  starMat.opacity = 0.7 + 0.3*Math.sin(t*2.1);
+
+  // Water vertex animation
+  var wpa = waterGeo.attributes.position;
+  for(var i=0;i<wpa.count;i++){
+    var ox = wPosOrig[i*2], oy = wPosOrig[i*2+1];
+    var dist = Math.sqrt(ox*ox+oy*oy);
+    wpa.setZ(i,
+      Math.sin(ox*0.4+t*1.1)*0.18 +
+      Math.sin(oy*0.3+t*0.8)*0.14 +
+      Math.sin(dist*0.25-t*1.5)*0.10
+    );
+  }
+  wpa.needsUpdate = true;
+  waterGeo.computeVertexNormals();
+
+  // Wake drift
+  var wkp = wakeGeo.attributes.position;
+  for(var i=0;i<wkp.count;i++){
+    var oz = wakeOrigPos[i*3+2];
+    wkp.setZ(i, oz + t*0.3 % 6);
+    wkp.setY(i, 0.05 + Math.sin(t*3+i)*0.03);
+  }
+  wkp.needsUpdate = true;
+  wakeMat.opacity = 0.3+0.2*Math.sin(t*2);
+
+  // Fireflies flutter
+  var ffp = ffGeo.attributes.position;
+  for(var i=0;i<ffp.count;i++){
+    var ox2 = ffOrigPos[i*3], oy2 = ffOrigPos[i*3+1], oz2 = ffOrigPos[i*3+2];
+    ffp.setX(i, ox2 + Math.sin(t*0.9+i*2.3)*0.8);
+    ffp.setY(i, oy2 + Math.sin(t*1.1+i*1.7)*0.4);
+  }
+  ffp.needsUpdate = true;
+  ffMat.opacity = 0.4+0.4*Math.abs(Math.sin(t*1.5));
+
+  // Moon reflection shimmer
+  reflMesh.material.opacity = 0.08+0.06*Math.sin(t*1.8);
+  reflMesh.scale.x = 1+0.3*Math.sin(t*2.2);
+
+  renderer.render(scene, camera);
+}
+animate();
 })();
 </script>
-""", height=490, scrolling=False)
+</body>
+</html>""", height=500, scrolling=False)
 
     col1, col2, col3 = st.columns([1, 1.8, 1])
     with col2:
