@@ -514,19 +514,34 @@ def _render_pdf(file):
 
     with tab_text:
         try:
-            from pypdf import PdfReader
-            reader = PdfReader(io.BytesIO(data))
-            total_pages_count = len(reader.pages)
+            import fitz  # PyMuPDF — already in requirements.txt
+            pdf_doc = fitz.open(stream=data, filetype="pdf")
+            total_pages_count = pdf_doc.page_count
             st.caption(f"{total_pages_count} pages")
             page_num = st.number_input("Go to page:", min_value=1, max_value=total_pages_count,
                                        value=1, step=1, key="fv_pdf_page")
-            page_text = reader.pages[page_num - 1].extract_text() or "(no extractable text on this page)"
+            page_obj = pdf_doc.load_page(page_num - 1)
+            page_text = page_obj.get_text() or "(no extractable text on this page)"
             st.text_area(f"Page {page_num}", page_text, height=500,
                          label_visibility="collapsed", key="fv_pdf_text_area")
+            pdf_doc.close()
         except ImportError:
-            st.info("Install pypdf for text extraction: `pip install pypdf`")
+            # Fallback: try pypdf if somehow installed
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(io.BytesIO(data))
+                total_pages_count = len(reader.pages)
+                st.caption(f"{total_pages_count} pages")
+                page_num = st.number_input("Go to page:", min_value=1, max_value=total_pages_count,
+                                           value=1, step=1, key="fv_pdf_page")
+                page_text = reader.pages[page_num - 1].extract_text() or "(no extractable text)"
+                st.text_area(f"Page {page_num}", page_text, height=500,
+                             label_visibility="collapsed", key="fv_pdf_text_area")
+            except ImportError:
+                st.info("⚠️ PDF text extraction requires PyMuPDF (pip install PyMuPDF) or pypdf (pip install pypdf).")
         except Exception as e:
             st.error(f"Text extraction error: {e}")
+
 
 
 def _render_audio(file):
@@ -759,7 +774,6 @@ def _render_epub(file):
         with zipfile.ZipFile(io.BytesIO(data), "r") as z:
             names = z.namelist()
             html_files = [n for n in names if n.lower().endswith((".html", ".xhtml", ".htm"))]
-            # deduplicate
             seen, unique_files = set(), []
             for hf in html_files:
                 if hf not in seen:
@@ -778,19 +792,23 @@ def _render_epub(file):
             page = _paginator("fv_epub_page", total_pages)
             start = page * page_size
 
-            for i, hf in enumerate(unique_files[start : start + page_size], start + 1):
+            # Read all chapter content INSIDE the context manager before rendering widgets
+            chapters = []
+            for hf in unique_files[start : start + page_size]:
                 raw_html = z.read(hf).decode("utf-8", errors="replace")
                 text = re.sub(r"<[^>]+>", " ", raw_html)
                 text = re.sub(r"\s+", " ", text).strip()
-                if text:
-                    with st.expander(f"Chapter {i}: {hf.split('/')[-1]}",
-                                     expanded=(i == start + 1)):
-                        # Show full chapter — paginate within if enormous
-                        if len(text) > 10_000:
-                            st.write(text[:10_000])
-                            st.caption(f"… ({len(text):,} chars — download for full text)")
-                        else:
-                            st.write(text)
+                chapters.append((hf, text))
+
+        # Now render OUTSIDE the context manager (no stream needed anymore)
+        for i, (hf, text) in enumerate(chapters, start + 1):
+            if text:
+                with st.expander(f"Chapter {i}: {hf.split('/')[-1]}", expanded=(i == start + 1)):
+                    if len(text) > 10_000:
+                        st.write(text[:10_000])
+                        st.caption(f"… ({len(text):,} chars — download for full text)")
+                    else:
+                        st.write(text)
 
         st.download_button("⬇️ Download EPUB", data, file_name=file.name,
                            use_container_width=True, key="fv_dl_epub")
@@ -805,38 +823,51 @@ def _render_zip(file):
 
     if ext == "zip":
         try:
-            with zipfile.ZipFile(io.BytesIO(raw), "r") as z:
-                info_list = z.infolist()
-                st.markdown(f"**🗜️ ZIP Archive — {len(info_list):,} items**")
-
-                search = st.text_input("🔍 Filter files:", key="fv_zip_search",
-                                       placeholder="e.g. .py or README")
-                filtered = [i for i in info_list
-                            if not search or search.lower() in i.filename.lower()]
-                st.caption(f"Showing {len(filtered):,} of {len(info_list):,} items")
-
-                total_pages = max(1, -(-len(filtered) // 500))
-                page = _paginator("fv_zip_page", total_pages)
-                chunk = filtered[page * 500 : (page + 1) * 500]
-
-                import pandas as pd
-                data_rows = [{"Name": i.filename, "Size": _fmt_size(i.file_size),
-                              "Compressed": _fmt_size(i.compress_size),
-                              "Ratio": f"{100*(1-i.compress_size/i.file_size):.0f}%"
-                                       if i.file_size > 0 else "—"}
-                             for i in chunk]
-                st.dataframe(data_rows, use_container_width=True)
-
-                # Preview individual file
-                st.markdown("**👁️ Preview a file from the archive:**")
+            # ── Build the full file list once (cheap, no stream kept open) ──
+            with zipfile.ZipFile(io.BytesIO(raw), "r") as z_probe:
+                info_list  = z_probe.infolist()
                 file_names = [i.filename for i in info_list if not i.is_dir()]
-                if file_names:
-                    selected = st.selectbox("Choose file:", ["(none)"] + file_names[:1000],
-                                            key="fv_zip_file_select")
-                    if selected and selected != "(none)":
-                        inner_bytes = z.read(selected)
-                        inner_ext = selected.rsplit(".", 1)[-1].lower() if "." in selected else ""
-                        st.caption(f"**{selected}** — {_fmt_size(len(inner_bytes))}")
+
+            st.markdown(f"**🗜️ ZIP Archive — {len(info_list):,} items**")
+
+            search = st.text_input("🔍 Filter files:", key="fv_zip_search",
+                                   placeholder="e.g. .py or README")
+            filtered = [i for i in info_list
+                        if not search or search.lower() in i.filename.lower()]
+            st.caption(f"Showing {len(filtered):,} of {len(info_list):,} items")
+
+            total_pages = max(1, -(-len(filtered) // 500))
+            page = _paginator("fv_zip_page", total_pages)
+            chunk = filtered[page * 500 : (page + 1) * 500]
+
+            import pandas as pd
+            data_rows = [{"Name": i.filename, "Size": _fmt_size(i.file_size),
+                          "Compressed": _fmt_size(i.compress_size),
+                          "Ratio": f"{100*(1-i.compress_size/i.file_size):.0f}%"
+                                   if i.file_size > 0 else "—"}
+                         for i in chunk]
+            st.dataframe(data_rows, use_container_width=True)
+
+            # ── Preview individual file ──
+            st.markdown("**👁️ Preview a file from the archive:**")
+            if file_names:
+                selected = st.selectbox("Choose file:", ["(none)"] + file_names[:1000],
+                                        key="fv_zip_file_select")
+                if selected and selected != "(none)":
+                    cache_key = f"fv_zip_inner_{selected}"
+                    if cache_key not in st.session_state:
+                        with zipfile.ZipFile(io.BytesIO(raw), "r") as z_extract:
+                            try:
+                                st.session_state[cache_key] = z_extract.read(selected)
+                            except Exception as read_err:
+                                st.error(f"Cannot read '{selected}': {read_err}")
+                                st.session_state[cache_key] = b""
+
+                    inner_bytes = st.session_state.get(cache_key, b"")
+                    inner_ext = selected.rsplit(".", 1)[-1].lower() if "." in selected else ""
+                    st.caption(f"**{selected}** — {_fmt_size(len(inner_bytes))}")
+
+                    if inner_bytes:
                         if inner_ext in TEXT_TYPES or inner_ext in JSON_TYPES:
                             try:
                                 inner_text = inner_bytes.decode("utf-8", errors="replace")
@@ -845,8 +876,8 @@ def _render_zip(file):
                                 st.code(inner_text[inner_page * TEXT_PAGE_SIZE :
                                                    (inner_page + 1) * TEXT_PAGE_SIZE],
                                         language=CODE_LANG_MAP.get(inner_ext, "text"))
-                            except Exception:
-                                st.info("Cannot decode as text.")
+                            except Exception as txt_err:
+                                st.info(f"Cannot decode as text: {txt_err}")
                         elif inner_ext in IMAGE_TYPES:
                             try:
                                 from PIL import Image as PILImage

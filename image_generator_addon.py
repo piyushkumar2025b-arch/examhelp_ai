@@ -209,6 +209,7 @@ def render_image_generator():
         "ig_model_override": None,   # Step 6: manual model override
         "ig_show_share": "",
         "ig_history": [],
+        "ig_batch_n": 1,             # batch size — stored separately from widget key
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -293,17 +294,24 @@ def render_image_generator():
                     value=int(st.session_state.ig_seed or 0), key="ig_seed_inp")
                 st.session_state.ig_seed = seed_val if seed_val != 0 else None
 
-                batch_n = st.selectbox("Variations", [1, 2, 4], key="ig_batch_n")
+                # Use a separate widget key so we can still write ig_batch_n to session_state
+                _batch_options = [1, 2, 4]
+                _cur_batch_idx = _batch_options.index(st.session_state.ig_batch_n) \
+                    if st.session_state.ig_batch_n in _batch_options else 0
+                _batch_sel = st.selectbox("Variations", _batch_options,
+                                          index=_cur_batch_idx, key="ig_batch_n_sel")
+                st.session_state.ig_batch_n = _batch_sel
 
             # ── Generate button ───────────────────────────────────────────
+            # Read batch_n from session_state (safe — not a widget key)
+            _batch_n_val = st.session_state.ig_batch_n
             st.markdown("")
-            if st.button(f"🚀 Generate {'x' + str(batch_n) if batch_n > 1 else 'Image'}",
+            if st.button(f"🚀 Generate {'x' + str(_batch_n_val) if _batch_n_val > 1 else 'Image'}",
                          use_container_width=True, type="primary", key="ig_go"):
                 if not st.session_state.ig_prompt.strip():
                     st.error("⚠️ Enter a prompt first!")
                 else:
                     st.session_state.ig_trigger = True
-                    st.session_state.ig_batch_n = batch_n
                     st.rerun()
 
             if st.button("← Back to Chat", use_container_width=True, key="ig_back"):
