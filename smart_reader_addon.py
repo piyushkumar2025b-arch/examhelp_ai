@@ -1,8 +1,16 @@
-"""smart_reader_addon.py — Step 33: Bulk PDF batch + OCR table extraction + smart search"""
+"""smart_reader_addon.py — Bulk PDF batch + OCR table extraction + smart search + Media Hub"""
 import streamlit as st, io, zipfile
 
 def render_smart_reader_addon():
-    sa1, sa2, sa3 = st.tabs(["📦 Bulk PDF Batch","📊 OCR Table Extractor","🔎 Smart Document Search"])
+    sa1, sa2, sa3, sa4, sa5, sa6, sa7 = st.tabs([
+        "📦 Bulk PDF Batch",
+        "📊 OCR Table Extractor",
+        "🔎 Smart Document Search",
+        "🖼️ Image Explorer",
+        "🤖 Mini AI Answerer",
+        "🔥 AI & OSS Trends",
+        "📚 E-Book & Audio",
+    ])
 
     with sa1:
         st.markdown("**📦 Bulk PDF Batch Processor**")
@@ -116,3 +124,32 @@ def render_smart_reader_addon():
                         ans = generate(f"Extract all named entities (people, places, organizations, dates, quantities) from this text:\n{doc_text[:4000]}")
                         st.markdown(ans)
                     except Exception as e: st.error(str(e))
+
+    # ── New tabs: delegate to media_hub_addon ──────────────────────────────────
+    with sa4:
+        try:
+            from media_hub_addon import _tab_image_explorer
+            _tab_image_explorer()
+        except Exception as e:
+            st.error(f"Image Explorer error: {e}")
+
+    with sa5:
+        try:
+            from media_hub_addon import _tab_mini_ai
+            _tab_mini_ai()
+        except Exception as e:
+            st.error(f"Mini AI Answerer error: {e}")
+
+    with sa6:
+        try:
+            from media_hub_addon import _tab_trends
+            _tab_trends()
+        except Exception as e:
+            st.error(f"AI & OSS Trends error: {e}")
+
+    with sa7:
+        try:
+            from media_hub_addon import _tab_ebook
+            _tab_ebook()
+        except Exception as e:
+            st.error(f"E-Book & Audio error: {e}")

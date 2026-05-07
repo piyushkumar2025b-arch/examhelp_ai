@@ -112,3 +112,8 @@ folium>=0.17.0
 streamlit-folium>=0.22.0
 chess>=1.10.0
 pyzbar>=0.1.9
+
+# ── Smart Reader Media Hub (Image Explorer · Mini AI · Trends · E-Book) ──
+# All engines use stdlib + requests (already installed). No extra keys needed.
+# Optional: Unsplash/Pexels/Pixabay keys in secrets.toml for more image results.
+feedparser>=6.0.0
