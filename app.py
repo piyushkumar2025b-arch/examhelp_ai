@@ -2222,91 +2222,53 @@ if not st.session_state["passcode_verified"]:
       </div>
 
       <!-- ══════════════════════════════════════════
-           ✦ POWER ADDITION 6: SOCIAL PROOF WALL
+           ✦ PLATFORM QUALITY: RENDERED CARDS PREVIEW
       ══════════════════════════════════════════ -->
       <div class=\"section-label\">◈ PLATFORM QUALITY ◈</div>
       <div class=\"section-title\">Why ExamHelp AI Stands Apart</div>
       <div class=\"proof-section\">
-        <div class=\"proof-wall\">
+        <div style=\"display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;width:100%;\">
 
-          <div class=\"proof-card\" style=\"--pc:rgba(0,255,180,0.35);animation-delay:.05s;text-align:center;\">
-            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
-              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(0,255,180,0.07)\" stroke=\"rgba(0,255,180,0.5)\" stroke-width=\"1.5\"/>
-              <path d=\"M18 34 L28 44 L46 22\" fill=\"none\" stroke=\"#00ffb4\" stroke-width=\"3.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>
-              <circle cx=\"32\" cy=\"32\" r=\"18\" fill=\"none\" stroke=\"rgba(0,255,180,0.2)\" stroke-width=\"1\"/>
-            </svg>
-            <div class=\"proof-name\" style=\"color:#00ffb4;font-size:15px;margin-bottom:8px;\">ZERO RATE LIMITS</div>
-            <div class=\"proof-text\">9-key Gemini pool auto-rotates on quota block. No dropped context, no interruptions — continuous inference at full speed, always.</div>
-            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(0,255,180,0.1);border:1px solid rgba(0,255,180,0.3);border-radius:20px;font-size:11px;color:#00ffb4;letter-spacing:2px;display:inline-block;\">9 KEYS · AUTO ROTATION</div>
+          <div style=\"background:linear-gradient(135deg,rgba(0,255,180,0.08),rgba(0,255,180,0.02));border:1px solid rgba(0,255,180,0.3);border-radius:16px;padding:28px 22px;text-align:center;transition:transform .3s;\">
+            <div style=\"font-size:36px;margin-bottom:12px;\">⚡</div>
+            <div style=\"color:#00ffb4;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:10px;\">ZERO RATE LIMITS</div>
+            <div style=\"color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;\">9-key Gemini pool auto-rotates on quota. No dropped context, continuous inference at full speed.</div>
+            <div style=\"margin-top:14px;padding:5px 12px;background:rgba(0,255,180,0.1);border:1px solid rgba(0,255,180,0.3);border-radius:20px;font-size:10px;color:#00ffb4;letter-spacing:2px;display:inline-block;\">9 KEYS · AUTO ROTATION</div>
           </div>
 
-          <div class=\"proof-card\" style=\"--pc:rgba(180,77,255,0.35);animation-delay:.10s;text-align:center;\">
-            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
-              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(180,77,255,0.07)\" stroke=\"rgba(180,77,255,0.5)\" stroke-width=\"1.5\"/>
-              <polygon points=\"32,10 38,26 56,26 42,37 47,53 32,42 17,53 22,37 8,26 26,26\" fill=\"none\" stroke=\"#b44dff\" stroke-width=\"2\" stroke-linejoin=\"round\"/>
-              <polygon points=\"32,18 36,28 47,28 38,35 41,46 32,39 23,46 26,35 17,28 28,28\" fill=\"rgba(180,77,255,0.25)\"/>
-            </svg>
-            <div class=\"proof-name\" style=\"color:#b44dff;font-size:15px;margin-bottom:8px;\">15+ SPECIALIST ENGINES</div>
-            <div class=\"proof-text\">Dedicated AI modules for Circuit Analysis, Legal IPC, Medical Pharmacology, Pure Mathematics, Research, Architecture, and more — not generic chatbot answers.</div>
-            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(180,77,255,0.1);border:1px solid rgba(180,77,255,0.3);border-radius:20px;font-size:11px;color:#b44dff;letter-spacing:2px;display:inline-block;\">DOMAIN EXPERT AI</div>
+          <div style=\"background:linear-gradient(135deg,rgba(180,77,255,0.08),rgba(180,77,255,0.02));border:1px solid rgba(180,77,255,0.3);border-radius:16px;padding:28px 22px;text-align:center;\">
+            <div style=\"font-size:36px;margin-bottom:12px;\">🧠</div>
+            <div style=\"color:#b44dff;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:10px;\">MULTI-MODEL AI</div>
+            <div style=\"color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;\">Gemini Pro, GPT-4o, Groq, Whisper — all unified in one smart platform with seamless fallback.</div>
+            <div style=\"margin-top:14px;padding:5px 12px;background:rgba(180,77,255,0.1);border:1px solid rgba(180,77,255,0.3);border-radius:20px;font-size:10px;color:#b44dff;letter-spacing:2px;display:inline-block;\">4 MODELS · 1 PLATFORM</div>
           </div>
 
-          <div class=\"proof-card\" style=\"--pc:rgba(0,170,255,0.35);animation-delay:.15s;text-align:center;\">
-            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
-              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(0,170,255,0.07)\" stroke=\"rgba(0,170,255,0.5)\" stroke-width=\"1.5\"/>
-              <circle cx=\"32\" cy=\"26\" r=\"10\" fill=\"none\" stroke=\"#00aaff\" stroke-width=\"2\"/>
-              <path d=\"M22 50 Q22 38 32 38 Q42 38 42 50\" fill=\"none\" stroke=\"#00aaff\" stroke-width=\"2\" stroke-linecap=\"round\"/>
-              <path d=\"M44 22 Q52 22 52 30 Q52 38 44 38\" fill=\"none\" stroke=\"rgba(0,170,255,0.5)\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
-              <path d=\"M20 22 Q12 22 12 30 Q12 38 20 38\" fill=\"none\" stroke=\"rgba(0,170,255,0.5)\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
-            </svg>
-            <div class=\"proof-name\" style=\"color:#00aaff;font-size:15px;margin-bottom:8px;\">30+ AI PERSONAS</div>
-            <div class=\"proof-text\">Learn like Einstein explains it. Debate like Socrates. Get clinical precision from a virtual consultant. Persona-driven tutoring adapts to your subject and style.</div>
-            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(0,170,255,0.1);border:1px solid rgba(0,170,255,0.3);border-radius:20px;font-size:11px;color:#00aaff;letter-spacing:2px;display:inline-block;\">EINSTEIN · FEYNMAN · MORE</div>
+          <div style=\"background:linear-gradient(135deg,rgba(0,170,255,0.08),rgba(0,170,255,0.02));border:1px solid rgba(0,170,255,0.3);border-radius:16px;padding:28px 22px;text-align:center;\">
+            <div style=\"font-size:36px;margin-bottom:12px;\">📸</div>
+            <div style=\"color:#00aaff;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:10px;\">VISION + OCR</div>
+            <div style=\"color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;\">Handwritten OCR, diagram analysis, photo-to-LaTeX. Solve problems directly from your camera.</div>
+            <div style=\"margin-top:14px;padding:5px 12px;background:rgba(0,170,255,0.1);border:1px solid rgba(0,170,255,0.3);border-radius:20px;font-size:10px;color:#00aaff;letter-spacing:2px;display:inline-block;\">HANDWRITING · DIAGRAMS</div>
           </div>
 
-          <div class=\"proof-card\" style=\"--pc:rgba(255,170,0,0.35);animation-delay:.20s;text-align:center;\">
-            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
-              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(255,170,0,0.07)\" stroke=\"rgba(255,170,0,0.5)\" stroke-width=\"1.5\"/>
-              <path d=\"M20 44 L20 32 L32 20 L44 32 L44 44\" fill=\"none\" stroke=\"#ffaa00\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/>
-              <rect x=\"27\" y=\"36\" width=\"10\" height=\"8\" fill=\"rgba(255,170,0,0.3)\" stroke=\"#ffaa00\" stroke-width=\"1.5\"/>
-              <line x1=\"32\" y1=\"20\" x2=\"32\" y2=\"10\" stroke=\"#ffaa00\" stroke-width=\"2\" stroke-linecap=\"round\"/>
-              <circle cx=\"32\" cy=\"8\" r=\"3\" fill=\"#ffaa00\"/>
-            </svg>
-            <div class=\"proof-name\" style=\"color:#ffaa00;font-size:15px;margin-bottom:8px;\">MULTI-MODAL INPUT</div>
-            <div class=\"proof-text\">Voice via Whisper transcription, handwritten notes via OCR, uploaded PDFs, YouTube transcripts — every input format accepted and intelligently processed.</div>
-            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);border-radius:20px;font-size:11px;color:#ffaa00;letter-spacing:2px;display:inline-block;\">VOICE · OCR · PDF · VIDEO</div>
+          <div style=\"background:linear-gradient(135deg,rgba(255,170,0,0.08),rgba(255,170,0,0.02));border:1px solid rgba(255,170,0,0.3);border-radius:16px;padding:28px 22px;text-align:center;\">
+            <div style=\"font-size:36px;margin-bottom:12px;\">🎯</div>
+            <div style=\"color:#ffaa00;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:10px;\">EXAM INTELLIGENCE</div>
+            <div style=\"color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;\">JEE, NEET, UPSC, boards — syllabus-aligned answers with step-by-step breakdowns.</div>
+            <div style=\"margin-top:14px;padding:5px 12px;background:rgba(255,170,0,0.1);border:1px solid rgba(255,170,0,0.3);border-radius:20px;font-size:10px;color:#ffaa00;letter-spacing:2px;display:inline-block;\">JEE · NEET · UPSC · BOARDS</div>
           </div>
 
-          <div class=\"proof-card\" style=\"--pc:rgba(255,68,170,0.35);animation-delay:.25s;text-align:center;\">
-            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
-              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(255,68,170,0.07)\" stroke=\"rgba(255,68,170,0.5)\" stroke-width=\"1.5\"/>
-              <rect x=\"14\" y=\"18\" width=\"36\" height=\"28\" rx=\"4\" fill=\"none\" stroke=\"#ff44aa\" stroke-width=\"2\"/>
-              <line x1=\"20\" y1=\"26\" x2=\"44\" y2=\"26\" stroke=\"#ff44aa\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
-              <line x1=\"20\" y1=\"32\" x2=\"36\" y2=\"32\" stroke=\"rgba(255,68,170,0.6)\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
-              <line x1=\"20\" y1=\"38\" x2=\"40\" y2=\"38\" stroke=\"rgba(255,68,170,0.6)\" stroke-width=\"1.5\" stroke-linecap=\"round\"/>
-              <circle cx=\"48\" cy=\"44\" r=\"8\" fill=\"rgba(255,68,170,0.2)\" stroke=\"#ff44aa\" stroke-width=\"1.5\"/>
-              <line x1=\"48\" y1=\"40\" x2=\"48\" y2=\"44\" stroke=\"#ff44aa\" stroke-width=\"2\" stroke-linecap=\"round\"/>
-              <circle cx=\"48\" cy=\"45.5\" r=\"1.5\" fill=\"#ff44aa\"/>
-            </svg>
-            <div class=\"proof-name\" style=\"color:#ff44aa;font-size:15px;margin-bottom:8px;\">STRUCTURED OUTPUTS</div>
-            <div class=\"proof-text\">LaTeX-formatted math proofs, Mermaid.js architecture diagrams, formatted case briefs, drug interaction tables — outputs ready to paste, publish, or submit.</div>
-            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(255,68,170,0.1);border:1px solid rgba(255,68,170,0.3);border-radius:20px;font-size:11px;color:#ff44aa;letter-spacing:2px;display:inline-block;\">LATEX · MERMAID · TABLES</div>
+          <div style=\"background:linear-gradient(135deg,rgba(255,68,170,0.08),rgba(255,68,170,0.02));border:1px solid rgba(255,68,170,0.3);border-radius:16px;padding:28px 22px;text-align:center;\">
+            <div style=\"font-size:36px;margin-bottom:12px;\">🔊</div>
+            <div style=\"color:#ff44aa;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:10px;\">VOICE + AUDIO</div>
+            <div style=\"color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;\">Speak your question, get instant answers. Whisper-powered transcription with real-time response.</div>
+            <div style=\"margin-top:14px;padding:5px 12px;background:rgba(255,68,170,0.1);border:1px solid rgba(255,68,170,0.3);border-radius:20px;font-size:10px;color:#ff44aa;letter-spacing:2px;display:inline-block;\">WHISPER · REAL-TIME</div>
           </div>
 
-          <div class=\"proof-card\" style=\"--pc:rgba(0,255,180,0.35);animation-delay:.30s;text-align:center;\">
-            <svg width=\"64\" height=\"64\" viewBox=\"0 0 64 64\" style=\"margin:0 auto 14px;\">
-              <circle cx=\"32\" cy=\"32\" r=\"30\" fill=\"rgba(0,255,180,0.07)\" stroke=\"rgba(0,255,180,0.5)\" stroke-width=\"1.5\"/>
-              <path d=\"M10 42 L20 28 L30 36 L40 20 L54 34\" fill=\"none\" stroke=\"#00ffb4\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>
-              <circle cx=\"10\" cy=\"42\" r=\"3\" fill=\"#00ffb4\"/>
-              <circle cx=\"20\" cy=\"28\" r=\"3\" fill=\"#00ffb4\"/>
-              <circle cx=\"30\" cy=\"36\" r=\"3\" fill=\"#00ffb4\"/>
-              <circle cx=\"40\" cy=\"20\" r=\"3\" fill=\"#00ffb4\"/>
-              <circle cx=\"54\" cy=\"34\" r=\"3\" fill=\"#00ffb4\"/>
-              <rect x=\"10\" y=\"46\" width=\"44\" height=\"4\" rx=\"2\" fill=\"rgba(0,255,180,0.2)\" stroke=\"rgba(0,255,180,0.3)\" stroke-width=\"0.5\"/>
-            </svg>
-            <div class=\"proof-name\" style=\"color:#00ffb4;font-size:15px;margin-bottom:8px;\">STUDY ANALYTICS</div>
-            <div class=\"proof-text\">Daily streak tracking, Pomodoro sessions, topic mastery scores, and revision scheduling — ExamHelp AI tracks your growth and optimises your study plan.</div>
-            <div style=\"margin-top:14px;padding:6px 14px;background:rgba(0,255,180,0.1);border:1px solid rgba(0,255,180,0.3);border-radius:20px;font-size:11px;color:#00ffb4;letter-spacing:2px;display:inline-block;\">STREAKS · SCORES · GROWTH</div>
+          <div style=\"background:linear-gradient(135deg,rgba(0,255,180,0.08),rgba(0,255,180,0.02));border:1px solid rgba(0,255,180,0.3);border-radius:16px;padding:28px 22px;text-align:center;\">
+            <div style=\"font-size:36px;margin-bottom:12px;\">📊</div>
+            <div style=\"color:#00ffb4;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:2px;margin-bottom:10px;\">PROGRESS TRACKING</div>
+            <div style=\"color:rgba(255,255,255,0.65);font-size:13px;line-height:1.6;\">Streaks, scores, and growth analytics. See your improvement journey with detailed insights.</div>
+            <div style=\"margin-top:14px;padding:5px 12px;background:rgba(0,255,180,0.1);border:1px solid rgba(0,255,180,0.3);border-radius:20px;font-size:10px;color:#00ffb4;letter-spacing:2px;display:inline-block;\">STREAKS · SCORES · GROWTH</div>
           </div>
 
         </div>
@@ -2484,20 +2446,38 @@ if not st.session_state["passcode_verified"]:
       })();
       </script>
 
-      <!-- GATE -->
+      <!-- ACCESS PORTAL - Clean Info -->
       <div class="gate-wrap">
         <div class="gate-card">
-          <div class="gate-title">🔐 ACCESS PORTAL</div>
-          <div class="gate-sub">This platform is <strong style="color:rgba(255,68,170,0.7)">private & protected</strong>.<br>Not free to access — password required.</div>
-          <div class="gate-label">▸ Secret Access Key</div>
+          <div class="gate-title">🚀 ACCESS PORTAL</div>
+          <div class="gate-sub">Welcome to <strong style="color:rgba(0,255,180,0.9)">ExamHelp AI</strong> — your elite academic intelligence platform.</div>
 
-          <!-- NEW: Contact for access -->
-          <div class="access-info">
-            <div class="access-info-text">
-              🔑 To get access, contact us at:<br>
-              <a href="mailto:piyushkumar52521@gmail.com">piyushkumar52521@gmail.com</a><br>
-              <span style="font-size:12px;color:rgba(255,255,255,0.25);letter-spacing:2px;">◈ GMAIL · FOR MORE INFO & ACCESS REQUESTS ◈</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0;">
+            <div style="background:rgba(0,255,180,0.07);border:1px solid rgba(0,255,180,0.25);border-radius:12px;padding:16px;text-align:center;">
+              <div style="font-size:24px;margin-bottom:8px;">⚡</div>
+              <div style="color:#00ffb4;font-size:11px;letter-spacing:2px;font-weight:700;">FREE ACCESS</div>
+              <div style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px;">No password needed</div>
             </div>
+            <div style="background:rgba(180,77,255,0.07);border:1px solid rgba(180,77,255,0.25);border-radius:12px;padding:16px;text-align:center;">
+              <div style="font-size:24px;margin-bottom:8px;">🧠</div>
+              <div style="color:#b44dff;font-size:11px;letter-spacing:2px;font-weight:700;">AI POWERED</div>
+              <div style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px;">Gemini · GPT-4o · Groq</div>
+            </div>
+            <div style="background:rgba(0,170,255,0.07);border:1px solid rgba(0,170,255,0.25);border-radius:12px;padding:16px;text-align:center;">
+              <div style="font-size:24px;margin-bottom:8px;">📚</div>
+              <div style="color:#00aaff;font-size:11px;letter-spacing:2px;font-weight:700;">EXAM READY</div>
+              <div style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px;">JEE · NEET · UPSC</div>
+            </div>
+            <div style="background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.25);border-radius:12px;padding:16px;text-align:center;">
+              <div style="font-size:24px;margin-bottom:8px;">🎯</div>
+              <div style="color:#ffaa00;font-size:11px;letter-spacing:2px;font-weight:700;">STEP-BY-STEP</div>
+              <div style="color:rgba(255,255,255,0.5);font-size:12px;margin-top:4px;">Full solutions</div>
+            </div>
+          </div>
+
+          <div style="text-align:center;margin-top:10px;">
+            <div style="color:rgba(255,255,255,0.35);font-size:12px;letter-spacing:2px;">◈ BUILT FOR ELITE ACADEMIC PERFORMANCE ◈</div>
+            <a href="mailto:piyushkumar52521@gmail.com" style="color:rgba(0,255,180,0.6);font-size:12px;text-decoration:none;display:block;margin-top:8px;">piyushkumar52521@gmail.com</a>
           </div>
         </div>
       </div>
@@ -2506,9 +2486,9 @@ if not st.session_state["passcode_verified"]:
     """, unsafe_allow_html=True)
 
 
-    # ── 3D Boat Scene via Three.js ─────────────────────────────
-    import streamlit.components.v1 as _comp_river
-    _comp_river.html("""<!DOCTYPE html>
+    # ── 3D Human Character Scene via Three.js ──────────────────
+    import streamlit.components.v1 as _comp_human
+    _comp_human.html("""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -2516,511 +2496,211 @@ if not st.session_state["passcode_verified"]:
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;overflow:hidden;background:#020008;}
 #c{display:block;width:100%;height:100%;}
+#enter-btn{
+  position:absolute;bottom:30px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,#00ffb4,#00aaff);
+  color:#020008;font-family:'Orbitron',monospace;font-size:14px;font-weight:900;
+  letter-spacing:3px;padding:14px 48px;border:none;border-radius:40px;
+  cursor:pointer;z-index:10;box-shadow:0 0 30px rgba(0,255,180,0.5);
+  transition:all .3s;
+}
+#enter-btn:hover{transform:translateX(-50%) scale(1.07);box-shadow:0 0 50px rgba(0,255,180,0.8);}
+#click-counter{
+  position:absolute;top:20px;right:20px;
+  color:rgba(0,255,180,0.7);font-family:monospace;font-size:12px;
+  letter-spacing:2px;background:rgba(0,255,180,0.07);
+  border:1px solid rgba(0,255,180,0.2);border-radius:8px;padding:6px 14px;
+}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="click-counter">CLICKS: <span id="cnt">0</span></div>
+<button id="enter-btn" onclick="trackAndEnter()">⚡ ENTER FREE ⚡</button>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
+  var clicks = 0;
+  window.trackAndEnter = function(){
+    clicks++;
+    document.getElementById('cnt').textContent = clicks;
+    document.getElementById('enter-btn').textContent = '✅ ENTERING... (' + clicks + ' clicks)';
+    setTimeout(function(){ document.getElementById('enter-btn').textContent = '⚡ ENTER FREE ⚡'; }, 800);
+  };
 
-var W = window.innerWidth, H = window.innerHeight;
-var renderer = new THREE.WebGLRenderer({canvas: document.getElementById('c'), antialias:true, alpha:false});
-renderer.setSize(W, H);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.9;
+  var renderer = new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true,alpha:true});
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.setClearColor(0x020008,1);
 
-var scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x000a04, 0.025);
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,100);
+  camera.position.set(0,2,6);
+  camera.lookAt(0,1,0);
 
-var camera = new THREE.PerspectiveCamera(55, W/H, 0.1, 200);
-camera.position.set(0, 4.5, 14);
-camera.lookAt(0, 0.5, 0);
+  // Ambient + directional light
+  scene.add(new THREE.AmbientLight(0x112233,1.5));
+  var dLight = new THREE.DirectionalLight(0x00ffb4,2);
+  dLight.position.set(3,8,5);
+  dLight.castShadow=true;
+  scene.add(dLight);
+  var pLight = new THREE.PointLight(0xb44dff,3,15);
+  pLight.position.set(-4,4,3);
+  scene.add(pLight);
+  var pLight2 = new THREE.PointLight(0x00aaff,2,12);
+  pLight2.position.set(4,2,-3);
+  scene.add(pLight2);
 
-window.addEventListener('resize', function(){
-  W = window.innerWidth; H = window.innerHeight;
-  renderer.setSize(W,H); camera.aspect=W/H; camera.updateProjectionMatrix();
-});
+  // Floor grid
+  var gridHelper = new THREE.GridHelper(20,20,0x00ffb4,0x112233);
+  gridHelper.position.y=-0.01;
+  scene.add(gridHelper);
 
-// ── SKY ──────────────────────────────────────────────────────
-var skyGeo = new THREE.SphereGeometry(80,16,8);
-var skyMat = new THREE.MeshBasicMaterial({
-  side: THREE.BackSide,
-  vertexColors: true
-});
-var skyColors = [];
-var skyPos = skyGeo.attributes.position;
-for(var i=0;i<skyPos.count;i++){
-  var y = skyPos.getY(i);
-  var t = Math.max(0, Math.min(1, (y+80)/160));
-  // deep violet top → dark teal bottom
-  skyColors.push(
-    0.01 + t*0.02,
-    0.0  + t*0.04,
-    0.04 + t*0.06
-  );
-}
-skyGeo.setAttribute('color', new THREE.Float32BufferAttribute(skyColors,3));
-scene.add(new THREE.Mesh(skyGeo, skyMat));
+  // Human body parts
+  var mat = new THREE.MeshStandardMaterial({color:0x00ffb4,emissive:0x003322,metalness:0.3,roughness:0.4});
+  var matDark = new THREE.MeshStandardMaterial({color:0x0a1a1a,emissive:0x000000,metalness:0.5,roughness:0.3});
+  var matGlow = new THREE.MeshStandardMaterial({color:0xb44dff,emissive:0x4400aa,metalness:0.2,roughness:0.5});
 
-// ── STARS ────────────────────────────────────────────────────
-var starGeo = new THREE.BufferGeometry();
-var starPos = [];
-for(var i=0;i<800;i++){
-  var theta = Math.random()*Math.PI*2;
-  var phi   = Math.acos(Math.random()*0.8);  // upper hemisphere
-  var r     = 60 + Math.random()*15;
-  starPos.push(
-    r*Math.sin(phi)*Math.cos(theta),
-    r*Math.cos(phi),
-    r*Math.sin(phi)*Math.sin(theta)
-  );
-}
-starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos,3));
-var starMat = new THREE.PointsMaterial({color:0xffffff, size:0.25, sizeAttenuation:true});
-scene.add(new THREE.Points(starGeo, starMat));
+  var human = new THREE.Group();
 
-// ── MOON ────────────────────────────────────────────────────
-var moonMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(2.2,32,32),
-  new THREE.MeshStandardMaterial({
-    color:0xe8f8ee,
-    emissive:0xd0eedc,
-    emissiveIntensity:0.6,
-    roughness:0.9,
-    metalness:0.0
-  })
-);
-moonMesh.position.set(18, 22, -30);
-scene.add(moonMesh);
-// Moon glow sprite
-var moonGlowGeo = new THREE.SphereGeometry(5,16,16);
-var moonGlowMat = new THREE.MeshBasicMaterial({
-  color:0x80ffb0, transparent:true, opacity:0.06, side:THREE.FrontSide
-});
-moonMesh.add(new THREE.Mesh(moonGlowGeo, moonGlowMat));
+  // Head
+  var head = new THREE.Mesh(new THREE.SphereGeometry(0.28,16,16),mat);
+  head.position.set(0,2.75,0);
+  human.add(head);
 
-// Moon light
-var moonLight = new THREE.PointLight(0x80ffcc, 1.8, 120);
-moonLight.position.copy(moonMesh.position);
-scene.add(moonLight);
+  // Neck
+  var neck = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.12,0.2,8),matDark);
+  neck.position.set(0,2.45,0);
+  human.add(neck);
 
-// Ambient
-scene.add(new THREE.AmbientLight(0x001a0a, 0.8));
+  // Torso
+  var torso = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.3,1.0,12),matDark);
+  torso.position.set(0,1.7,0);
+  human.add(torso);
 
-// Directional (cool moonlight from above-right)
-var dirLight = new THREE.DirectionalLight(0xaaffcc, 0.7);
-dirLight.position.set(15, 20, 5);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 1024;
-dirLight.shadow.mapSize.height = 1024;
-scene.add(dirLight);
+  // Chest glowing plate
+  var chest = new THREE.Mesh(new THREE.BoxGeometry(0.45,0.35,0.08),matGlow);
+  chest.position.set(0,1.8,0.3);
+  human.add(chest);
 
-// Lantern point light (warm orange — placed near boat)
-var lanternLight = new THREE.PointLight(0xff9933, 2.5, 12);
-lanternLight.position.set(0, 3, 0);
-scene.add(lanternLight);
+  // Hips
+  var hips = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.28,0.3,12),matDark);
+  hips.position.set(0,1.1,0);
+  human.add(hips);
 
-// ── WATER ────────────────────────────────────────────────────
-var waterGeo = new THREE.PlaneGeometry(100, 100, 80, 80);
-var waterMat = new THREE.MeshStandardMaterial({
-  color: 0x002a12,
-  emissive: 0x001a0a,
-  emissiveIntensity: 0.3,
-  roughness: 0.1,
-  metalness: 0.8,
-  transparent: true,
-  opacity: 0.92
-});
-var water = new THREE.Mesh(waterGeo, waterMat);
-water.rotation.x = -Math.PI/2;
-water.receiveShadow = true;
-scene.add(water);
+  // Left arm
+  var lArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.07,0.85,8),mat);
+  lArm.position.set(-0.52,1.7,0);
+  lArm.rotation.z = 0.3;
+  human.add(lArm);
+  var lForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.06,0.75,8),mat);
+  lForearm.position.set(-0.85,1.2,0);
+  lForearm.rotation.z = 0.5;
+  human.add(lForearm);
 
-// Water displacement via vertex animation
-var wPosOrig = [];
-var wPos = waterGeo.attributes.position;
-for(var i=0;i<wPos.count;i++) wPosOrig.push(wPos.getX(i), wPos.getY(i));
+  // Right arm
+  var rArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.07,0.85,8),mat);
+  rArm.position.set(0.52,1.7,0);
+  rArm.rotation.z = -0.3;
+  human.add(rArm);
+  var rForearm = new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.06,0.75,8),mat);
+  rForearm.position.set(0.85,1.2,0);
+  rForearm.rotation.z = -0.5;
+  human.add(rForearm);
 
-// ── TREELINE SILHOUETTE ──────────────────────────────────────
-function makeTree(x, z, h, spread){
-  var g = new THREE.Group();
-  // Trunk
-  var trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.1, 0.2, h*0.35, 5),
-    new THREE.MeshStandardMaterial({color:0x050a06})
-  );
-  trunk.position.y = h*0.175;
-  g.add(trunk);
-  // Canopy layers
-  for(var i=0;i<3;i++){
-    var cone = new THREE.Mesh(
-      new THREE.ConeGeometry(spread*(1-i*0.2), h*0.45, 7),
-      new THREE.MeshStandardMaterial({color:0x020a04, roughness:1})
-    );
-    cone.position.y = h*0.35 + i*h*0.22;
-    g.add(cone);
+  // Left leg
+  var lThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.1,0.9,8),matDark);
+  lThigh.position.set(-0.2,0.55,0);
+  human.add(lThigh);
+  var lShin = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.07,0.85,8),matDark);
+  lShin.position.set(-0.2,-0.25,0);
+  human.add(lShin);
+
+  // Right leg
+  var rThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.1,0.9,8),matDark);
+  rThigh.position.set(0.2,0.55,0);
+  human.add(rThigh);
+  var rShin = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.07,0.85,8),matDark);
+  rShin.position.set(0.2,-0.25,0);
+  human.add(rShin);
+
+  // Glowing eyes
+  var eyeMat = new THREE.MeshStandardMaterial({color:0x00ffff,emissive:0x00cccc,emissiveIntensity:3});
+  var lEye = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8),eyeMat);
+  lEye.position.set(-0.1,2.78,0.25);
+  human.add(lEye);
+  var rEye = new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8),eyeMat);
+  rEye.position.set(0.1,2.78,0.25);
+  human.add(rEye);
+
+  scene.add(human);
+
+  // Floating particles
+  var partGeo = new THREE.BufferGeometry();
+  var partCount = 120;
+  var positions = new Float32Array(partCount*3);
+  for(var i=0;i<partCount;i++){
+    positions[i*3]=(Math.random()-0.5)*10;
+    positions[i*3+1]=Math.random()*6;
+    positions[i*3+2]=(Math.random()-0.5)*10;
   }
-  g.position.set(x, 0, z);
-  return g;
-}
+  partGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));
+  var partMat = new THREE.PointsMaterial({color:0x00ffb4,size:0.06,transparent:true,opacity:0.7});
+  var particles = new THREE.Points(partGeo,partMat);
+  scene.add(particles);
 
-for(var i=0;i<28;i++){
-  var tx = -40 + i*3 + (Math.random()-0.5)*2;
-  var tz = -20 - Math.random()*12;
-  var th = 4 + Math.random()*5;
-  var ts = 1.2 + Math.random()*1.4;
-  scene.add(makeTree(tx, tz, th, ts));
-}
-// Second farther ridge
-for(var i=0;i<20;i++){
-  var tx2 = -30 + i*4 + (Math.random()-0.5)*2;
-  var tz2 = -35 - Math.random()*8;
-  var th2 = 3 + Math.random()*4;
-  scene.add(makeTree(tx2, tz2, th2, 0.9+Math.random()*1.2));
-}
+  // Orbit ring around human
+  var ringGeo = new THREE.TorusGeometry(1.2,0.02,8,64);
+  var ringMat = new THREE.MeshStandardMaterial({color:0x00aaff,emissive:0x002244});
+  var ring = new THREE.Mesh(ringGeo,ringMat);
+  ring.position.set(0,1.4,0);
+  ring.rotation.x = Math.PI/2;
+  scene.add(ring);
 
-// ── BOAT GEOMETRY ────────────────────────────────────────────
-var boat = new THREE.Group();
+  window.addEventListener('resize',function(){
+    renderer.setSize(window.innerWidth,window.innerHeight);
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+  });
 
-// Hull — built from a lathed profile
-var hullCurve = [];
-for(var i=0;i<=20;i++){
-  var u = i/20;
-  var bx = (u-0.5)*7;   // -3.5 to 3.5
-  // Profile: wider in the middle, tapered at ends, high prow
-  var sharpness = Math.pow(Math.sin(u*Math.PI), 0.6);
-  var bz = sharpness * 0.9;
-  hullCurve.push(new THREE.Vector2(bz, bx));
-}
-// Build hull with ExtrudeGeometry approach — use custom shape
-var hullShape = new THREE.Shape();
-hullShape.moveTo(0, -3.5);
-hullShape.bezierCurveTo(1.1, -3.5, 1.3, -1.5, 1.0, 0);
-hullShape.bezierCurveTo(1.3,  1.5, 1.1,  3.5, 0,   3.5);
-hullShape.bezierCurveTo(-0.3, 3.5, -0.3, 1.5, -0.3, 0);
-hullShape.bezierCurveTo(-0.3,-1.5, -0.3,-3.5, 0,   -3.5);
-
-var extrudeSettings = {
-  steps: 2, depth: 0.7, bevelEnabled: true,
-  bevelThickness: 0.15, bevelSize: 0.1, bevelSegments: 4
-};
-var hullGeo = new THREE.ExtrudeGeometry(hullShape, extrudeSettings);
-hullGeo.rotateX(Math.PI/2);
-hullGeo.rotateZ(Math.PI/2);
-hullGeo.translate(0, 0, -0.35);
-
-var hullMat = new THREE.MeshStandardMaterial({
-  color: 0x3a1a06,
-  roughness: 0.75,
-  metalness: 0.05,
-  envMapIntensity: 0.5
-});
-var hullMesh = new THREE.Mesh(hullGeo, hullMat);
-hullMesh.castShadow = true;
-hullMesh.receiveShadow = true;
-boat.add(hullMesh);
-
-// Hull rim strip (bright wood)
-var rimGeo = new THREE.TorusGeometry(0.0, 0.0, 2, 2); // placeholder
-// Build rim as a tube along the hull edge
-var rimCurvePoints = [];
-for(var i=0;i<=40;i++){
-  var u = i/40 * Math.PI;
-  var bx2 = Math.cos(u - Math.PI/2) * 3.5;
-  var bz2 = Math.sin(u - Math.PI/2) * 0.8 + 0.8;
-  rimCurvePoints.push(new THREE.Vector3(bx2, 0.38, bz2));
-}
-var rimCurve = new THREE.CatmullRomCurve3(rimCurvePoints);
-var rimTube = new THREE.Mesh(
-  new THREE.TubeGeometry(rimCurve, 40, 0.06, 6, false),
-  new THREE.MeshStandardMaterial({color:0xc86420, roughness:0.4, metalness:0.1})
-);
-boat.add(rimTube);
-
-// Inner floor
-var floorMesh = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.0, 0.0, 0.0, 3), // placeholder
-  hullMat
-);
-// Use a simple plane for inner deck
-var deckGeo = new THREE.PlaneGeometry(1.5, 6);
-var deckMat = new THREE.MeshStandardMaterial({color:0x2a1004, roughness:0.9});
-var deck = new THREE.Mesh(deckGeo, deckMat);
-deck.rotation.x = -Math.PI/2;
-deck.position.y = 0.3;
-boat.add(deck);
-
-// Plank lines on deck
-for(var p=-2;p<=2;p++){
-  var plankGeo = new THREE.PlaneGeometry(0.04, 5.5);
-  var plank = new THREE.Mesh(plankGeo,
-    new THREE.MeshStandardMaterial({color:0x3d1808, roughness:0.95})
-  );
-  plank.rotation.x = -Math.PI/2;
-  plank.position.set(p*0.35, 0.31, 0);
-  boat.add(plank);
-}
-
-// ── MAST + LANTERN ────────────────────────────────────────────
-// Mast pole
-var mast = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.06, 0.09, 4.5, 7),
-  new THREE.MeshStandardMaterial({color:0x2a1004, roughness:0.8})
-);
-mast.position.set(0.3, 2.6, 0);
-mast.castShadow = true;
-boat.add(mast);
-
-// Lantern cage (octagonal box)
-var lanternGroup = new THREE.Group();
-// Cage frame
-var cageGeo = new THREE.OctahedronGeometry(0.35, 0);
-var cageMat = new THREE.MeshStandardMaterial({
-  color:0xcc8822, roughness:0.3, metalness:0.7,
-  wireframe: false
-});
-var cage = new THREE.Mesh(cageGeo, cageMat);
-lanternGroup.add(cage);
-// Wire edges
-var cageWire = new THREE.Mesh(cageGeo, new THREE.MeshBasicMaterial({
-  color:0xffaa44, wireframe:true
-}));
-lanternGroup.add(cageWire);
-// Inner flame glow sphere
-var flameMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(0.18, 8, 8),
-  new THREE.MeshBasicMaterial({color:0xffdd66})
-);
-lanternGroup.add(flameMesh);
-
-lanternGroup.position.set(0.3, 4.9, 0);
-boat.add(lanternGroup);
-
-// Move lanternLight to follow lantern
-lanternLight.position.set(0.3, 4.9, 0);
-boat.add(lanternLight);
-
-// ── OAR ───────────────────────────────────────────────────────
-var oarGroup = new THREE.Group();
-// Shaft
-var oarShaft = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.05, 0.05, 5, 6),
-  new THREE.MeshStandardMaterial({color:0x4a2008, roughness:0.7})
-);
-oarShaft.position.y = -2.5;
-oarGroup.add(oarShaft);
-// Blade
-var bladeMesh = new THREE.Mesh(
-  new THREE.BoxGeometry(0.12, 1.2, 0.04),
-  new THREE.MeshStandardMaterial({color:0x5c2c0e, roughness:0.8})
-);
-bladeMesh.position.y = -5.2;
-oarGroup.add(bladeMesh);
-oarGroup.position.set(-1.2, 0.5, 1.8);
-oarGroup.rotation.z = -0.3;
-oarGroup.rotation.x = 0.4;
-oarGroup.castShadow = true;
-boat.add(oarGroup);
-
-// ── BOATMAN FIGURE ────────────────────────────────────────────
-var figGroup = new THREE.Group();
-
-// Robe / body
-var bodyMesh = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.22, 0.35, 1.1, 8),
-  new THREE.MeshStandardMaterial({color:0x0a1a0e, roughness:0.9})
-);
-bodyMesh.position.y = 0.55;
-figGroup.add(bodyMesh);
-
-// Head
-var headMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(0.28, 12, 12),
-  new THREE.MeshStandardMaterial({color:0xc89060, roughness:0.7})
-);
-headMesh.position.y = 1.35;
-figGroup.add(headMesh);
-
-// Turban
-var turbanMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(0.32, 8, 6, 0, Math.PI*2, 0, Math.PI/2),
-  new THREE.MeshStandardMaterial({color:0x1a2a1e, roughness:0.85})
-);
-turbanMesh.position.y = 1.4;
-figGroup.add(turbanMesh);
-
-// Arms
-var armGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.8, 6);
-var armMat = new THREE.MeshStandardMaterial({color:0x0a1a0e, roughness:0.9});
-var leftArm = new THREE.Mesh(armGeo, armMat);
-leftArm.position.set(-0.45, 0.9, 0);
-leftArm.rotation.z = 0.6;
-figGroup.add(leftArm);
-var rightArm = new THREE.Mesh(armGeo, armMat);
-rightArm.position.set(0.45, 0.9, 0.3);
-rightArm.rotation.z = -0.4;
-rightArm.rotation.x = 0.5;
-figGroup.add(rightArm);
-
-// Eyes glow
-var eyeGeo = new THREE.SphereGeometry(0.04, 6, 6);
-var eyeMat = new THREE.MeshBasicMaterial({color:0x88ffcc});
-var leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-leftEye.position.set(-0.1, 1.38, 0.24);
-figGroup.add(leftEye);
-var rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-rightEye.position.set(0.1, 1.38, 0.24);
-figGroup.add(rightEye);
-
-figGroup.position.set(0.4, 0.3, -0.5);
-figGroup.castShadow = true;
-boat.add(figGroup);
-
-// ── PLACE BOAT ────────────────────────────────────────────────
-boat.position.set(0, 0.1, 0);
-boat.castShadow = true;
-scene.add(boat);
-
-// ── MOON REFLECTION (plane on water) ─────────────────────────
-var reflGeo = new THREE.PlaneGeometry(0.8, 12);
-var reflMat = new THREE.MeshBasicMaterial({
-  color:0x88ffcc, transparent:true, opacity:0.12
-});
-var reflMesh = new THREE.Mesh(reflGeo, reflMat);
-reflMesh.rotation.x = -Math.PI/2;
-reflMesh.position.set(18, 0.02, -5);
-scene.add(reflMesh);
-
-// ── FIREFLIES (point sprites) ─────────────────────────────────
-var ffGeo = new THREE.BufferGeometry();
-var ffPos = [];
-for(var i=0;i<30;i++){
-  ffPos.push(
-    (Math.random()-0.5)*30,
-    0.5+Math.random()*3,
-    -5-Math.random()*15
-  );
-}
-ffGeo.setAttribute('position', new THREE.Float32BufferAttribute(ffPos,3));
-var ffMat = new THREE.PointsMaterial({
-  color:0x88ffaa, size:0.2, sizeAttenuation:true,
-  transparent:true, opacity:0.8
-});
-scene.add(new THREE.Points(ffGeo, ffMat));
-
-// ── WAKE PARTICLES ────────────────────────────────────────────
-var wakeGeo = new THREE.BufferGeometry();
-var wakePos = [];
-for(var i=0;i<60;i++){
-  wakePos.push(
-    (Math.random()-0.5)*6 - 2,
-    0.05,
-    1+Math.random()*5
-  );
-}
-wakeGeo.setAttribute('position', new THREE.Float32BufferAttribute(wakePos,3));
-var wakeMat = new THREE.PointsMaterial({
-  color:0x44ffaa, size:0.08, transparent:true, opacity:0.5
-});
-scene.add(new THREE.Points(wakeGeo, wakeMat));
-
-// ── ANIMATE ───────────────────────────────────────────────────
-var clock = new THREE.Clock();
-var wakeOrigPos = wakeGeo.attributes.position.array.slice();
-var ffOrigPos   = ffGeo.attributes.position.array.slice();
-var starOrigPos = starGeo.attributes.position.array.slice();
-
-function animate(){
-  requestAnimationFrame(animate);
-  var t = clock.getElapsedTime();
-
-  // Gentle camera drift
-  camera.position.x = Math.sin(t*0.08)*0.8;
-  camera.position.y = 4.5 + Math.sin(t*0.12)*0.2;
-  camera.lookAt(0, 0.5, 0);
-
-  // Boat bob + rock
-  boat.position.y = 0.1 + Math.sin(t*0.9)*0.08;
-  boat.rotation.z = Math.sin(t*0.7)*0.025;
-  boat.rotation.x = Math.sin(t*0.5)*0.015;
-
-  // Lantern glow flicker
-  var flicker = 0.7 + 0.3*Math.sin(t*8.3)+0.15*Math.sin(t*13.7);
-  lanternLight.intensity = 2.2*flicker;
-  flameMesh.material.color.setRGB(1, 0.82+Math.sin(t*11)*0.1, 0.3+Math.sin(t*7)*0.1);
-  lanternGroup.rotation.y = t*0.4;
-
-  // Oar rowing motion
-  oarGroup.rotation.x = 0.4 + Math.sin(t*1.2)*0.4;
-  oarGroup.rotation.z = -0.3 + Math.sin(t*1.2+1)*0.15;
-
-  // Right arm rowing
-  rightArm.rotation.x = 0.5+Math.sin(t*1.2)*0.5;
-  rightArm.rotation.z = -0.4+Math.sin(t*1.2+0.5)*0.2;
-
-  // Stars twinkle (opacity pulse via scale)
-  starMat.opacity = 0.7 + 0.3*Math.sin(t*2.1);
-
-  // Water vertex animation
-  var wpa = waterGeo.attributes.position;
-  for(var i=0;i<wpa.count;i++){
-    var ox = wPosOrig[i*2], oy = wPosOrig[i*2+1];
-    var dist = Math.sqrt(ox*ox+oy*oy);
-    wpa.setZ(i,
-      Math.sin(ox*0.4+t*1.1)*0.18 +
-      Math.sin(oy*0.3+t*0.8)*0.14 +
-      Math.sin(dist*0.25-t*1.5)*0.10
-    );
+  var t=0;
+  function animate(){
+    requestAnimationFrame(animate);
+    t+=0.016;
+    human.rotation.y = Math.sin(t*0.4)*0.5;
+    // Breathing
+    human.scale.y = 1+Math.sin(t*1.5)*0.015;
+    // Bob
+    human.position.y = Math.sin(t*0.8)*0.06;
+    // Arm sway
+    lArm.rotation.z = 0.3+Math.sin(t*1.5)*0.15;
+    rArm.rotation.z = -0.3-Math.sin(t*1.5)*0.15;
+    // Ring orbit
+    ring.rotation.z = t*0.7;
+    ring.rotation.x = Math.PI/2 + Math.sin(t*0.3)*0.2;
+    // Particles drift up
+    var pos = particles.geometry.attributes.position.array;
+    for(var i=0;i<partCount;i++){
+      pos[i*3+1]+=0.005;
+      if(pos[i*3+1]>6){ pos[i*3+1]=0; }
+    }
+    particles.geometry.attributes.position.needsUpdate=true;
+    // Pulse lights
+    pLight.intensity = 2.5+Math.sin(t*2)*0.5;
+    pLight2.intensity = 1.5+Math.cos(t*1.7)*0.5;
+    renderer.render(scene,camera);
   }
-  wpa.needsUpdate = true;
-  waterGeo.computeVertexNormals();
-
-  // Wake drift
-  var wkp = wakeGeo.attributes.position;
-  for(var i=0;i<wkp.count;i++){
-    var oz = wakeOrigPos[i*3+2];
-    wkp.setZ(i, oz + t*0.3 % 6);
-    wkp.setY(i, 0.05 + Math.sin(t*3+i)*0.03);
-  }
-  wkp.needsUpdate = true;
-  wakeMat.opacity = 0.3+0.2*Math.sin(t*2);
-
-  // Fireflies flutter
-  var ffp = ffGeo.attributes.position;
-  for(var i=0;i<ffp.count;i++){
-    var ox2 = ffOrigPos[i*3], oy2 = ffOrigPos[i*3+1], oz2 = ffOrigPos[i*3+2];
-    ffp.setX(i, ox2 + Math.sin(t*0.9+i*2.3)*0.8);
-    ffp.setY(i, oy2 + Math.sin(t*1.1+i*1.7)*0.4);
-  }
-  ffp.needsUpdate = true;
-  ffMat.opacity = 0.4+0.4*Math.abs(Math.sin(t*1.5));
-
-  // Moon reflection shimmer
-  reflMesh.material.opacity = 0.08+0.06*Math.sin(t*1.8);
-  reflMesh.scale.x = 1+0.3*Math.sin(t*2.2);
-
-  renderer.render(scene, camera);
-}
-animate();
+  animate();
 })();
 </script>
 </body>
-</html>""", height=500, scrolling=False)
+</html>""", height=520, scrolling=False)
 
     col1, col2, col3 = st.columns([1, 1.8, 1])
     with col2:
-        entered = st.text_input("passcode", type="password", placeholder="· · · · · · · ·", label_visibility="collapsed", key="passcode_input")
-        submit = st.button("⚡ UNLOCK & ENTER ⚡", use_container_width=True)
-        if submit:
-            if entered == _SITE_PASSCODE:
-                st.session_state["passcode_verified"] = True
-                st.rerun()
-            else:
-                st.error("⚠️ Invalid access key. Please try again.")
+        if st.button("⚡ ENTER FREE — NO PASSWORD ⚡", use_container_width=True):
+            st.session_state["passcode_verified"] = True
+            st.rerun()
 
         # ── Google OAuth — secondary login option ──────────────────
         render_google_login_button()
