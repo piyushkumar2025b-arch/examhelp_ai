@@ -28,6 +28,12 @@ def render_youtube_player():
 </div>
 """, unsafe_allow_html=True)
 
+    # If a category button was clicked last run, pre-fill the input via a pending key
+    # (Streamlit forbids writing to a widget-bound key after the widget is rendered,
+    #  so we stage the value in "_yt_query_pending" and apply it before the widget.)
+    if st.session_state.get("_yt_query_pending"):
+        st.session_state["yt_query"] = st.session_state.pop("_yt_query_pending")
+
     # Search bar
     col_q, col_btn = st.columns([4, 1])
     with col_q:
@@ -43,11 +49,12 @@ def render_youtube_player():
     for i, cat in enumerate(cats):
         with cat_cols[i]:
             if st.button(cat, key=f"yt_cat_{i}", use_container_width=True):
-                st.session_state["yt_query"] = cat.split(" ", 1)[1]
-                search_clicked = True
+                # Stage in a non-widget key; the widget will pick it up on rerun
+                st.session_state["_yt_query_pending"] = cat.split(" ", 1)[1]
+                st.rerun()
 
     # Perform search
-    search_term = st.session_state.get("yt_query", "") or query
+    search_term = query
     if (search_clicked or st.session_state.get("yt_last_query") != search_term) and search_term.strip():
         st.session_state["yt_last_query"] = search_term
         with st.spinner(f"Searching YouTube for '{search_term}'…"):
