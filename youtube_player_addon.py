@@ -112,10 +112,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 <body>
 
 <div class="topbar">
-  <div class="logo">&#9654; YTPlayer<span>YOUTUBE INSIDE YOUR APP</span></div>
+  <div class="logo">> YTPlayer<span>YOUTUBE INSIDE YOUR APP</span></div>
   <div class="search-bar">
     <input class="si" id="q" placeholder="Search any song, artist, album, video..." onkeydown="if(event.key==='Enter')doSearch()">
-    <button class="btn" onclick="doSearch()">&#128269; Search</button>
+    <button class="btn" onclick="doSearch()">Search Search</button>
   </div>
 </div>
 
@@ -133,7 +133,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
       <div class="sec-label" style="margin-bottom:10px">Player</div>
       <div class="video-container" id="video-container">
         <div class="video-ph" id="video-ph">
-          <div class="big-icon">&#9654;</div>
+          <div class="big-icon">></div>
           <div class="ph-text">YOUTUBE PLAYER</div>
           <div class="ph-hint">SEARCH ABOVE OR PICK A CATEGORY TO START</div>
         </div>
@@ -146,7 +146,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
         <div class="np-title" id="np-title">-</div>
         <div class="np-channel" id="np-channel">-</div>
       </div>
-      <div class="np-badge">&#9654; PLAYING</div>
+      <div class="np-badge">> PLAYING</div>
     </div>
 
     <div class="viz" id="viz"></div>
@@ -156,11 +156,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
       <div class="controls" style="margin-bottom:10px">
         <button class="btn btn-sm btn-o" onclick="seek(-10)">&#171; 10s</button>
         <button class="btn btn-sm btn-o" onclick="seek(10)">10s &#187;</button>
-        <button class="btn btn-sm btn-o" id="mute-btn" onclick="toggleMute()">&#128266;</button>
-        <button class="btn btn-sm btn-o" onclick="playPrev()">&#9198; Prev</button>
-        <button class="btn btn-sm btn-o" onclick="playNext()">Next &#9197;</button>
-        <button class="btn btn-sm btn-o" id="shuffle-btn" onclick="toggleShuffle()">&#128256; Shuffle OFF</button>
-        <button class="btn btn-sm btn-o" id="repeat-btn" onclick="toggleRepeat()">&#128257; Repeat OFF</button>
+        <button class="btn btn-sm btn-o" id="mute-btn" onclick="toggleMute()">(vol)</button>
+        <button class="btn btn-sm btn-o" onclick="playPrev()">|< Prev</button>
+        <button class="btn btn-sm btn-o" onclick="playNext()">Next >|</button>
+        <button class="btn btn-sm btn-o" id="shuffle-btn" onclick="toggleShuffle()">(shuf) Shuffle OFF</button>
+        <button class="btn btn-sm btn-o" id="repeat-btn" onclick="toggleRepeat()">(rep) Repeat OFF</button>
       </div>
       <div class="sliders-row">
         <div class="slider-group">
@@ -198,7 +198,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
           <div class="sec-label">Up Next</div>
           <button class="btn btn-xs btn-o" onclick="clearQueue()" id="clear-q-btn" style="display:none">Clear All</button>
         </div>
-        <div class="q-empty" id="q-empty"><span class="big">&#9835;</span>QUEUE IS EMPTY<br><span style="opacity:.4">Hit +Q on any result</span></div>
+        <div class="q-empty" id="q-empty"><span class="big">(note)</span>QUEUE IS EMPTY<br><span style="opacity:.4">Hit +Q on any result</span></div>
         <div id="q-list"></div>
       </div>
       <div class="rtab-pane" id="tab-history">
@@ -206,7 +206,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
           <div class="sec-label">History</div>
           <button class="btn btn-xs btn-o" onclick="clearHistory()">Clear</button>
         </div>
-        <div class="q-empty" id="h-empty"><span class="big">&#128336;</span>NO HISTORY YET</div>
+        <div class="q-empty" id="h-empty"><span class="big">(time)</span>NO HISTORY YET</div>
         <div id="h-list"></div>
       </div>
     </div>
@@ -253,8 +253,8 @@ function seek(sec){var f=document.getElementById('yt-iframe');if(!f)return;f.con
 function toggleMute(){_mute=!_mute;document.getElementById('mute-btn').textContent=_mute?'(muted)':'(sound)'}
 function setVol(v){document.getElementById('vol-val').textContent=v+'%'}
 function setSpd(v){document.getElementById('spd-val').textContent=(parseInt(v)/100).toFixed(2)+'x'}
-function toggleShuffle(){shuffleOn=!shuffleOn;var b=document.getElementById('shuffle-btn');b.textContent='(shuffle) Shuffle '+(shuffleOn?'ON':'OFF');b.style.color=shuffleOn?'var(--acc)':''}
-function toggleRepeat(){repeatOn=!repeatOn;var b=document.getElementById('repeat-btn');b.textContent='(repeat) Repeat '+(repeatOn?'ON':'OFF');b.style.color=repeatOn?'var(--acc)':''}
+function toggleShuffle(){shuffleOn=!shuffleOn;var b=document.getElementById('shuffle-btn');b.textContent='Shuffle '+(shuffleOn?'ON':'OFF');b.style.color=shuffleOn?'var(--acc)':''}
+function toggleRepeat(){repeatOn=!repeatOn;var b=document.getElementById('repeat-btn');b.textContent='Repeat '+(repeatOn?'ON':'OFF');b.style.color=repeatOn?'var(--acc)':''}
 
 function playNext(){if(!queue.length)return;var i=cur?queue.findIndex(function(x){return x.id===cur.id}):-1;if(shuffleOn){i=Math.floor(Math.random()*queue.length)}else{i=repeatOn?i:i+1;if(i>=queue.length)i=0}playVideo(queue[i])}
 function playPrev(){if(!queue.length)return;var i=cur?queue.findIndex(function(x){return x.id===cur.id}):1;i=(i-1+queue.length)%queue.length;playVideo(queue[i])}
@@ -294,7 +294,7 @@ function renderResults(){
   results.forEach(function(v,i){
     var card=document.createElement('div');card.className='video-card';
     var views=v.views?' &middot; '+fmtV(v.views)+' views':'';
-    card.innerHTML='<div class="vc-thumb-wrap"><img class="vc-thumb" src="'+v.thumb+'" alt="" loading="lazy" onerror="this.style.background=\'#22222e\'">'+(v.duration?'<div class="vc-dur">'+v.duration+'</div>':'')+'</div><div class="vc-body"><div class="vc-title" title="'+v.title+'">'+v.title+'</div><div class="vc-meta">'+v.channel+views+'</div></div><div class="vc-actions"><button class="btn btn-xs" style="flex:1" onclick="playAndQueue(results['+i+'])">&#9654; Play</button><button class="btn btn-xs btn-o" onclick="addToQueue(results['+i+'],this)">+Q</button></div>';
+    card.innerHTML='<div class="vc-thumb-wrap"><img class="vc-thumb" src="'+v.thumb+'" alt="" loading="lazy" onerror="this.style.background=\'#22222e\'">'+(v.duration?'<div class="vc-dur">'+v.duration+'</div>':'')+'</div><div class="vc-body"><div class="vc-title" title="'+v.title+'">'+v.title+'</div><div class="vc-meta">'+v.channel+views+'</div></div><div class="vc-actions"><button class="btn btn-xs" style="flex:1" onclick="playAndQueue(results['+i+'])">> Play</button><button class="btn btn-xs btn-o" onclick="addToQueue(results['+i+'],this)">+Q</button></div>';
     g.appendChild(card);
   });
   document.getElementById('load-more-wrap').style.display='block';
@@ -313,7 +313,7 @@ function renderQueue(){
   queue.forEach(function(v,i){
     var isNow=cur&&cur.id===v.id;
     var item=document.createElement('div');item.className='q-item'+(isNow?' now-playing':'');
-    item.innerHTML='<img class="q-thumb" src="'+v.thumb+'" alt=""><div class="q-info"><div class="q-title">'+(isNow?'&#9654; ':'')+v.title+'</div><div class="q-meta">'+v.channel+(v.duration?' &middot; '+v.duration:'')+'</div></div><button class="q-remove" onclick="removeFromQueue('+i+')">x</button>';
+    item.innerHTML='<img class="q-thumb" src="'+v.thumb+'" alt=""><div class="q-info"><div class="q-title">'+(isNow?'> ':'')+v.title+'</div><div class="q-meta">'+v.channel+(v.duration?' &middot; '+v.duration:'')+'</div></div><button class="q-remove" onclick="removeFromQueue('+i+')">x</button>';
     item.querySelector('.q-thumb').onclick=item.querySelector('.q-info').onclick=function(){playVideo(v)};
     list.appendChild(item);
   });
