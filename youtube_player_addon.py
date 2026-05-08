@@ -1,5 +1,5 @@
 """
-youtube_player_addon.py — Full YouTube Music Player (EXPANDED)
+youtube_player_addon.py - Full YouTube Music Player (EXPANDED)
 - Real YouTube video embedded full-size, plays directly inside the app
 - Search via Invidious API (multi-instance fallback, no API key)
 - Queue, History, Categories, Volume, Speed controls
@@ -235,7 +235,7 @@ function playVideo(v){
   document.getElementById('np-bar').style.display='flex';
   document.getElementById('np-thumb').src=v.thumb;
   document.getElementById('np-title').textContent=v.title;
-  document.getElementById('np-channel').textContent=v.channel+(v.duration?'  \u00b7  '+v.duration:'');
+  document.getElementById('np-channel').textContent=v.channel+(v.duration?'  &middot;  '+v.duration:'');
   var container=document.getElementById('video-container');
   container.innerHTML='';
   var iframe=document.createElement('iframe');
@@ -250,11 +250,11 @@ function playVideo(v){
 }
 
 function seek(sec){var f=document.getElementById('yt-iframe');if(!f)return;f.contentWindow.postMessage(JSON.stringify({event:'command',func:sec>0?'fastForward':'rewind',args:[Math.abs(sec)]},'*'))}
-function toggleMute(){_mute=!_mute;document.getElementById('mute-btn').textContent=_mute?'\uD83D\uDD07':'\uD83D\uDD0A'}
+function toggleMute(){_mute=!_mute;document.getElementById('mute-btn').textContent=_mute?'(muted)':'(sound)'}
 function setVol(v){document.getElementById('vol-val').textContent=v+'%'}
 function setSpd(v){document.getElementById('spd-val').textContent=(parseInt(v)/100).toFixed(2)+'x'}
-function toggleShuffle(){shuffleOn=!shuffleOn;var b=document.getElementById('shuffle-btn');b.textContent='\uD83D\uDD00 Shuffle '+(shuffleOn?'ON':'OFF');b.style.color=shuffleOn?'var(--acc)':''}
-function toggleRepeat(){repeatOn=!repeatOn;var b=document.getElementById('repeat-btn');b.textContent='\uD83D\uDD01 Repeat '+(repeatOn?'ON':'OFF');b.style.color=repeatOn?'var(--acc)':''}
+function toggleShuffle(){shuffleOn=!shuffleOn;var b=document.getElementById('shuffle-btn');b.textContent='(shuffle) Shuffle '+(shuffleOn?'ON':'OFF');b.style.color=shuffleOn?'var(--acc)':''}
+function toggleRepeat(){repeatOn=!repeatOn;var b=document.getElementById('repeat-btn');b.textContent='(repeat) Repeat '+(repeatOn?'ON':'OFF');b.style.color=repeatOn?'var(--acc)':''}
 
 function playNext(){if(!queue.length)return;var i=cur?queue.findIndex(function(x){return x.id===cur.id}):-1;if(shuffleOn){i=Math.floor(Math.random()*queue.length)}else{i=repeatOn?i:i+1;if(i>=queue.length)i=0}playVideo(queue[i])}
 function playPrev(){if(!queue.length)return;var i=cur?queue.findIndex(function(x){return x.id===cur.id}):1;i=(i-1+queue.length)%queue.length;playVideo(queue[i])}
@@ -293,7 +293,7 @@ function renderResults(){
   var g=document.getElementById('results-grid');g.innerHTML='';
   results.forEach(function(v,i){
     var card=document.createElement('div');card.className='video-card';
-    var views=v.views?' \u00b7 '+fmtV(v.views)+' views':'';
+    var views=v.views?' &middot; '+fmtV(v.views)+' views':'';
     card.innerHTML='<div class="vc-thumb-wrap"><img class="vc-thumb" src="'+v.thumb+'" alt="" loading="lazy" onerror="this.style.background=\'#22222e\'">'+(v.duration?'<div class="vc-dur">'+v.duration+'</div>':'')+'</div><div class="vc-body"><div class="vc-title" title="'+v.title+'">'+v.title+'</div><div class="vc-meta">'+v.channel+views+'</div></div><div class="vc-actions"><button class="btn btn-xs" style="flex:1" onclick="playAndQueue(results['+i+'])">&#9654; Play</button><button class="btn btn-xs btn-o" onclick="addToQueue(results['+i+'],this)">+Q</button></div>';
     g.appendChild(card);
   });
@@ -313,7 +313,7 @@ function renderQueue(){
   queue.forEach(function(v,i){
     var isNow=cur&&cur.id===v.id;
     var item=document.createElement('div');item.className='q-item'+(isNow?' now-playing':'');
-    item.innerHTML='<img class="q-thumb" src="'+v.thumb+'" alt=""><div class="q-info"><div class="q-title">'+(isNow?'\u25b6 ':'')+v.title+'</div><div class="q-meta">'+v.channel+(v.duration?' \u00b7 '+v.duration:'')+'</div></div><button class="q-remove" onclick="removeFromQueue('+i+')">x</button>';
+    item.innerHTML='<img class="q-thumb" src="'+v.thumb+'" alt=""><div class="q-info"><div class="q-title">'+(isNow?'&#9654; ':'')+v.title+'</div><div class="q-meta">'+v.channel+(v.duration?' &middot; '+v.duration:'')+'</div></div><button class="q-remove" onclick="removeFromQueue('+i+')">x</button>';
     item.querySelector('.q-thumb').onclick=item.querySelector('.q-info').onclick=function(){playVideo(v)};
     list.appendChild(item);
   });
@@ -326,7 +326,7 @@ function renderHistory(){
   list.innerHTML='';
   history.forEach(function(v){
     var item=document.createElement('div');item.className='h-item';
-    item.innerHTML='<img class="h-thumb" src="'+v.thumb+'" alt=""><div class="h-info"><div class="h-title">'+v.title+'</div><div class="h-meta">'+v.channel+(v.duration?' \u00b7 '+v.duration:'')+'</div></div>';
+    item.innerHTML='<img class="h-thumb" src="'+v.thumb+'" alt=""><div class="h-info"><div class="h-title">'+v.title+'</div><div class="h-meta">'+v.channel+(v.duration?' &middot; '+v.duration:'')+'</div></div>';
     item.onclick=function(){playVideo(v)};
     list.appendChild(item);
   });
