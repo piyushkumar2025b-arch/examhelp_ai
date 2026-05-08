@@ -67,7 +67,7 @@ def generate_essay(
     tone: str = "Academic",
     audience: str = "",
 ) -> str:
-    from utils.debugger_engine import _call_gemini_debug
+    from utils.ai_engine import generate as _call_gemini_debug  # Bug #32: bypass debugger_engine
     prompt = f"""TASK: Write a complete, polished {essay_type}
 
 TOPIC: {topic}
@@ -95,7 +95,7 @@ Write the complete essay now:"""
 
 
 def generate_outline(topic: str, essay_type: str, word_count: int = 800, academic_level: str = "Undergraduate") -> str:
-    from utils.debugger_engine import _call_gemini_debug
+    from utils.ai_engine import generate as _call_gemini_debug  # Bug #32: bypass debugger_engine
     prompt = f"""Create a comprehensive, strategic essay outline:
 
 ESSAY TYPE: {essay_type}
@@ -117,7 +117,7 @@ Provide:
 
 
 def improve_essay(original: str, instruction: str) -> str:
-    from utils.debugger_engine import _call_gemini_debug
+    from utils.ai_engine import generate as _call_gemini_debug  # Bug #32: bypass debugger_engine
     prompt = f"""ORIGINAL ESSAY:
 {original[:7000]}
 
@@ -130,7 +130,7 @@ Return the full improved version."""
 
 
 def score_essay(essay_text: str) -> str:
-    from utils.debugger_engine import _call_gemini_debug
+    from utils.ai_engine import generate as _call_gemini_debug  # Bug #32: bypass debugger_engine
     prompt = f"""Evaluate this essay across 6 dimensions. Be specific and actionable.
 
 ESSAY:

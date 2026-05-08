@@ -26,6 +26,9 @@ Thumbs.db
 
 # ── App data ──
 sessions.json
+streak_data.json
+*.session.json
+models_out.txt
 *.log
 .gemini/
 node_modules/
@@ -37,3 +40,8 @@ node_modules/
 .streamlit/secrets.toml
 __pycache__/
 *.pyc
+
+# Auto-generated / temp files
+temp.txt
+temp2.txt
+check_out.txt

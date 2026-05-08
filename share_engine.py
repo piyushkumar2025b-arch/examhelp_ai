@@ -35,6 +35,7 @@ def upload_to_catbox(data: bytes, filename: str = "file.txt",
 
 
 def upload_to_litterbox(data: bytes, filename: str = "file.txt",
+    # Bug #58: Litterbox links are TEMPORARY — expire in 1h/12h/24h/72h
                         mime: str = "text/plain") -> Optional[str]:
     """Upload to litterbox.catbox.moe — free temp hosting (72h)."""
     try:

@@ -1,5 +1,11 @@
-import numpy as np
-import plotly.graph_objects as go
+try:
+    import numpy as np
+    import plotly.graph_objects as go
+    _HAS_GRAPH_DEPS = True
+except ImportError:
+    np = None
+    go = None
+    _HAS_GRAPH_DEPS = False
 
 try:
     from sympy import sympify, symbols, lambdify, diff
@@ -17,6 +23,8 @@ def _safe_lambdify(expr_str, var_symbols):
         return None, str(e)
 
 def plot_2d_graph(functions, x_min=-10, x_max=10, points=1000, theme="dark", show_derivative=False, shade_area=False):
+    if not _HAS_GRAPH_DEPS:
+        return None, ["Graph dependencies (numpy/plotly) not installed."]
     x_vals = np.linspace(x_min, x_max, points)
     fig = go.Figure()
     x_sym = symbols('x')
@@ -76,6 +84,8 @@ def plot_2d_graph(functions, x_min=-10, x_max=10, points=1000, theme="dark", sho
     return fig, errors
 
 def plot_3d_graph(function_str, x_min=-5, x_max=5, y_min=-5, y_max=5, resolution=50, theme="dark"):
+    if not _HAS_GRAPH_DEPS:
+        return None, ["Graph dependencies (numpy/plotly) not installed."]
     x_sym, y_sym = symbols('x y')
     expr, fun = _safe_lambdify(function_str, (x_sym, y_sym))
     if fun is None:
@@ -161,6 +171,8 @@ def generate_advanced_chart(data, chart_type="bar", title="Advanced Data Chart",
     Generates extraordinary data charts: bar, line, pie, donut, scatter, 3d_scatter, radar, heatmap, area, box.
     Expects data as a dict: {"labels": [...], "values": [...], "values2": [...]} optionally.
     """
+    if not _HAS_GRAPH_DEPS:
+        return None, ["Graph dependencies (numpy/plotly) not installed."]
     import pandas as pd
     import plotly.express as px
 
@@ -406,6 +418,8 @@ def generate_advanced_chart(data, chart_type="bar", title="Advanced Data Chart",
 
 def plot_polar_graph(function_str, theta_min=0, theta_max=12.566, points=2000, theme="dark"):
     """Plot beautiful mathematical polar roses and spirals (r = f(theta))."""
+    if not _HAS_GRAPH_DEPS:
+        return None, ["Graph dependencies (numpy/plotly) not installed."]
     try:
         from sympy import symbols
         theta_sym = symbols('theta')
@@ -436,6 +450,8 @@ def plot_polar_graph(function_str, theta_min=0, theta_max=12.566, points=2000, t
 
 def plot_parametric_3d(x_function, y_function, z_function, t_min=0, t_max=31.415, points=2000, theme="dark"):
     """Plot extraordinary 3D Parametric curves (x(t), y(t), z(t)) like DNA helices and orbital mechanics."""
+    if not _HAS_GRAPH_DEPS:
+        return None, ["Graph dependencies (numpy/plotly) not installed."]
     try:
         from sympy import symbols
         t_sym = symbols('t')

@@ -88,7 +88,7 @@ class AppController:
             return f"Web search failed: {e}"
 
     @staticmethod
-    def generate_flashcards(text: str, lang: str, api_key: str):
+    def generate_flashcards(text: str, lang: str):
         prompt = [
             {"role": "system", "content": (
                 f"You are a master educator. Create 10 expert Q&A flashcards from the study material. "
@@ -98,10 +98,10 @@ class AppController:
             )},
             {"role": "user", "content": f"Study Material: {text[:12000]}"}
         ]
-        return AppController._fetch_json(prompt, api_key)
+        return AppController._fetch_json(prompt)
 
     @staticmethod
-    def generate_quiz(text: str, lang: str, api_key: str):
+    def generate_quiz(text: str, lang: str):
         prompt = [
             {"role": "system", "content": (
                 f"Create 5 challenging MCQs from the provided text. Return ONLY strict JSON. No preamble. "
@@ -110,11 +110,10 @@ class AppController:
             )},
             {"role": "user", "content": f"Context: {text[:12000]}"}
         ]
-        return AppController._fetch_json(prompt, api_key)
+        return AppController._fetch_json(prompt)
 
     @staticmethod
-    def _fetch_json(prompt: list, api_key: str):
-# [REMOVED — integration/key stripped]         from utils import key_manager
+    def _fetch_json(prompt: list):
         # Only retry 3 times for JSON parse failures.
         # chat_with_groq already handles key rotation internally.
         for _ in range(3):
@@ -189,7 +188,7 @@ class AppController:
             )},
             {"role": "user", "content": f"Study Material: {text[:12000]}"}
         ]
-        raw = AppController._fetch_json(prompt, api_key)
+        raw = AppController._fetch_json(prompt)
         if not raw:
             return []
         today = dt.date.today()

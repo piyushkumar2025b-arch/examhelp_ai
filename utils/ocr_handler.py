@@ -8,19 +8,20 @@ from __future__ import annotations
 import io
 import base64
 
-try:
-    import pytesseract
-    from PIL import Image
-    _HAS_TESSERACT = True
-except ImportError:
-    pytesseract = None
-    _HAS_TESSERACT = False
-
+# Bug #39: consolidated PIL imports — avoid importing twice under different names
 try:
     from PIL import Image as PILImage
     _HAS_PIL = True
 except ImportError:
     PILImage = None
+    _HAS_PIL = False
+
+try:
+    import pytesseract
+    _HAS_TESSERACT = _HAS_PIL  # pytesseract requires PIL to function
+except ImportError:
+    pytesseract = None
+    _HAS_TESSERACT = False
     _HAS_PIL = False
 
 
@@ -32,7 +33,7 @@ def extract_text_from_image(img_bytes: bytes) -> str:
     if not _HAS_PIL:
         return "Error: Pillow not installed. Run: pip install pillow"
 
-    ImageMod = PILImage if PILImage else Image
+    ImageMod = PILImage
 
     try:
         image = ImageMod.open(io.BytesIO(img_bytes))
@@ -58,7 +59,7 @@ def extract_text_from_image(img_bytes: bytes) -> str:
 
 def get_image_info(img_bytes: bytes) -> dict:
     """Returns basic metadata about the image."""
-    ImageMod = PILImage if PILImage else Image
+    ImageMod = PILImage
     if not ImageMod:
         return {}
     try:

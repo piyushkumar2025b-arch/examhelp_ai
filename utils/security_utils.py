@@ -198,5 +198,5 @@ def rate_limit(calls_per_minute: int = 10):
 
 # ── Content Hashing (Cache keys) ─────────────────────────────────────────────
 def content_fingerprint(text: str) -> str:
-    """Generate a stable MD5 fingerprint for cache key purposes."""
-    return hashlib.md5(text.encode("utf-8", errors="replace")).hexdigest()
+    """Generate a stable SHA-256 fingerprint for cache key purposes."""
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()[:32]

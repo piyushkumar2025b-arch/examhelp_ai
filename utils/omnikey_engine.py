@@ -20,12 +20,15 @@ Public interface is unchanged:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import ssl
 import sys
 import threading
 import time
+
+_log = logging.getLogger("omnikey")
 import urllib.error
 import urllib.request
 from typing import Any, Dict, Iterator, List, Optional, Tuple
@@ -162,6 +165,7 @@ class OmniKeyEngine:
         self._total_429     = 0
         self._total_tok_in  = 0
         self._total_tok_out = 0
+        self._call_times: list = []  # Bug #29: RPM tracking
         self._ready = True
 
     def _get_key(self) -> str:
@@ -191,7 +195,17 @@ class OmniKeyEngine:
     ) -> str:
         key = self._get_key()
 
+        # Bug #29: RPM token-bucket rate limiter
         with self._lock:
+            now = time.time()
+            self._call_times = [t for t in self._call_times if now - t < 60]
+            if len(self._call_times) >= RPM_SAFE_LIMIT:
+                wait = int(60 - (now - self._call_times[0])) + 1
+                raise RuntimeError(
+                    f"Rate limit: please wait {wait}s before sending again "
+                    f"(free tier limit: {RPM_SAFE_LIMIT} requests/minute)."
+                )
+            self._call_times.append(now)
             self._total_calls += 1
 
         try:
@@ -209,10 +223,7 @@ class OmniKeyEngine:
                 self._total_success += 1
                 self._total_tok_in  += tok_in
                 self._total_tok_out += tok_out
-            print(
-                f"[OmniKey v6] success (model={model}, in={tok_in}, out={tok_out})",
-                file=sys.stderr,
-            )
+            _log.debug("[OmniKey v6] success model=%s in=%d out=%d", model, tok_in, tok_out)
             return text
 
         except RuntimeError as e:
@@ -309,7 +320,7 @@ class OmniKeyEngine:
 
     def reset_all_cooldowns(self) -> None:
         """No-op in single-key mode."""
-        print("[OmniKey v6] reset_all_cooldowns called (no-op in single-key mode).", file=sys.stderr)
+        _log.debug("[OmniKey v6] reset_all_cooldowns called (no-op in single-key mode).")
 
     @property
     def slots(self):

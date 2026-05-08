@@ -147,7 +147,6 @@ def _call_gemini_debug(
         if key:
             result = _gemini_request(key, prompt, system, FALLBACK_MODEL)
             if result:
-                gkm.mark_used(key)
                 return result
     except Exception:
         pass
@@ -155,7 +154,7 @@ def _call_gemini_debug(
     # Final fallback: unified AI engine (routes to any available key)
     try:
         from utils.ai_engine import generate
-        return generate(prompt=prompt, system_prompt=system, provider="auto")
+        return generate(prompt=prompt, system=system)
     except Exception as e:
         raise RuntimeError(f"All debug engines exhausted: {e}")
 

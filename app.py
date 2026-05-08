@@ -1,6 +1,6 @@
 """
 ExamHelp AI — v3.1
-Full-featured AI study assistant — Gemini 9-Key Rotation
+Full-featured AI study assistant — Multi-Provider AI Engine v5.0
 """
 
 import datetime
@@ -23,76 +23,15 @@ from utils.api_key_ui import render_api_key_section
 # ── Auth + Integrations — MASKED (Supabase/Google/Stripe disabled for direct access) ──
 # All functions below are safe no-ops so the app runs without any external auth.
 
-st.markdown("""
-<style>
-/* Global Elite High-Fidelity Styling */
-:root {
-    --accent: #6366f1;
-    --accent-glow: rgba(99, 102, 241, 0.4);
-    --bg-dark: #020617;
-    --glass-bg: rgba(15, 23, 42, 0.8);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --text-primary: #f8fafc;
-    --text-dim: #94a3b8;
-}
-
-[data-testid="stAppViewContainer"] { background: var(--bg-dark) !important; }
-
-/* Custom Scrollbars */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-/* Glassmorphic Sidebars & Inputs */
-[data-testid="stSidebar"] {
-    background-color: rgba(2, 6, 23, 0.95) !important;
-    backdrop-filter: blur(20px);
-    border-right: 1px solid var(--glass-border);
-}
-
-.stTextInput > div > div > input {
-    background: rgba(255,255,255,0.03) !important;
-    border: 1px solid var(--glass-border) !important;
-    color: white !important;
-    border-radius: 8px !important;
-}
-
-/* Premium Component Cards */
-.expert-header {
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.5) 100%);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 24px;
-    backdrop-filter: blur(10px);
-}
-
-.page-header {
-    background: radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
-    padding: 2rem;
-    border-radius: 20px;
-    border: 1px solid var(--glass-border);
-}
-
-/* Tool Buttons Animation */
-.stButton > button {
-    border-radius: 10px !important;
-    transition: all 0.2s ease !important;
-}
-.stButton > button:hover {
-    border-color: var(--accent) !important;
-    background: rgba(99, 102, 241, 0.1) !important;
-    transform: translateY(-2px);
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-# ── Auth + Integrations — MASKED (Supabase/Google/Stripe disabled for direct access) ──
-# All functions below are safe no-ops so the app runs without any external auth.
-
 def is_logged_in(): return True
-def current_user(): return {"email": "user@examhelp.ai", "user_metadata": {"full_name": "Student"}}
+def current_user():
+    """Bug #27: use session_state instead of hardcoded email."""
+    return {
+        "email": st.session_state.get("user_email", "guest@local"),
+        "user_metadata": {
+            "full_name": st.session_state.get("user_name", "Student")
+        }
+    }
 def clear_session(): pass
 def try_refresh(): pass
 def render_login_page(): pass
@@ -273,10 +212,82 @@ def init_state():
 
     # Vector store
     from memory.vector_store import VectorStore
+
+@st.cache_resource
+def _get_shared_vector_store():
+    """Bug #34: cache VectorStore across reruns so documents survive page refreshes."""
+    from memory.vector_store import VectorStore
+    return VectorStore()
+
     if st.session_state.vector_store is None:
         st.session_state.vector_store = VectorStore()
 
 init_state()
+
+st.markdown("""
+<style>
+/* Global Elite High-Fidelity Styling */
+:root {
+    --accent: #6366f1;
+    --accent-glow: rgba(99, 102, 241, 0.4);
+    --bg-dark: #020617;
+    --glass-bg: rgba(15, 23, 42, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --text-primary: #f8fafc;
+    --text-dim: #94a3b8;
+}
+
+[data-testid="stAppViewContainer"] { background: var(--bg-dark) !important; }
+
+/* Custom Scrollbars */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* Glassmorphic Sidebars & Inputs */
+[data-testid="stSidebar"] {
+    background-color: rgba(2, 6, 23, 0.95) !important;
+    backdrop-filter: blur(20px);
+    border-right: 1px solid var(--glass-border);
+}
+
+.stTextInput > div > div > input {
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid var(--glass-border) !important;
+    color: white !important;
+    border-radius: 8px !important;
+}
+
+/* Premium Component Cards */
+.expert-header {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.5) 100%);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(10px);
+}
+
+.page-header {
+    background: radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+    padding: 2rem;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+}
+
+/* Tool Buttons Animation */
+.stButton > button {
+    border-radius: 10px !important;
+    transition: all 0.2s ease !important;
+}
+.stButton > button:hover {
+    border-color: var(--accent) !important;
+    background: rgba(99, 102, 241, 0.1) !important;
+    transform: translateY(-2px);
+}
+</style>
+""", unsafe_allow_html=True)
+
 
 # ── Auto-record study day for streak tracking ────────────────────────────────
 if "streak_recorded_today" not in st.session_state:

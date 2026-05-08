@@ -161,11 +161,12 @@ def export_anki_deck(cards: list) -> bytes:
             c.get("q", ""), c.get("a", ""), c.get("topic", "General"), c.get("difficulty", "medium")
         ]))
     import tempfile, os
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".apkg") as tmp:
-        genanki.Package(deck).write_to_file(tmp.name)
-        data = open(tmp.name, "rb").read()
-    os.unlink(tmp.name)
-    return data
+    # Bug #47: use TemporaryDirectory so cleanup is guaranteed
+    with tempfile.TemporaryDirectory() as tmpdir:
+        apkg_path = os.path.join(tmpdir, "deck.apkg")
+        genanki.Package(deck).write_to_file(apkg_path)
+        with open(apkg_path, "rb") as f:
+            return f.read()
 
 
 # ─── MAIN UI ─────────────────────────────────────────────────────────────────

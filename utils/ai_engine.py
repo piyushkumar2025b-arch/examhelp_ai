@@ -37,11 +37,12 @@ from utils.omnikey_engine import OMNI_ENGINE
 from utils.prompts import get_engine_config
 
 # ── Model defaults ────────────────────────────────────────────────────────────
-GEMINI_MODELS    = ["gemini-2.5-flash"]
+GEMINI_MODEL  = "gemini-2.5-flash"  # primary model
+GEMINI_MODELS    = ["gemini-2.5-flash"]  # list for rotation-ready code
 GROQ_MODEL       = "llama-3.3-70b-versatile"
 CEREBRAS_MODEL   = "llama3.3-70b"
 OPENAI_MODEL     = "gpt-4o-mini"
-ANTHROPIC_MODEL  = "claude-3-haiku-20240307"
+ANTHROPIC_MODEL  = "claude-haiku-4-5-20251001"
 MISTRAL_MODEL    = "mistral-small-latest"
 COHERE_MODEL     = "command-r"
 TOGETHER_MODEL   = "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
@@ -78,24 +79,33 @@ _ENDPOINTS = {
 }
 
 # ── In-memory cache ───────────────────────────────────────────────────────────
-_mem_cache: Dict[str, str] = {}
+_mem_cache: Dict[str, tuple] = {}  # key → (value, timestamp)  Bug #46: added TTL
 _cache_lock = threading.Lock()
 _CACHE_MAX = 400
+_CACHE_TTL  = 3600  # 1 hour
 
 
 def _cache_key(prompt: str, system: str) -> str:
-    return hashlib.md5(f"{prompt}::{system}".encode()).hexdigest()
+    # Bug #33: SHA-256 instead of MD5 (no FIPS warnings)
+    return hashlib.sha256(f"{prompt}::{system}".encode()).hexdigest()[:32]
 
 def _cache_get(k: str) -> Optional[str]:
     with _cache_lock:
-        return _mem_cache.get(k)
+        entry = _mem_cache.get(k)
+        if entry is None:
+            return None
+        value, ts = entry
+        if time.time() - ts > _CACHE_TTL:  # Bug #46: TTL eviction
+            _mem_cache.pop(k, None)
+            return None
+        return value
 
 def _cache_set(k: str, v: str) -> None:
     with _cache_lock:
         if len(_mem_cache) >= _CACHE_MAX:
             for old_k in list(_mem_cache.keys())[:50]:
                 _mem_cache.pop(old_k, None)
-        _mem_cache[k] = v
+        _mem_cache[k] = (v, time.time())
 
 
 # ── SSL context ───────────────────────────────────────────────────────────────
@@ -289,10 +299,13 @@ def _call_replicate(
     if not prediction_id:
         raise RuntimeError(f"Replicate: no prediction ID — {str(raw)[:200]}")
 
-    # Poll for result
+    # Poll for result — Bug #67: exponential backoff instead of 30×2s fixed
     poll_url = f"https://api.replicate.com/v1/predictions/{prediction_id}"
-    for _ in range(30):
-        time.sleep(2)
+    delay, elapsed = 1.0, 0.0
+    while elapsed < 60:
+        time.sleep(delay)
+        elapsed += delay
+        delay = min(delay * 1.5, 10)  # cap at 10s between polls
         req = urllib.request.Request(
             poll_url,
             headers={"Authorization": f"Token {key}", "User-Agent": _COMMON_UA},
@@ -314,8 +327,9 @@ def _call_replicate(
 
 def _build_prompt(messages: list, context_text: str, prompt: str) -> str:
     turns: List[str] = []
-    if context_text:
-        turns.append(f"Context:\n{context_text}")
+    # Bug #65: guard empty context so we don't waste tokens on 'Context:\n\n'
+    if context_text and context_text.strip():
+        turns.append(f"[Context]\n{context_text.strip()}")
     for m in messages:
         role    = m.get("role", "user")
         content = m.get("content", "")
@@ -364,6 +378,13 @@ def _route_call(
     image_mime: str = "image/jpeg",
 ) -> str:
     """Route the call to the correct provider backend."""
+    # Bug #24: guard image_data against providers that don't support vision
+    VISION_PROVIDERS = {"gemini", "openai", "anthropic", "nvidia", "replicate"}
+    if image_data and provider not in VISION_PROVIDERS:
+        raise RuntimeError(
+            f"Provider '{provider}' does not support image input. "
+            f"Please use a Gemini, OpenAI, Anthropic, Nvidia, or Replicate key for image analysis."
+        )
 
     # ── Gemini ───────────────────────────────────────────────────────────────
     if provider == "gemini":
@@ -635,6 +656,9 @@ def generate_with_retry(prompt: str, max_retries: int = 3, **kwargs) -> str:
 
 
 def batch_generate(prompts: List[str], **kwargs) -> List[str]:
+    # Bug #64: NOTE — this function blocks the calling thread (Streamlit main thread) until
+    # all workers complete. Use st.spinner() at the call site and avoid calling from hot paths.
+    # TODO: yield partial results for progressive UI updates.
     results: List[str] = [""] * len(prompts)
 
     def _task(idx: int, p: str) -> None:

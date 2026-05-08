@@ -592,3 +592,6 @@ border-radius:12px;padding:14px 18px;margin-bottom:8px;">
     if st.button("💬 Back to Chat", use_container_width=True, key="ct_back"):
         st.session_state.app_mode = "chat"
         st.rerun()
+
+# Bug #6: alias for backward compatibility
+fetch_upcoming_contests = get_upcoming_contests

@@ -1,2 +1,12 @@
-* text=auto
-utils/key_manager.py -diff
+# Bug #61: enforce LF line endings for all text/code files
+*.py    text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.toml  text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.js    text eol=lf
+*.sh    text eol=lf

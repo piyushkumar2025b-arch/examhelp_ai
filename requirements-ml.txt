@@ -1,0 +1,17 @@
+# Heavy ML/AI packages — optional, for RAG and vector search features
+# Install with: pip install -r requirements-ml.txt
+
+transformers==4.44.0
+sentence-transformers==3.0.1
+scikit-learn==1.5.1
+nltk==3.9.1
+spacy==3.7.5
+faiss-cpu==1.8.0
+chromadb==0.5.20
+langchain==0.2.14
+langchain-community==0.2.12
+gensim==4.3.3
+xgboost==2.1.1
+lightgbm==4.5.0
+annoy==1.17.3
+hnswlib==0.8.0

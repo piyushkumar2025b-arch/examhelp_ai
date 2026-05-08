@@ -1,0 +1,67 @@
+STEP 07 — TYPEWRITER STREAMING EFFECT FOR AI RESPONSES
+# File: app.py  |  Location: chat message rendering + AI call block
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# When `stream_chat_with_groq()` is streaming, render the text progressively
+# inside a styled `st.empty()` container that uses the `msg-bubble-ai` CSS
+# class. Add a typing indicator (three-dot pulse) while waiting for first token.
+
+## CSS TO INJECT:
+
+```css
+/* ── STEP 07: Typing Indicator ── */
+.typing-indicator {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:10px 18px; border-radius:100px;
+  background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.15);
+  margin-bottom:14px;
+}
+.typing-dot {
+  width:7px; height:7px; border-radius:50%; background:#818cf8;
+  animation:typingBounce 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2){animation-delay:0.2s;}
+.typing-dot:nth-child(3){animation-delay:0.4s;}
+@keyframes typingBounce {
+  0%,80%,100%{transform:translateY(0);opacity:0.4;}
+  40%{transform:translateY(-6px);opacity:1;}
+}
+.typing-label {
+  font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px;
+  color:rgba(255,255,255,0.35); margin-left:6px;
+}
+```
+
+## PYTHON TO ADD:
+# In the AI response generation block, wrap the stream with a typing indicator:
+
+```python
+def show_typing_indicator():
+    """STEP 07: Show animated typing indicator while AI generates."""
+    return st.markdown("""
+    <div class="typing-indicator">
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <div class="typing-dot"></div>
+      <span class="typing-label">AI is thinking…</span>
+    </div>""", unsafe_allow_html=True)
+```
+
+# PATCH in the existing streaming response loop: Before `response_placeholder`,
+# show a typing indicator placeholder, then replace it once the stream begins:
+#
+#   typing_ph = st.empty()
+#   typing_ph.markdown(TYPING_INDICATOR_HTML, unsafe_allow_html=True)
+#   # ... streaming begins ...
+#   typing_ph.empty()  # clear typing indicator once first token arrives
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 08 — PERSONA QUICK-SWITCH CAROUSEL IN MAIN AREA
+# File: app.py  |  Location: top of main chat area, below hero header
+# ─────────────────────────────────────────────────────────────────────────────
+
+## WHAT TO ADD:
+# A horizontally scrollable row of persona avatar chips. Clicking one switches
+# the persona instantly without needing the

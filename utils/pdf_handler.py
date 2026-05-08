@@ -30,6 +30,7 @@ def extract_text_from_pdf(file: BinaryIO) -> str:
     if fitz is None:
         return "Error: PyMuPDF not installed. Run: pip install PyMuPDF"
     try:
+        file.seek(0)  # Bug #35: reset stream so repeated reads work
         data = file.read()
         doc = fitz.open(stream=data, filetype="pdf")
         parts: list[str] = []
@@ -96,6 +97,7 @@ def get_pdf_metadata(file: BinaryIO) -> dict:
     if fitz is None:
         return {}
     try:
+        file.seek(0)  # Bug #35: reset stream
         data = file.read()
         doc = fitz.open(stream=data, filetype="pdf")
         meta = doc.metadata or {}
@@ -162,6 +164,7 @@ def get_pdf_summary_stats(file: BinaryIO) -> dict:
     if fitz is None:
         return {}
     try:
+        file.seek(0)  # Bug #35: reset stream
         data = file.read()
         doc = fitz.open(stream=data, filetype="pdf")
         meta = doc.metadata or {}

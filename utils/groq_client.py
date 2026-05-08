@@ -20,5 +20,18 @@ def chat_with_groq(prompt: str = "", system: str = "", **kwargs) -> str:
     return generate(prompt=prompt, system=system, **kwargs)
 
 
-def transcribe_audio(*args, **kwargs) -> str:
-    return "[Audio transcription unavailable]"
+def transcribe_audio(audio_bytes: bytes = b"", **kwargs) -> str:
+    """Attempt real transcription via SpeechRecognition; gracefully degrade."""
+    if not audio_bytes:
+        return "[TRANSCRIPTION_UNAVAILABLE: No audio data received]"
+    try:
+        import speech_recognition as sr
+        import io
+        r = sr.Recognizer()
+        with sr.AudioFile(io.BytesIO(audio_bytes)) as source:
+            audio = r.record(source)
+        return r.recognize_google(audio)
+    except ImportError:
+        return "[TRANSCRIPTION_UNAVAILABLE: SpeechRecognition package not installed]"
+    except Exception as e:
+        return f"[TRANSCRIPTION_FAILED: {e}]"

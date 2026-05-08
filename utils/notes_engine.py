@@ -3,7 +3,7 @@ notes_engine.py — AI Smart Notes Generator
 Converts any content into beautiful study notes, summaries, cheat sheets.
 """
 from __future__ import annotations
-from utils.debugger_engine import _call_gemini_debug
+from utils.ai_engine import generate as _call_gemini_debug  # Bug #31: bypass debugger_engine
 
 NOTES_SYSTEM = """\
 You are a MASTER Note-Taker who creates the most effective study materials.

@@ -105,7 +105,7 @@ Return ONLY the JSON array."""
 
 
 def fetch_slide_internet_data(slide_title: str, topic: str) -> str:
-    cache_key = f"_pres_web_{__import__('hashlib').md5((slide_title+topic).encode()).hexdigest()[:10]}"
+    cache_key = f"_pres_web_{hashlib.sha256((slide_title+topic).encode()).hexdigest()[:10]}"
     cached = st.session_state.get(cache_key)
     if cached:
         return cached

@@ -405,13 +405,13 @@ def unlock_achievement(ach_id: str):
 def record_study_day():
     """Call once per session start to update streak."""
     data = _load_streak_data()
-    today = datetime.date.today().isoformat()
+    today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     if today in data["study_days"]:
         return
     data["study_days"].append(today)
     last = data.get("last_study_date")
     if last:
-        yesterday = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+        yesterday = (datetime.datetime.now(datetime.timezone.utc).date() - datetime.timedelta(days=1)).isoformat()
         if last == yesterday:
             data["streak"] += 1
         else:
@@ -446,7 +446,7 @@ def render_streak_page():
     total_xp = data["total_xp"]
     level, xp_in, xp_need = _xp_progress(total_xp)
     xp_pct = min(100, int((xp_in / max(1, xp_need)) * 100))
-    today_str = datetime.date.today().isoformat()
+    today_str = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     studied_today = today_str in set(data["study_days"])
 
     # ── Hero Card ───────────────────────────────────────────────────────────
@@ -506,7 +506,7 @@ def render_streak_page():
 
     # ── Weekly Activity Bars ────────────────────────────────────────────────
     st.markdown('<div class="streak-section-label">📆 WEEKLY ACTIVITY</div>', unsafe_allow_html=True)
-    today       = datetime.date.today()
+    today       = datetime.datetime.now(datetime.timezone.utc).date()
     study_set   = set(data["study_days"])
     day_names   = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 

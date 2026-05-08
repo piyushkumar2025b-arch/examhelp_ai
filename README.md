@@ -1,3 +1,15 @@
+## Quick Start
+
+1. **Add your Gemini API key** in the sidebar (get one free at https://aistudio.google.com)
+2. Run `streamlit run app.py`
+3. Start chatting — all features are unlocked with a single key
+
+> **Architecture note:** The app uses a single-key multi-provider AI engine (v5.0).
+> Additional Gemini keys (up to 9) increase rate limit capacity but are not required.
+> Previous README references to "9-Key Rotation" describe legacy behaviour.
+
+---
+
 # 🚀 ExamHelp AI v4.0 — The Ultimate Elite Academic Intelligence Platform
 
 ExamHelp AI is a production-grade, multi-modal artificial intelligence ecosystem explicitly engineered for high-performance academic assistance, technical problem-solving, and professional-grade research. 

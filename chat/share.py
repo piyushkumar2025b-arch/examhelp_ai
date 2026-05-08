@@ -17,3 +17,17 @@ class ChatShare:
     def generate_share_link(chat_history):
         """Generate a compressed encoded payload for URL injection."""
         return ChatShare.encode_chat(ChatShare.serialize_chat(chat_history))
+
+    @staticmethod
+    def decode_chat(encoded: str) -> str:
+        compressed = base64.urlsafe_b64decode(encoded.encode("utf-8"))
+        return zlib.decompress(compressed).decode("utf-8")
+
+    @staticmethod
+    def deserialize_chat(json_str: str) -> list:
+        minimal = json.loads(json_str)
+        return [{"role": m["r"], "content": m["c"]} for m in minimal]
+
+    @staticmethod
+    def load_from_link(encoded: str) -> list:
+        return ChatShare.deserialize_chat(ChatShare.decode_chat(encoded))

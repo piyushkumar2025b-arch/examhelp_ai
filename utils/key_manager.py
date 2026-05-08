@@ -9,11 +9,12 @@ from utils.gemini_key_manager import status as _gkm_status, get_key
 
 def get_total_capacity() -> dict:
     from utils.ai_engine import get_pool_status
+    from utils.omnikey_engine import RPM_SAFE_LIMIT
     s = get_pool_status()
-    total   = s.get("total", 0)
-    avail   = s.get("available", 0)
-    rpm_cap = s.get("gemini_rpm", total * 15)
-    rpd_cap = s.get("gemini_rpd", total * 1500)
+    total   = s.get("total_keys", s.get("total", 1))
+    avail   = s.get("available", total)
+    rpm_cap = RPM_SAFE_LIMIT * total
+    rpd_cap = 1500 * total
     return {
         "keys_available":  avail,
         "keys_total":      total,

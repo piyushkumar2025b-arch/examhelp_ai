@@ -72,11 +72,7 @@ def get_study_intensity_heatmap(session_messages: list[dict]):
             except (ValueError, TypeError):
                 pass
 
-    # If no real data, use placeholder
-    if all(c == 0 for c in counts):
-        import random
-        random.seed(today.toordinal())
-        counts = [random.randint(2, 12) for _ in range(7)]
+    # Bug #40: removed fake random fallback — show honest zero activity
 
     fig = go.Figure(data=go.Bar(
         x=labels,
@@ -107,10 +103,9 @@ def estimate_required_velocity(exam_date: datetime.date, total_topics: int, mast
     return round(topics_remaining / days_left, 1)
 
 
-import streamlit as st
-
 def track_engine_usage(engine_name: str, tokens: int = 0):
     """Stub to track API usage and engine preference."""
+    import streamlit as st
     if "telemetry_log" not in st.session_state:
         st.session_state.telemetry_log = []
     
@@ -122,6 +117,7 @@ def track_engine_usage(engine_name: str, tokens: int = 0):
 
 def generate_performance_report() -> str:
     """Generate a markdown report of platform performance."""
+    import streamlit as st
     if "telemetry_log" not in st.session_state or not st.session_state.telemetry_log:
         return "No telemetry data collected yet."
     

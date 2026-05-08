@@ -26,7 +26,7 @@ def status() -> dict:
     key = get_key()
     active = 1 if key else 0
     return {
-        "total":        active,
+        "total_keys":   active,
         "available":    active,
         "cooling_down": 0,
     }

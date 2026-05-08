@@ -15,13 +15,11 @@ class StudyGenerator:
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Helvetica", "B", 18)
-        safe_title = title.encode('latin-1', 'ignore').decode('latin-1')
-        pdf.cell(0, 15, safe_title, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+        pdf.cell(0, 15, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
         pdf.ln(10)
         pdf.set_font("Helvetica", size=11)
         clean_text = content.replace("##", "").replace("#", "").replace("**", "")
-        safe_body = clean_text.encode('latin-1', 'ignore').decode('latin-1')
-        pdf.multi_cell(0, 7, safe_body)
+        pdf.multi_cell(0, 7, clean_text)
         return bytes(pdf.output())
 
     @staticmethod
