@@ -15,6 +15,9 @@ from free_apis import (
     search_google_books,
 )
 
+# Alias for use in enrichment block
+search_books = _ob_search
+
 def _call_engine(prompt: str, system: str = "", max_tokens: int = 2500) -> str:
     return generate(prompt=prompt, system=system, engine_name="notes", max_tokens=max_tokens)
 

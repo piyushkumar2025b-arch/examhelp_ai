@@ -108,7 +108,7 @@ Provide:
 
 IMPORTANT: Add disclaimer that this is for educational purposes only and not medical advice."""
                     result = generate(prompt, max_tokens=2000, temperature=0.3)
-                    st.markdown(f"""
+                    st.markdown("""
                     <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);
                         border-radius:10px;padding:12px;margin-bottom:16px;font-size:0.82rem;color:#fca5a5;">
                         ⚠️ Educational purposes only. Always consult a qualified doctor for medical advice.

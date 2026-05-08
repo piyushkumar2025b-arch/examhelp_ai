@@ -73,44 +73,6 @@ def cgpa_credit_planner(current_courses: List[Dict], target_cgpa: float) -> Dict
     }
 
 
-def calculate_gpa(courses: List[Dict]) -> Dict:
-    """Legacy: Calculate SGPA for a semester. Expects [{'credits': 4, 'grade': 'S'}]."""
-    return calculate_cgpa(courses)
-
-
-def attendance_status(attended: int, total: int) -> Dict:
-    """Check attendance percentage and requirements for 75%."""
-    if total <= 0:
-        return {"percentage": 0, "status": "No data", "required_more": 0}
-    pct = (attended / total) * 100 if total > 0 else 0.0
-    safe = pct >= 75
-    req = 0
-    if not safe:
-        req = math.ceil((0.75 * total - attended) / 0.25)
-    return {
-        "percentage": round(pct, 2),
-        "safe": safe,
-        "required_more": max(0, req),
-        "status": "✅ Above 75%" if safe else "🚨 Warning: Low Attendance",
-    }
-
-
-# VIT Slot Timetable Mapping
-VIT_SLOT_TIMINGS = {
-    "A1": "Mon 08:00 - 08:50", "B1": "Mon 09:00 - 09:50", "C1": "Mon 10:00 - 10:50",
-    "A2": "Mon 14:00 - 14:50", "B2": "Mon 15:00 - 15:50", "C2": "Mon 16:00 - 16:50",
-    "L1": "Lab Mode", "L2": "Lab Mode",
-}
-
-
-def parse_slot_timetable(slots: List[str]) -> List[Dict]:
-    """Map slot codes to actual time/day."""
-    return [
-        {"slot": s.upper().strip(), "time": VIT_SLOT_TIMINGS.get(s.upper().strip(), "Custom Slot (Refer VTOP)")}
-        for s in slots
-    ]
-
-
 def calculate_gpa(courses: List[Dict[str, any]]) -> Dict:
     """
     Calculate SGPA for a semester.

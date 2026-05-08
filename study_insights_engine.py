@@ -462,7 +462,7 @@ Return ONLY valid JSON. No markdown. No explanation."""
 def _export_session_text(messages: list, data: dict) -> str:
     """Generate a plain-text export of the session insights."""
     lines = [
-        f"ExamHelp AI — Session Insights Report",
+        "ExamHelp AI — Session Insights Report",
         f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}",
         "=" * 50,
         "",

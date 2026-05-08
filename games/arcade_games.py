@@ -87,7 +87,7 @@ def render_rps_lizard_spock():
     c1,c2=st.columns(2); c1.metric("🧑 You",sc["You"]); c2.metric("🤖 AI",sc["AI"])
     if sc["You"]>=wins_needed or sc["AI"]>=wins_needed:
         winner="You" if sc["You"]>=wins_needed else "AI"
-        st.success(f"🏆 {winner} wins the match!" if winner=="You" else f"🤖 AI wins the match!")
+        st.success(f"🏆 {winner} wins the match!" if winner=="You" else "🤖 AI wins the match!")
         _score_update("RPSLS",sc["You"])
         if st.button("🔄 Rematch",use_container_width=True,key="rpsls_new"): st.session_state.rpsls_sc={"You":0,"AI":0}; st.session_state.rpsls_hist=[]; st.session_state.rpsls_res=None; st.rerun()
         return
@@ -179,7 +179,7 @@ def render_true_false_blitz():
             with st.spinner("AI generating statements..."):
                 raw=_ai(f'Give 10 true/false trivia statements about {topic}. Return ONLY valid JSON array: [{{"statement":"...","is_true":true}}]',600)
                 stmts=_parse_json_list(raw)
-                if not stmts: stmts=[{"statement":f"The Earth revolves around the Sun","is_true":True} for _ in range(10)]
+                if not stmts: stmts=[{"statement":"The Earth revolves around the Sun","is_true":True} for _ in range(10)]
             st.session_state.tf_stmts=stmts[:10]; st.session_state.tf_idx=0; st.session_state.tf_correct=0; st.session_state.tf_start=time.time(); st.session_state.tf_done=False; st.rerun()
         return
     stmts=st.session_state.tf_stmts; idx=st.session_state.tf_idx; elapsed=time.time()-st.session_state.tf_start; remaining=max(0,30-elapsed)

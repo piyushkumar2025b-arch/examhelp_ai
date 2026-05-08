@@ -1625,7 +1625,7 @@ def render_smart_reader():
 
 def enrich_topic_with_wiki(topic: str) -> dict:
     """Fetch Wikipedia summary to enrich document context (free, no key)."""
-    import urllib.request, urllib.parse, json
+    import urllib.request, urllib.parse
     try:
         url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(topic)}"
         req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0"})
@@ -1664,7 +1664,7 @@ def search_arxiv_papers(query: str, max_results: int = 5) -> list:
 
 def lookup_crossref_doi(query: str) -> list:
     """Search CrossRef for academic citations (free, no key)."""
-    import urllib.request, urllib.parse, json
+    import urllib.request, urllib.parse
     try:
         url = f"https://api.crossref.org/works?query={urllib.parse.quote(query)}&rows=5"
         req = urllib.request.Request(url, headers={"User-Agent": "ExamHelp/1.0 (mailto:help@examhelp.ai)"})

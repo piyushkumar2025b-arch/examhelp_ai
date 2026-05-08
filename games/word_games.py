@@ -181,7 +181,7 @@ def render_word_scramble():
             pts=10-(3 if st.session_state.scr_hint_used else 0)
             st.session_state.scr_score+=pts; st.success(f"🎉 Correct! +{pts} pts"); _score_update("Word Scramble",st.session_state.scr_score)
             st.session_state.scr_rst=True; st.rerun()
-        else: st.error(f"❌ Wrong! Try again.")
+        else: st.error("❌ Wrong! Try again.")
     if c2.button("💡 Hint (-3 pts)",use_container_width=True,key="scr_hint"):
         with st.spinner("Getting hint..."): h=_ai_call(f"Give a one-word clue about the meaning of '{w}'. Just one word.",50)
         st.info(f"Hint: {h or w[0].upper()+'...'}"); st.session_state.scr_hint_used=True

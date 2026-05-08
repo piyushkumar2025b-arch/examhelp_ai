@@ -572,11 +572,6 @@ PROMPT_EXAMPLES: list[dict] = [
 ]
 
 
-def get_prompt_examples() -> list[dict]:
-    """Return all example prompts."""
-    return PROMPT_EXAMPLES
-
-
 def get_random_prompt() -> str:
     """Return a random prompt for inspiration."""
     import random

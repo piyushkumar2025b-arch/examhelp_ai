@@ -590,7 +590,7 @@ def render_caring_zone():
             st.rerun()
 
     # ── Hero ────────────────────────────────────────────────
-    st.markdown(f"""
+    st.markdown("""
     <div class="cz-root">
     <div class="cz-hero">
         <span class="cz-hero-emoji">🌸</span>
@@ -872,7 +872,7 @@ def render_caring_zone():
                         """, unsafe_allow_html=True)
                         time.sleep(1)
 
-            placeholder.markdown(f"""
+            placeholder.markdown("""
             <div style="text-align:center;padding:30px;background:rgba(16,185,129,0.08);
                 border:2px solid rgba(16,185,129,0.3);border-radius:24px;margin:10px 0;">
                 <div style="font-size:3rem;margin-bottom:12px;">✨</div>
@@ -931,7 +931,7 @@ def render_caring_zone():
                     st.session_state.caring_playlist_idx = i
                     st.rerun()
             with col_info:
-                active_style = f"border-color:rgba(244,114,182,0.4);background:rgba(244,114,182,0.08);" if is_active else ""
+                active_style = "border-color:rgba(244,114,182,0.4);background:rgba(244,114,182,0.08);" if is_active else ""
                 st.markdown(f"""
                 <div class="cz-playlist-card" style="{active_style}">
                     <div>

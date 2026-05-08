@@ -373,7 +373,7 @@ border-radius:14px;padding:14px;margin-bottom:6px;">
 """, unsafe_allow_html=True)
 
             if is_stored and not is_primary:
-                if st.button(f"Set as Primary", key=f"set_primary_{prov}", use_container_width=True):
+                if st.button("Set as Primary", key=f"set_primary_{prov}", use_container_width=True):
                     set_primary_provider(prov)
                     st.rerun()
             elif not is_stored:
@@ -425,7 +425,7 @@ border-radius:14px;padding:14px;margin-bottom:6px;">
 """, unsafe_allow_html=True)
 
             if is_stored and not is_primary:
-                if st.button(f"Set as Primary", key=f"set_primary2_{prov}", use_container_width=True):
+                if st.button("Set as Primary", key=f"set_primary2_{prov}", use_container_width=True):
                     set_primary_provider(prov)
                     st.rerun()
             elif not is_stored:

@@ -5805,7 +5805,7 @@ def render_premium_chat_message(msg_content: str, role: str, msg_idx: int, avata
     
     # We must use st.container to render the markdown content safely inside the structure
     with st.container():
-        st.markdown(f'<div class="bubble-content">', unsafe_allow_html=True)
+        st.markdown('<div class="bubble-content">', unsafe_allow_html=True)
         st.markdown(msg_content)
         
         if role == "assistant":
@@ -6197,9 +6197,9 @@ elif app_mode == "debugger":
         "text": "#f0f0ff", "text2": "#9090b8", "border": "#1e1e30",
     }
 
-    st.markdown(f"""
+    st.markdown("""
 <style>
-.debug-header {{
+.debug-header {
     background: linear-gradient(135deg, #1a0a2e 0%, #0d0d1a 100%);
     border: 1px solid #3d2a6b;
     border-radius: 16px;
@@ -6207,40 +6207,40 @@ elif app_mode == "debugger":
     margin-bottom: 24px;
     position: relative;
     overflow: hidden;
-}}
-.debug-header::before {{
+}
+.debug-header::before {
     content: '';
     position: absolute;
     top: -40px; right: -40px;
     width: 180px; height: 180px;
     background: radial-gradient(circle, rgba(124,106,247,0.15) 0%, transparent 70%);
     border-radius: 50%;
-}}
-.debug-title {{ font-size: 1.9rem; font-weight: 800; color: #a78bfa; margin: 0 0 4px; }}
-.debug-subtitle {{ font-size: 0.9rem; color: #9090b8; }}
-.lang-badge {{
+}
+.debug-title { font-size: 1.9rem; font-weight: 800; color: #a78bfa; margin: 0 0 4px; }
+.debug-subtitle { font-size: 0.9rem; color: #9090b8; }
+.lang-badge {
     display: inline-flex; align-items: center; gap: 6px;
     background: rgba(124,106,247,0.12); border: 1px solid rgba(124,106,247,0.3);
     border-radius: 20px; padding: 4px 14px;
     font-size: 0.78rem; font-weight: 600; color: #a78bfa;
     margin: 4px 3px;
-}}
-.debug-result-box {{
+}
+.debug-result-box {
     background: rgba(14,14,26,0.95);
     border: 1px solid rgba(124,106,247,0.25);
     border-radius: 14px;
     padding: 20px;
     margin-top: 20px;
-}}
-.debug-stat {{
+}
+.debug-stat {
     background: rgba(124,106,247,0.08);
     border: 1px solid rgba(124,106,247,0.2);
     border-radius: 10px;
     padding: 10px 16px;
     text-align: center;
-}}
-.debug-stat-val {{ font-size: 1.3rem; font-weight: 700; color: #a78bfa; }}
-.debug-stat-lbl {{ font-size: 0.7rem; color: #9090b8; margin-top: 2px; }}
+}
+.debug-stat-val { font-size: 1.3rem; font-weight: 700; color: #a78bfa; }
+.debug-stat-lbl { font-size: 0.7rem; color: #9090b8; margin-top: 2px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -7629,7 +7629,7 @@ border:1px solid rgba(99,102,241,0.15);border-radius:20px;padding:22px 28px;marg
             with st.spinner("Generating QR codes..."):
                 zip_bytes = batch_generate_qr(csv_file.read(), batch_theme)
             if zip_bytes:
-                st.success(f"✅ QR codes generated!")
+                st.success("✅ QR codes generated!")
                 st.download_button("⬇️ Download ZIP", zip_bytes, "qr_codes.zip", "application/zip", use_container_width=True, key="qr_dl_zip")
             else:
                 st.error("Failed to generate batch QRs. Check your CSV format.")
@@ -7643,7 +7643,7 @@ border:1px solid rgba(99,102,241,0.15);border-radius:20px;padding:22px 28px;marg
             if st.button("🔍 Decode QR", type="primary", use_container_width=True, key="qr_decode_btn"):
                 try:
                     result = decode_qr(decode_file.read())
-                    st.success(f"✅ Decoded content:")
+                    st.success("✅ Decoded content:")
                     st.code(result)
                     st.download_button("📋 Copy Text", result, "decoded_qr.txt", use_container_width=True, key="qr_decoded_dl")
                 except ValueError as e:
@@ -8254,7 +8254,7 @@ else:
         from utils.ai_engine import generate
         st.session_state.messages.append({"role":"user","content":user_input})
         with st.chat_message("user", avatar="👤"):
-            st.markdown(f'<span class="user-msg-hook" style="display:none"></span>', unsafe_allow_html=True)
+            st.markdown('<span class="user-msg-hook" style="display:none"></span>', unsafe_allow_html=True)
             st.markdown(user_input)
 
         # 8B fast intent classifier
@@ -8341,7 +8341,7 @@ else:
                         )
                         retry_text = call_gemini(
                             prompt=msgs_text,
-                            system=full_system if 'full_system' in dir() else "You are a helpful AI assistant.",
+                            system=persona_prompt if persona_prompt else "You are a helpful AI assistant.",
                             model=GEMINI_FLASH_MODEL,
                         )
                         if retry_text:

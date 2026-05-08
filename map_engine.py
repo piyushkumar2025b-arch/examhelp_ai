@@ -12,7 +12,7 @@ import time
 import urllib.parse
 import streamlit as st
 import requests
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PRESERVED DATA FROM ORIGINAL
@@ -165,7 +165,7 @@ def get_route(origin: str, destination: str) -> dict:
     olat, olon = geocode(origin)
     dlat, dlon = geocode(destination)
     if None in (olat, olon, dlat, dlon):
-        return {"error": f"Could not geocode origin or destination."}
+        return {"error": "Could not geocode origin or destination."}
     try:
         url = (f"http://router.project-osrm.org/route/v1/driving/"
                f"{olon},{olat};{dlon},{dlat}?overview=full&geometries=geojson")
@@ -230,7 +230,7 @@ def _build_folium_map(
     tile_layer: str = "voyager",
     markers: List[Dict] = None,
     route_data: dict = None,
-) -> "folium.Map":
+) -> Any:
     import folium
     from folium import plugins
 

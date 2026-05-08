@@ -143,7 +143,7 @@ def render_would_you_rather():
             st.session_state.wyr_data=_parse_json(raw); st.session_state.wyr_chose=None; st.rerun()
     if st.session_state.wyr_data:
         d=st.session_state.wyr_data; a=d.get("option_a","Option A"); b=d.get("option_b","Option B")
-        st.markdown(f'<div style="background:rgba(249,168,212,0.05);border:1px solid rgba(249,168,212,0.15);border-radius:16px;padding:20px;margin:12px 0;text-align:center;"><div style="font-size:1rem;font-weight:700;color:#f8fafc;">Would you rather...</div></div>',unsafe_allow_html=True)
+        st.markdown('<div style="background:rgba(249,168,212,0.05);border:1px solid rgba(249,168,212,0.15);border-radius:16px;padding:20px;margin:12px 0;text-align:center;"><div style="font-size:1rem;font-weight:700;color:#f8fafc;">Would you rather...</div></div>',unsafe_allow_html=True)
         cc1,cc2=st.columns(2)
         with cc1:
             st.markdown(f'<div style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:12px;padding:16px;text-align:center;min-height:80px;display:flex;align-items:center;justify-content:center;">{a}</div>',unsafe_allow_html=True)
@@ -179,7 +179,7 @@ def render_debate_me():
         with st.expander("📜 Debate Transcript",expanded=True):
             for speaker,text in transcript: st.markdown(f"**{'🧑 You' if speaker=='You' else '🤖 AI'}:** {text}")
     if st.session_state.db_verdict:
-        st.markdown(f"### ⚖️ Verdict"); st.info(st.session_state.db_verdict)
+        st.markdown("### ⚖️ Verdict"); st.info(st.session_state.db_verdict)
         _score_update("Debate Me",1)
         if st.button("🔄 New Debate",use_container_width=True,key="db_new"): st.session_state.db_rst=True; st.rerun()
         return

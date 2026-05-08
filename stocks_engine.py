@@ -68,7 +68,7 @@ def get_crypto_data(symbol: str, vs_currency: str = "usd") -> Dict:
             "is_crypto":  True,
         }
     # Fallback: mock data
-    mock_price = MOCK_PRICES.get(f"{sym}-USD", 100.0)
+    mock_price = _MOCK_BASE.get(f"{sym}-USD", 100.0)
     return {
         "symbol":    sym, "name": sym, "sector": "Cryptocurrency", "flag": "🪩",
         "price":     mock_price, "change": round(random.uniform(-5, 5), 2),

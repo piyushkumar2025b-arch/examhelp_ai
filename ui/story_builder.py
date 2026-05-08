@@ -50,8 +50,9 @@ def _ai_stream(prompt: str, system: str = "", max_tokens: int = 4096):
         return ai_engine.generate_stream(prompt=prompt, system=system,
                                          max_tokens=max_tokens, temperature=0.85)
     except Exception as e:
+        _err_msg = str(e)
         def _err():
-            yield f"[AI Error: {e}]"
+            yield f"[AI Error: {_err_msg}]"
         return _err()
 
 
@@ -191,9 +192,9 @@ def _render_story_display(story: str, title: str, wc: int):
     reading_time = max(1, wc // 200)
     genre_emoji = next((e for e, g, _ in GENRES if g == st.session_state.sb_genre), "📖")
 
-    st.markdown(f"""
+    st.markdown("""
 <style>
-.parchment-container {{
+.parchment-container {
     background: #1a1208;
     border: 1px solid #8B6914;
     border-radius: 16px;
@@ -204,8 +205,8 @@ def _render_story_display(story: str, title: str, wc: int):
     color: #e8d5a3;
     position: relative;
     box-shadow: 0 0 40px rgba(139,105,20,0.15), inset 0 0 60px rgba(0,0,0,0.3);
-}}
-.story-title {{
+}
+.story-title {
     font-size: 1.9rem;
     font-weight: 900;
     text-align: center;
@@ -214,8 +215,8 @@ def _render_story_display(story: str, title: str, wc: int):
     -webkit-text-fill-color: transparent;
     margin-bottom: 0.3rem;
     line-height: 1.3;
-}}
-.story-meta-bar {{
+}
+.story-meta-bar {
     display: flex;
     justify-content: center;
     gap: 16px;
@@ -224,15 +225,15 @@ def _render_story_display(story: str, title: str, wc: int):
     color: #8B6914;
     border-bottom: 1px solid #3a2a08;
     padding-bottom: 1rem;
-}}
-.parchment-divider {{
+}
+.parchment-divider {
     text-align: center;
     color: #8B6914;
     font-size: 1.2rem;
     margin: 1.5rem 0;
     letter-spacing: 8px;
-}}
-.story-badge {{
+}
+.story-badge {
     position: absolute;
     top: 1.2rem;
     right: 1.5rem;
@@ -243,7 +244,7 @@ def _render_story_display(story: str, title: str, wc: int):
     font-size: .72rem;
     color: #f59e0b;
     font-family: monospace;
-}}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -283,7 +284,6 @@ def _render_story_display(story: str, title: str, wc: int):
 def _render_action_bar():
     story = st.session_state.sb_story
     title = st.session_state.sb_title
-    wc    = st.session_state.sb_wc
 
     st.markdown("""
 <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);
@@ -421,8 +421,6 @@ border:1px solid rgba(139,105,20,0.25);border-radius:20px;padding:26px 30px;marg
     genre_cols = st.columns(4)
     for i, (emoji, genre, color) in enumerate(GENRES):
         is_sel = st.session_state.sb_genre == genre
-        border = f"2px solid {color}" if is_sel else "1.5px solid rgba(255,255,255,0.07)"
-        bg = f"{color}18" if is_sel else "rgba(15,23,42,0.7)"
         with genre_cols[i % 4]:
             if st.button(
                 f"{emoji}\n**{genre}**",

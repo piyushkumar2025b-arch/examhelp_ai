@@ -445,7 +445,7 @@ def _render_ai_image_generator():
                 <div style="font-size:0.65rem;color:rgba(255,255,255,0.55);margin-top:2px;font-weight:600;">{style_name.split(' ',1)[1]}</div>
                 <div style="font-size:0.55rem;color:rgba(255,255,255,0.3);">{desc}</div>
             </div>""", unsafe_allow_html=True)
-            if st.button(f"Select", key=f"ai_style_{i}", use_container_width=True,
+            if st.button("Select", key=f"ai_style_{i}", use_container_width=True,
                          type="primary" if is_active else "secondary"):
                 st.session_state.ai_gen_style = style_name
                 st.rerun()
@@ -983,7 +983,7 @@ def _render_pdf_converter():
             zip_buf.seek(0)
             st.success(f"✅ {pg_count} pages converted!")
             st.download_button(f"⬇️ Download ZIP ({ext.upper()}s)", zip_buf.getvalue(),
-                               f"pdf_pages.zip","application/zip", use_container_width=True, key="mt_pdf_dl_img")
+                               "pdf_pages.zip","application/zip", use_container_width=True, key="mt_pdf_dl_img")
 
         elif "Text" in fmt:
             txt = "\n\n".join(f"--- Page {i+1} ---\n{doc[i].get_text()}" for i in range(pg_count))
@@ -1282,7 +1282,7 @@ def _render_file_qr_share():
                 st.warning("Install qrcode[pil] for local QR generation.")
 
         with info_col:
-            st.markdown(f"""
+            st.markdown("""
             <div style="padding:20px;background:rgba(10,14,30,0.8);border:1px solid rgba(255,255,255,0.07);
                 border-radius:16px;">
                 <div style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;letter-spacing:3px;

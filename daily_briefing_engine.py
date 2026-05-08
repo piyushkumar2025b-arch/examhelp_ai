@@ -557,7 +557,7 @@ Return ONLY valid JSON. No extra text.""",
             bullet = "✅" if done else "⬜"
             st.markdown(f'<div class="{done_cls}"><span class="check-bullet">{bullet}</span>{task}</div>',
                         unsafe_allow_html=True)
-            if not done and st.button(f"Mark done", key=f"brief_check_{i}_{brief_key}", use_container_width=False):
+            if not done and st.button("Mark done", key=f"brief_check_{i}_{brief_key}", use_container_width=False):
                 st.session_state[done_key].add(i)
                 st.rerun()
 

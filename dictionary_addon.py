@@ -225,7 +225,7 @@ def render_dictionary_addon():
                 st.markdown(f"**Q{i+1}: What does '{word}' mean?**")
                 for o in opts:
                     st.markdown(f"  {o}")
-                with st.expander(f"Answer"):
+                with st.expander("Answer"):
                     st.success(f"✅ {ans}")
 
     # ── Tab 5: Etymology Explorer ───────────────────────────

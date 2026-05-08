@@ -129,7 +129,7 @@ def generate_performance_report() -> str:
     total_calls = len(logs)
     total_tokens = sum(log.get("tokens", 0) for log in logs)
     
-    report = f"### System Performance Report\n"
+    report = "### System Performance Report\n"
     report += f"- **Total Engine Calls:** {total_calls}\n"
     report += f"- **Est. Tokens Used:** {total_tokens}\n"
     report += f"- **Last Active:** {logs[-1]['timestamp']}\n"

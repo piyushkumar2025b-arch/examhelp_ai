@@ -124,7 +124,6 @@ def fetch_slide_internet_data(slide_title: str, topic: str) -> str:
 
 
 def parallel_enrich_all_slides(slides: list, topic: str) -> list:
-    import concurrent.futures
     def _enrich_one(args):
         idx, slide = args
         enriched = enrich_slide(slide, topic)

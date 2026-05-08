@@ -648,7 +648,7 @@ def render_pomodoro_page():
         # Sound hint
         playing_id = st.session_state.get("bg_sound_id")
         if playing_id:
-            st.success(f"🎵 Ambient sound is active — great for focus!")
+            st.success("🎵 Ambient sound is active — great for focus!")
         else:
             if st.button("🎵 Add Ambient Sound for Focus", key="pomo_sound_btn", use_container_width=True):
                 st.session_state.app_mode = "bg_sounds"; st.rerun()

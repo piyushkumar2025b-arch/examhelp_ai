@@ -386,7 +386,7 @@ def search_books(query: str, limit: int = 10, search_type: str = "q") -> List[Di
 
 def get_book_details(olid: str) -> Optional[Dict]:
     """Get detailed book info by Open Library ID (e.g. OL7353617M)."""
-    data = _get(f"https://openlibrary.org/api/books", params={
+    data = _get("https://openlibrary.org/api/books", params={
         "bibkeys": f"OLID:{olid}",
         "format":  "json",
         "jscmd":   "data",
@@ -2695,7 +2695,7 @@ def get_color_info(hex_code: str) -> Optional[Dict]:
     API: https://www.thecolorapi.com — free, no key.
     """
     hex_clean = hex_code.lstrip("#")
-    data = _get(f"https://www.thecolorapi.com/id", params={"hex": hex_clean})
+    data = _get("https://www.thecolorapi.com/id", params={"hex": hex_clean})
     if not data:
         return None
     return {

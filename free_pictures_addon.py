@@ -216,7 +216,7 @@ def _render_photo_grid(photos: list[dict], key_prefix: str = "fp"):
         for j, (col, p) in enumerate(zip(cols, row_photos)):
             idx = row_start + j
             with col:
-                if st.button(f"🔍 View", key=f"{key_prefix}_view_{idx}", use_container_width=True):
+                if st.button("🔍 View", key=f"{key_prefix}_view_{idx}", use_container_width=True):
                     st.session_state[f"fp_lightbox_{key_prefix}"] = idx
                     st.session_state[f"fp_photos_{key_prefix}"] = photos
 

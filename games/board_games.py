@@ -157,7 +157,7 @@ def render_connect_four():
         cols=st.columns(7)
         for col_idx in range(7):
             with cols[col_idx]:
-                if st.button(f"↓",key=f"c4_col_{col_idx}",use_container_width=True):
+                if st.button("↓",key=f"c4_col_{col_idx}",use_container_width=True):
                     if _c4_drop(b,col_idx,1):
                         if _c4_check(b)==1: st.session_state.c4_msg="🔴 You Win!"; st.session_state.c4_over=True; _score_update("Connect Four",1)
                         elif all(b[0][c]!=0 for c in range(7)): st.session_state.c4_msg="🤝 Draw!"; st.session_state.c4_over=True
@@ -440,7 +440,7 @@ def render_sudoku():
         for r in range(9):
             for c in range(9):
                 if board[r][c] and board[r][c]!=sol[r][c]: err.append((r,c))
-        st.session_state.sdk_msg=f"✅ All correct!" if not err else f"❌ {len(err)} error(s) found."
+        st.session_state.sdk_msg="✅ All correct!" if not err else f"❌ {len(err)} error(s) found."
     if bc2.button("💡 Hint",use_container_width=True,key="sdk_hint"):
         with st.spinner("Getting hint..."):
             prompt=f"Sudoku board JSON: {json.dumps(board)}. Give one logical next move. Reply: 'Row X, Col Y should be Z because...'"

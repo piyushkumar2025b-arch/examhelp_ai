@@ -98,7 +98,7 @@ def fetch_leetcode_stats(username: str) -> Dict:
             f"https://leetcode-stats-api.herokuapp.com/{username}",
             headers=HEADERS, timeout=8)
         if r.status_code != 200:
-            return {"error": f"LeetCode user not found"}
+            return {"error": "LeetCode user not found"}
         try:
             d = r.json()
         except Exception:
@@ -153,7 +153,7 @@ def fetch_gfg_stats(username: str) -> Dict:
             f"https://auth.geeksforgeeks.org/user/{username}/profile",
             headers={**HEADERS, "Accept": "text/html"}, timeout=8)
         if r.status_code != 200:
-            return {"error": f"GFG profile not found"}
+            return {"error": "GFG profile not found"}
 
         import re
         text = r.text
@@ -262,7 +262,7 @@ def profile_to_markdown(profile: Dict, stats: Dict, score: float) -> str:
             f"- [View Profile]({gh.get('profile_url', '')})",
         ]
     else:
-        lines.append(f"- Not linked")
+        lines.append("- Not linked")
 
     lines += ["", "## 🟨 LeetCode"]
     if not lc.get("error"):

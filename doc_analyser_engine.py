@@ -8,15 +8,21 @@ Uses Gemini Vision for images, PyMuPDF for PDFs, plain read for text.
 import io
 import base64
 import streamlit as st
-# [REMOVED — integration/key stripped] from utils.groq_client import chat_with_groq
+try:
+    from utils.groq_client import chat_with_groq
+except Exception:
+    def chat_with_groq(messages=None, system_prompt="", model="", **kwargs):
+        return "⚠️ AI backend unavailable. Please configure API keys."
 from utils.pdf_handler import extract_text_from_pdf
 
 # ── Try optional deps ────────────────────────────────────────────────────────
 try:
-# [REMOVED — integration/key stripped]     from ai.gemini_client import analyze_image_with_gemini, gemini_available
+    from ai.gemini_client import analyze_image_with_gemini, gemini_available
     _HAS_GEMINI = True
 except Exception:
     _HAS_GEMINI = False
+    def gemini_available(): return False
+    def analyze_image_with_gemini(*a, **kw): return "⚠️ Gemini Vision unavailable."
 
 try:
     from utils.ocr_handler import extract_text_from_image
@@ -279,7 +285,7 @@ def render_doc_analyser():
     """, unsafe_allow_html=True)
 
     # ── Header ────────────────────────────────────────────────────────────────
-    st.markdown(f"""
+    st.markdown("""
     <div class="da-header">
         <div class="da-title">📎 Smart Document Analyser</div>
         <div class="da-sub">

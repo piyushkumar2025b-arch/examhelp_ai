@@ -111,7 +111,7 @@ def _tab_image_explorer():
                 try:
                     st.image(img["thumb"], use_container_width=True)
                 except Exception:
-                    st.markdown(f'<div style="height:100px;background:#1e293b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#666;">🖼️</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="height:100px;background:#1e293b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#666;">🖼️</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="mh-sub">{img.get("title","")[:35]}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="mh-sub">by {img.get("author","")[:20]} · <span class="mh-badge">{img.get("source","")}</span></div>', unsafe_allow_html=True)
 
@@ -464,7 +464,7 @@ def _tab_ebook():
                 with st.expander(f"🎧 {bk['title']} — {bk['authors']}", expanded=False):
                     ca, cb = st.columns([1,3])
                     with ca:
-                        st.markdown(f'<div style="background:#1e293b;border-radius:8px;height:80px;display:flex;align-items:center;justify-content:center;font-size:2rem;">🎧</div>', unsafe_allow_html=True)
+                        st.markdown('<div style="background:#1e293b;border-radius:8px;height:80px;display:flex;align-items:center;justify-content:center;font-size:2rem;">🎧</div>', unsafe_allow_html=True)
                     with cb:
                         st.markdown(f"**{bk['title']}**")
                         st.markdown(f'<div class="mh-sub">{bk["authors"]} · {bk["language"]} · {bk["sections"]} chapters</div>', unsafe_allow_html=True)
@@ -474,7 +474,7 @@ def _tab_ebook():
                         st.link_button("🔗 Open in LibriVox", bk["url_librivox"], use_container_width=True)
 
                     # Load chapters
-                    if st.button(f"📋 Load Chapters", key=f"eb_chap_{bk['id']}", use_container_width=True):
+                    if st.button("📋 Load Chapters", key=f"eb_chap_{bk['id']}", use_container_width=True):
                         with st.spinner("Loading chapters…"):
                             chapters = get_librivox_chapters(str(bk["id"]))
                             st.session_state[f"eb_chap_{bk['id']}"] = chapters

@@ -249,14 +249,14 @@ def search_by_image(
                 "type": "image_search"
             },
             {
-                "url": f"https://tineye.com/search?url=",
+                "url": "https://tineye.com/search?url=",
                 "title": "TinEye Reverse Image Search",
                 "reason": "Find exact or similar images across the web",
                 "domain": "tineye.com",
                 "type": "reverse_image"
             },
             {
-                "url": f"https://lens.google.com/",
+                "url": "https://lens.google.com/",
                 "title": "Google Lens",
                 "reason": "Google Lens identifies objects, text and finds similar images",
                 "domain": "lens.google.com",
