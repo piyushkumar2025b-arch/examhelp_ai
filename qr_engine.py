@@ -14,7 +14,7 @@ NEW in v3.0:
 from __future__ import annotations
 import io, base64, json, urllib.parse, zipfile, csv
 from typing import Optional, Tuple, List, Dict
-from free_apis import get_qr_image as _api_qr
+# lazy import — do NOT import free_apis at module level (causes crash on broken imports)
 
 
 # ── Color presets ─────────────────────────────────────────────────────────────
@@ -135,14 +135,32 @@ def _get_qr(
         pass
 
     # ── Free API fallback ─────────────────────────────────────────────────────
-    fill_hex = fill_color.lstrip("#")[:6]
-    back_hex = back_color.lstrip("#")[:6]
-    size_px  = max(100, box_size * 25)
-    return _api_qr(
-        data=data, size=size_px,
-        color=fill_hex, bgcolor=back_hex,
-        correction=error_correction,
-    )
+    try:
+        from free_apis import get_qr_image as _api_qr
+        fill_hex = fill_color.lstrip("#")[:6]
+        back_hex = back_color.lstrip("#")[:6]
+        size_px  = max(100, box_size * 25)
+        result = _api_qr(data=data, size=size_px, color=fill_hex, bgcolor=back_hex, correction=error_correction)
+        if result:
+            return result
+    except Exception:
+        pass
+    # ── Direct api.qrserver.com fallback ─────────────────────────────────────
+    try:
+        import requests as _req
+        fill_hex = fill_color.lstrip("#")[:6]
+        back_hex = back_color.lstrip("#")[:6]
+        r = _req.get(
+            "https://api.qrserver.com/v1/create-qr-code/",
+            params={"data": data, "size": "300x300", "format": "png",
+                    "color": fill_hex, "bgcolor": back_hex, "ecc": error_correction},
+            timeout=10,
+        )
+        if r.status_code == 200:
+            return r.content
+    except Exception:
+        pass
+    return None
 
 
 def _apply_gradient(img, color1: str, color2: str, back_color: str):
