@@ -170,29 +170,38 @@ def render_share_center():
 
         theme = st.selectbox("QR Theme:", ["Deep Space","Midnight Blue","Purple Haze","Forest","Gold & Black","Classic"], key="sh_qr_theme")
 
-        if st.button("🔲 Generate QR & Share", type="primary", use_container_width=True, key="sh_qr_go"):
+        if st.button("🔲 Generate QR", type="primary", use_container_width=True, key="sh_qr_go"):
             if not qr_data.strip():
                 st.warning("Enter content first.")
             else:
-                with st.spinner("Generating QR & uploading…"):
-                    from qr_engine import generate_url_qr, generate_text_qr
+                with st.spinner("Generating QR code…"):
+                    from qr_engine import _get_qr, QR_THEMES
                     try:
-                        from qr_engine import _get_qr, QR_THEMES
                         t = QR_THEMES.get(theme, QR_THEMES["Classic"])
                         qr_bytes = _get_qr(qr_data, fill_color=t["fill"], back_color=t["back"])
                     except Exception:
                         qr_bytes = None
 
-                    if qr_bytes:
-                        # Show QR preview immediately
+                if qr_bytes:
+                    st.success("✅ QR Code generated!")
+                    c_img, c_dl = st.columns([1, 1])
+                    with c_img:
                         st.image(qr_bytes, caption="Your QR Code", width=260)
-                        st.download_button("⬇️ Download QR PNG", qr_bytes, "qr_code.png",
-                                           key="sh_qr_dl_local", use_container_width=True)
-                        # Also upload so it's shareable
-                        result = share_qr_image(qr_bytes, label=qr_type.replace(" / ","_"))
-                        _show_result(result, "QR Image shared")
-                    else:
-                        st.error("QR generation failed. Check your inputs.")
+                    with c_dl:
+                        st.download_button(
+                            "⬇️ Download QR PNG", qr_bytes, "qr_code.png",
+                            mime="image/png", use_container_width=True, key="sh_qr_dl_local"
+                        )
+                        # Try to also get a shareable link (optional)
+                        with st.spinner("Getting shareable link…"):
+                            result = share_qr_image(qr_bytes, label=qr_type.replace(" / ", "_"))
+                        if result.get("success"):
+                            short = result.get("short_url") or result.get("url", "")
+                            st.markdown(f"**🔗 Share Link:** [{short}]({short})")
+                        else:
+                            st.info("💡 Download the QR above to share it manually.")
+                else:
+                    st.error("QR generation failed. Check your inputs.")
 
     # ── Tab 4: Share Chat ─────────────────────────────────────────────────────
     with tab_chat:

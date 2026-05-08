@@ -17,9 +17,43 @@ TIMEOUT = 15
 # FILE UPLOAD (anonymous, free, no key)
 # ─────────────────────────────────────────────────────────────────────────────
 
+def upload_to_catbox(data: bytes, filename: str = "file.txt",
+                     mime: str = "text/plain") -> Optional[str]:
+    """Upload to catbox.moe — free, permanent, no account needed."""
+    try:
+        r = requests.post(
+            "https://catbox.moe/user/api.php",
+            data={"reqtype": "fileupload", "userhash": ""},
+            files={"fileToUpload": (filename, io.BytesIO(data), mime)},
+            timeout=TIMEOUT,
+        )
+        if r.status_code == 200 and r.text.strip().startswith("http"):
+            return r.text.strip()
+    except Exception:
+        pass
+    return None
+
+
+def upload_to_litterbox(data: bytes, filename: str = "file.txt",
+                        mime: str = "text/plain") -> Optional[str]:
+    """Upload to litterbox.catbox.moe — free temp hosting (72h)."""
+    try:
+        r = requests.post(
+            "https://litterbox.catbox.moe/resources/internals/api.php",
+            data={"reqtype": "fileupload", "time": "72h"},
+            files={"fileToUpload": (filename, io.BytesIO(data), mime)},
+            timeout=TIMEOUT,
+        )
+        if r.status_code == 200 and r.text.strip().startswith("http"):
+            return r.text.strip()
+    except Exception:
+        pass
+    return None
+
+
 def upload_to_0x0(data: bytes, filename: str = "file.txt",
                   mime: str = "text/plain") -> Optional[str]:
-    """Upload to 0x0.st — free, no account, returns direct URL. Max 512MB."""
+    """Upload to 0x0.st — free, no account."""
     try:
         r = requests.post(
             "https://0x0.st",
@@ -52,10 +86,31 @@ def upload_to_fileio(data: bytes, filename: str = "file.txt",
     return None
 
 
+def upload_to_bashupload(data: bytes, filename: str = "file.txt",
+                         mime: str = "text/plain") -> Optional[str]:
+    """Upload to bashupload.com — free, simple."""
+    try:
+        r = requests.put(
+            f"https://bashupload.com/{filename}",
+            data=data,
+            headers={"Content-Type": mime},
+            timeout=TIMEOUT,
+        )
+        if r.status_code == 200:
+            for line in r.text.splitlines():
+                line = line.strip()
+                if line.startswith("http"):
+                    return line
+    except Exception:
+        pass
+    return None
+
+
 def upload_content(data: bytes, filename: str = "share.txt",
                    mime: str = "text/plain") -> Optional[str]:
     """Try upload backends in order, return first working URL."""
-    for fn in [upload_to_0x0, upload_to_fileio]:
+    for fn in [upload_to_catbox, upload_to_litterbox,
+               upload_to_0x0, upload_to_fileio, upload_to_bashupload]:
         url = fn(data, filename, mime)
         if url:
             return url
