@@ -81,19 +81,52 @@ def render_returning_user_memory():
 # ── 2. RESPONSE RATING ───────────────────────────────────────────────
 
 def render_rating_buttons(msg_index: int, response_content: str):
-    ratings = st.session_state.get("message_ratings", {})
+    import streamlit.components.v1 as components
+    if "message_ratings" not in st.session_state:
+        st.session_state.message_ratings = {}
+    ratings = st.session_state.message_ratings
     current = ratings.get(msg_index)
-    r1, r2, r3 = st.columns([1, 1, 10])
+
+    r1, r2, r3, r4 = st.columns([1, 1, 1, 9])
     with r1:
-        label = "👍✓" if current == "up" else "👍"
-        if st.button(label, key=f"rate_up_{msg_index}", help="Good response"):
-            st.session_state.message_ratings[msg_index] = "up"
-            st.toast("Thanks for the feedback! 🎉")
+        up_label = "👍✅" if current == "up" else "👍"
+        if st.button(up_label, key=f"rate_up_{msg_index}", help="Like this response"):
+            if current == "up":
+                del st.session_state.message_ratings[msg_index]
+            else:
+                st.session_state.message_ratings[msg_index] = "up"
+            st.toast("👍 Thanks for the feedback!" if current != "up" else "Rating removed")
+            st.rerun()
     with r2:
-        label = "👎✓" if current == "down" else "👎"
-        if st.button(label, key=f"rate_dn_{msg_index}", help="Poor response"):
-            st.session_state.message_ratings[msg_index] = "down"
-            st.toast("Got it — we'll improve!")
+        dn_label = "👎✅" if current == "down" else "👎"
+        if st.button(dn_label, key=f"rate_dn_{msg_index}", help="Dislike this response"):
+            if current == "down":
+                del st.session_state.message_ratings[msg_index]
+            else:
+                st.session_state.message_ratings[msg_index] = "down"
+            st.toast("👎 Got it — we'll improve!" if current != "down" else "Rating removed")
+            st.rerun()
+    with r3:
+        if st.button("📋", key=f"copy_btn_{msg_index}", help="Copy to clipboard"):
+            # Use JS to copy to real clipboard
+            safe = response_content.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
+            components.html(
+                f"""<script>
+                (function(){{
+                    const txt = `{safe[:4000]}`;
+                    if (navigator.clipboard && window.isSecureContext) {{
+                        navigator.clipboard.writeText(txt).catch(()=>{{}});
+                    }} else {{
+                        const el = document.createElement('textarea');
+                        el.value = txt; el.style.position='fixed'; el.style.opacity='0';
+                        document.body.appendChild(el); el.select();
+                        document.execCommand('copy'); document.body.removeChild(el);
+                    }}
+                }})();
+                </script>""",
+                height=0,
+            )
+            st.toast("📋 Copied to clipboard!")
 
 
 # ── 3. FOLLOW-UP SUGGESTIONS ─────────────────────────────────────────

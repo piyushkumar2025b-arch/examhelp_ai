@@ -22,85 +22,121 @@ INVIDIOUS_INSTANCES = [
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
 _CSS = """<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@700&family=Space+Mono&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --surface3: #22223a;
+    --accent: #7c6ef7;
+    --accent2: #f76e6e;
+    --accent3: #6ef7c4;
+    --text: #f0eeff;
+    --muted: #7a7a9a;
+    --border: rgba(124,110,247,0.18);
+    --grad: linear-gradient(135deg, #7c6ef7, #f76e6e);
+}
 
 .yt-hero {
-    background: linear-gradient(135deg,#0a0014 0%,#130020 50%,#001428 100%);
-    border: 1px solid rgba(255,0,0,0.2);
+    background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #0a0014 100%);
+    border: 1px solid var(--border);
     border-radius: 22px; padding: 28px 36px; margin-bottom: 20px;
     position: relative; overflow: hidden;
 }
 .yt-hero::before {
     content:''; position:absolute; inset:0;
-    background: radial-gradient(ellipse 60% 80% at 80% 20%,rgba(255,0,0,0.1) 0%,transparent 60%),
-                radial-gradient(ellipse 40% 60% at 10% 80%,rgba(139,92,246,0.08) 0%,transparent 60%);
+    background: radial-gradient(ellipse 60% 80% at 80% 20%, rgba(124,110,247,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 60% at 10% 80%, rgba(247,110,110,0.06) 0%, transparent 60%);
     pointer-events:none;
 }
 .yt-title {
-    font-family:'Orbitron',monospace; font-size:clamp(18px,3vw,30px); font-weight:700;
-    background:linear-gradient(90deg,#fff 0%,#ff6b6b 50%,#c4b5fd 100%);
+    font-family:'Syne', sans-serif; font-size: clamp(18px,3vw,30px); font-weight: 800;
+    background: var(--grad);
     -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    background-clip:text; margin:0 0 4px;
+    background-clip:text; margin: 0 0 4px; letter-spacing: -0.5px;
 }
-.yt-sub { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:3px;
-    color:rgba(255,255,255,.35); text-transform:uppercase; }
+.yt-sub { font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:3px;
+    color: var(--muted); text-transform:uppercase; }
 .yt-badge { display:inline-flex; align-items:center; gap:6px;
-    background:rgba(255,0,0,0.1); border:1px solid rgba(255,0,0,0.3);
+    background: rgba(124,110,247,0.1); border: 1px solid rgba(124,110,247,0.3);
     border-radius:100px; padding:3px 12px; font-size:9px; letter-spacing:2px;
-    font-family:'Space Mono',monospace; color:#fca5a5; }
+    font-family:'JetBrains Mono',monospace; color: var(--accent); margin-bottom: 10px; }
+
+/* Section cards */
+.yt-section-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 18px 20px; margin-bottom: 14px; overflow: hidden;
+}
+.yt-card-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 12px;
+}
 
 /* Video grid card */
 .vcard {
-    background:rgba(15,23,42,.85); border:1px solid rgba(255,255,255,.06);
-    border-radius:14px; overflow:hidden; transition:all .2s ease;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; overflow:hidden; transition:all .2s ease;
     cursor:pointer; margin-bottom:10px;
 }
-.vcard:hover { transform:translateY(-3px); border-color:rgba(255,0,0,.35);
-    box-shadow:0 8px 30px rgba(255,0,0,.1); }
-.vcard-thumb { position:relative; width:100%; aspect-ratio:16/9;
-    background:#0f172a; overflow:hidden; }
-.vcard-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
-.vcard-dur { position:absolute; bottom:5px; right:6px;
-    background:rgba(0,0,0,.8); border-radius:4px; padding:1px 5px;
-    font-size:10px; color:#fff; font-family:'Space Mono',monospace; }
+.vcard:hover { transform:translateY(-3px); border-color: rgba(124,110,247,0.4);
+    box-shadow: 0 8px 30px rgba(124,110,247,0.1); }
 .vcard-body { padding:9px 10px; }
-.vcard-title { font-size:.82rem; font-weight:600; color:#fff; font-family:'Inter',sans-serif;
+.vcard-title { font-size:.82rem; font-weight:700; color: var(--text); font-family:'Syne',sans-serif;
     line-height:1.3; margin-bottom:3px; }
-.vcard-meta { font-size:.7rem; color:rgba(255,255,255,.38); font-family:'Space Mono',monospace; }
+.vcard-meta { font-size:.7rem; color: var(--muted); font-family:'JetBrains Mono',monospace; }
 
 /* Now Playing */
 .np-panel {
-    background:rgba(15,23,42,.9); border:1px solid rgba(255,0,0,.15);
-    border-radius:18px; padding:20px; margin-bottom:16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 18px; margin-bottom: 14px;
 }
-.np-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px;
-    color:rgba(255,0,0,.5); text-transform:uppercase; margin-bottom:8px; }
-.np-title { font-family:'Inter',sans-serif; font-size:1rem; font-weight:700;
-    color:#fff; margin-bottom:2px; }
-.np-channel { font-size:.75rem; color:rgba(255,255,255,.4);
-    font-family:'Space Mono',monospace; }
+.np-label { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:3px;
+    color: var(--accent); text-transform:uppercase; margin-bottom:8px;
+    background: var(--grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.np-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:800;
+    color: var(--text); margin-bottom:2px; }
+.np-channel { font-size:.75rem; color: var(--muted); font-family:'JetBrains Mono',monospace; }
+
+/* Info chips */
+.yt-chip-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 12px; }
+.yt-chip {
+    padding: 4px 10px; border-radius: 100px; font-size: 11px;
+    background: var(--surface3); color: var(--muted); font-family: 'JetBrains Mono', monospace;
+    border: 1px solid var(--border);
+}
+.yt-chip.purple { background: rgba(124,110,247,0.1); color: var(--accent); border-color: rgba(124,110,247,0.25); }
+.yt-chip.green  { background: rgba(110,247,196,0.08); color: var(--accent3); border-color: rgba(110,247,196,0.2); }
 
 /* Queue */
 .q-item { display:flex; gap:10px; align-items:center;
-    background:rgba(255,255,255,.03); border-radius:10px; padding:8px 10px;
-    margin-bottom:6px; cursor:pointer; transition:.15s; }
-.q-item:hover { background:rgba(255,0,0,.08); }
-.q-item.active { background:rgba(255,0,0,.12); border:1px solid rgba(255,0,0,.25); }
+    background: var(--surface2); border-radius:10px; padding:8px 10px;
+    margin-bottom:6px; cursor:pointer; transition:.15s;
+    border: 1px solid transparent; }
+.q-item:hover { background: rgba(124,110,247,0.08); border-color: var(--border); }
+.q-item.active { background: rgba(124,110,247,0.12); border-color: rgba(124,110,247,0.3); }
 .q-thumb { width:52px; height:36px; border-radius:6px; object-fit:cover;
-    background:#1e293b; flex-shrink:0; }
-.q-title { font-size:.75rem; font-weight:600; color:rgba(255,255,255,.85);
-    font-family:'Inter',sans-serif; line-height:1.3; }
-.q-meta { font-size:.65rem; color:rgba(255,255,255,.35);
-    font-family:'Space Mono',monospace; }
+    background: var(--surface3); flex-shrink:0; }
+.q-title { font-size:.75rem; font-weight:700; color: rgba(255,255,255,.85);
+    font-family:'Syne',sans-serif; line-height:1.3; }
+.q-meta { font-size:.65rem; color: var(--muted); font-family:'JetBrains Mono',monospace; }
 
 /* Category pills */
 .cat-pills { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
-.cat-pill { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+.cat-pill { background: var(--surface2); border: 1px solid var(--border);
     border-radius:100px; padding:4px 14px; font-size:.72rem;
-    color:rgba(255,255,255,.55); cursor:pointer; transition:.15s;
-    font-family:'Inter',sans-serif; }
-.cat-pill:hover, .cat-pill.active { background:rgba(255,0,0,.12);
-    border-color:rgba(255,0,0,.3); color:#fca5a5; }
+    color: var(--muted); cursor:pointer; transition:.15s; font-family:'Syne',sans-serif; }
+.cat-pill:hover, .cat-pill.active { background: rgba(124,110,247,0.12);
+    border-color: rgba(124,110,247,0.35); color: var(--accent); }
+
+/* Controls */
+.ctrl-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+.ctrl-label { font-size:11px; color: var(--muted); font-family:'JetBrains Mono',monospace;
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.ctrl-val { color: var(--accent); font-weight:500; }
+
+/* EQ Preset pills */
+.preset-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 14px; }
 </style>"""
 
 CATEGORIES = [
@@ -247,6 +283,17 @@ def render_youtube_player():
   <div class="yt-badge">🎵 &nbsp;FREE YOUTUBE PLAYER &nbsp;·&nbsp; NO LOGIN NEEDED</div>
   <div class="yt-title">🎧 YouTube Music Player</div>
   <div class="yt-sub">Search · Play · Queue · Trending · All Free</div>
+</div>""", unsafe_allow_html=True)
+
+    # ── Info chips ──
+    st.markdown("""
+<div class="yt-chip-row">
+  <div class="yt-chip purple">🎵 Invidious API</div>
+  <div class="yt-chip green">✓ No Login</div>
+  <div class="yt-chip green">✓ Queue System</div>
+  <div class="yt-chip green">✓ Trending</div>
+  <div class="yt-chip green">✓ Categories</div>
+  <div class="yt-chip">YouTube Embed</div>
 </div>""", unsafe_allow_html=True)
 
     # ── Init session state ──

@@ -1565,8 +1565,26 @@ if not st.session_state["passcode_verified"]:
     .bubble-content {
       background:rgba(15,23,42,0.6); border:1px solid rgba(255,255,255,0.08);
       border-radius:14px; padding:16px 20px; width:100%; position:relative;
-      font-family:'Rajdhani',sans-serif; font-size:15px; color:rgba(255,255,255,0.85); line-height:1.6;
+      font-family:'Rajdhani',sans-serif; font-size:15px; color:rgba(255,255,255,0.9); line-height:1.7;
     }
+    .bubble-assistant .bubble-content p { margin-bottom: 10px; color: rgba(255,255,255,0.9); line-height:1.7; }
+    .bubble-assistant .bubble-content h1,.bubble-assistant .bubble-content h2,.bubble-assistant .bubble-content h3 {
+      color: #fff; font-weight:700; margin: 14px 0 6px;
+    }
+    .bubble-assistant .bubble-content ul, .bubble-assistant .bubble-content ol {
+      padding-left: 20px; margin-bottom: 10px;
+    }
+    .bubble-assistant .bubble-content li { margin-bottom: 4px; color:rgba(255,255,255,0.88); }
+    .bubble-assistant .bubble-content code {
+      background: rgba(124,110,247,0.15); border-radius: 4px; padding: 1px 6px;
+      font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #c4b5fd;
+    }
+    .bubble-assistant .bubble-content pre {
+      background: rgba(10,10,20,0.8); border-radius: 8px; padding: 14px;
+      overflow-x: auto; border: 1px solid rgba(124,110,247,0.15); margin-bottom:10px;
+    }
+    .bubble-assistant .bubble-content strong { color:#fff; font-weight:700; }
+    .bubble-assistant .bubble-content em { color: rgba(196,181,253,0.9); }
     .bubble-user .bubble-content { background:rgba(99,102,241,0.08); border-color:rgba(99,102,241,0.2); }
     .bubble-assistant .bubble-content { background:rgba(15,23,42,0.8); }
     .bubble-actions {
@@ -5798,29 +5816,61 @@ def render_quick_actions_toolbar():
 
 def render_premium_chat_message(msg_content: str, role: str, msg_idx: int, avatar: str):
     """STEP 05: Render premium chat message bubble with CSS + React-style action buttons."""
+    import streamlit.components.v1 as _components
     user_class = "bubble-user" if role == "user" else "bubble-assistant"
     
     st.markdown(f'<div class="chat-bubble-wrap {user_class}">', unsafe_allow_html=True)
     st.markdown(f'<div class="bubble-avatar">{avatar}</div>', unsafe_allow_html=True)
     
-    # We must use st.container to render the markdown content safely inside the structure
     with st.container():
         st.markdown('<div class="bubble-content">', unsafe_allow_html=True)
-        st.markdown(msg_content)
+        # Use st.markdown with proper rendering for readable AI responses
+        st.markdown(msg_content, unsafe_allow_html=False)
         
         if role == "assistant":
-            # Action buttons
             st.markdown('<div class="bubble-actions">', unsafe_allow_html=True)
-            col1, col2, col3, _ = st.columns([1,1,1,10])
+            col1, col2, col3, _ = st.columns([1, 1, 1, 10])
             with col1:
-                if st.button("📋", key=f"s5_c_{msg_idx}", help="Copy"):
-                    st.toast("Copied!")
+                if st.button("📋", key=f"s5_c_{msg_idx}", help="Copy to clipboard"):
+                    safe = msg_content.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$").replace("\n", "\\n")
+                    _components.html(
+                        f"""<script>
+                        (function(){{
+                            const txt = `{safe[:4000]}`;
+                            if (navigator.clipboard && window.isSecureContext) {{
+                                navigator.clipboard.writeText(txt).catch(()=>{{}});
+                            }} else {{
+                                const el = document.createElement('textarea');
+                                el.value = txt.replace(/\\\\n/g,'\\n');
+                                el.style.position='fixed'; el.style.opacity='0';
+                                document.body.appendChild(el); el.select();
+                                document.execCommand('copy'); document.body.removeChild(el);
+                            }}
+                        }})();
+                        </script>""",
+                        height=0,
+                    )
+                    st.toast("📋 Copied to clipboard!")
             with col2:
-                if st.button("⭐", key=f"s5_b_{msg_idx}", help="Bookmark"):
-                    st.toast("Bookmarked!")
+                bm_key = f"_bm_{msg_idx}"
+                is_bm = st.session_state.get(bm_key, False)
+                if st.button("⭐" if not is_bm else "★", key=f"s5_b_{msg_idx}", help="Bookmark"):
+                    st.session_state[bm_key] = not is_bm
+                    st.toast("⭐ Bookmarked!" if not is_bm else "Removed bookmark")
+                    st.rerun()
             with col3:
-                if st.button("🔊", key=f"s5_s_{msg_idx}", help="Read"):
-                    st.toast("Reading...")
+                if st.button("🔊", key=f"s5_s_{msg_idx}", help="Read aloud"):
+                    safe_speak = msg_content.replace("'", "").replace('"', '')[:800]
+                    safe_speak = safe_speak.replace("\n", " ").replace("\\", "")
+                    _components.html(
+                        f"""<script>
+                        window.speechSynthesis.cancel();
+                        const u=new SpeechSynthesisUtterance('{safe_speak}');
+                        u.rate=1.0; window.speechSynthesis.speak(u);
+                        </script>""",
+                        height=0,
+                    )
+                    st.toast("🔊 Reading aloud...")
             st.markdown('</div>', unsafe_allow_html=True)
             
         st.markdown('</div></div>', unsafe_allow_html=True)
