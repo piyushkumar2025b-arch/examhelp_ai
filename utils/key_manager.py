@@ -28,8 +28,9 @@ def get_total_capacity() -> dict:
 
 def status_table() -> list:
     s = _gkm_status()
+    total = s.get("total_keys", s.get("total", 0))
     return [
-        {"key": f"Key pool ({s['total']} keys)",
+        {"key": f"Key pool ({total} keys)",
          "status": f"🟢 {s['available']} active, {s['cooling_down']} cooling"},
     ]
 
